@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 import math
 
@@ -11,7 +12,7 @@ pytest.importorskip("dfbench")
 
 from submission.submission import BatchedRestartAdam
 from experiments.uifo_paired.candidate_probe import construct_candidates, host_pytree
-from experiments.uifo_paired.runner import _parameter_hashes
+from experiments.uifo_paired.runner import BATCHED_SETTINGS, _parameter_hashes
 
 
 class AnalyticObjective:
@@ -55,6 +56,10 @@ class AnalyticObjective:
     @property
     def budget_exceeded(self) -> bool:
         return self.eval_count >= self.max_evals
+
+    @property
+    def evals_left(self) -> int:
+        return max(0, self.max_evals - self.eval_count)
 
     @property
     def budget_progress_fraction(self) -> float:
@@ -113,6 +118,15 @@ class AnalyticObjective:
 
 
 @pytest.mark.integration
+def test_paired_harness_records_the_submission_defaults() -> None:
+    parameters = inspect.signature(BatchedRestartAdam.optimize).parameters
+
+    assert set(BATCHED_SETTINGS) <= set(parameters)
+    for name, value in BATCHED_SETTINGS.items():
+        assert parameters[name].default == value
+
+
+@pytest.mark.integration
 def test_feasibility_anchor_understands_dfbench_pair_shapes() -> None:
     objective = AnalyticObjective(n_params=5, max_evals=5)
     objective.optimization_pairs[-1] = [
@@ -149,6 +163,92 @@ def test_semantic_prior_matches_runtime_pair_shapes() -> None:
 
 
 @pytest.mark.integration
+def test_adam_bias_correction_age_resets_per_restarted_member() -> None:
+    beta1 = 0.9
+    beta2 = 0.999
+    late_age = 600
+    params = jnp.zeros((2, 1))
+    grads = jnp.ones_like(params)
+    first_moment = jnp.asarray(
+        [[0.0], [1.0 - beta1**late_age]], dtype=params.dtype
+    )
+    second_moment = jnp.asarray(
+        [[0.0], [1.0 - beta2**late_age]], dtype=params.dtype
+    )
+    member_steps = jnp.asarray([0, late_age], dtype=jnp.int32)
+    learning_rates = jnp.full((2, 1), 0.1)
+
+    updated, _, _, updated_steps = BatchedRestartAdam._adam_step(
+        params,
+        grads,
+        first_moment,
+        second_moment,
+        member_steps,
+        learning_rates,
+        beta1,
+        beta2,
+        1e-8,
+    )
+
+    assert updated_steps.tolist() == [1, late_age + 1]
+    assert (-updated[:, 0]).tolist() == pytest.approx([0.1, 0.1], rel=1e-5)
+
+
+@pytest.mark.integration
+def test_optimizer_loop_restarts_with_a_fresh_adam_age() -> None:
+    class ScriptedRestartObjective(AnalyticObjective):
+        def __init__(self) -> None:
+            super().__init__(n_params=1, max_evals=10)
+            self.optimization_pairs = [["component", "tuning"]]
+            self.inputs = []
+            self.random_calls = 0
+            self.losses = (
+                [4.0, 3.0],
+                [3.0, 3.0],
+                [2.0, 3.0],
+                [1.0, 2.0],
+                [0.0, 1.0],
+            )
+
+        def random_params_unbounded(self, n_samples: int = 1):
+            value = 0.0 if self.random_calls == 0 else 10.0
+            self.random_calls += 1
+            return jnp.full((n_samples, self.n_params), value)
+
+        def vmap_value_and_grad_aux(self, params):
+            if not self._started:
+                raise RuntimeError("evaluation before start_logging")
+            call_index = len(self.inputs)
+            self.inputs.append(jnp.asarray(params))
+            losses = jnp.asarray(self.losses[call_index])
+            grads = jnp.ones_like(params)
+            feasible = jnp.zeros((params.shape[0],), dtype=bool)
+            self.eval_count += int(params.shape[0])
+            self.feasible_history.append(feasible)
+            return losses, grads, {"is_feasible": feasible}
+
+    objective = ScriptedRestartObjective()
+    initial = jnp.zeros((2, 1))
+
+    BatchedRestartAdam().optimize(
+        objective,
+        init_params=initial,
+        random_seed=11,
+        population_size=2,
+        learning_rate_low=0.1,
+        learning_rate_high=0.1,
+        patience=2,
+        epsilon=0.0,
+        safety_seconds=0,
+    )
+
+    assert len(objective.inputs) == 5
+    assert objective.inputs[4][:, 0].tolist() == pytest.approx(
+        [-0.4, 9.9], rel=1e-5
+    )
+
+
+@pytest.mark.integration
 def test_candidate_obeys_lifecycle_budget_and_feasibility() -> None:
     objective = AnalyticObjective(max_evals=60)
     BatchedRestartAdam().optimize(
@@ -167,6 +267,43 @@ def test_candidate_obeys_lifecycle_budget_and_feasibility() -> None:
     assert bool(objective.feasible_history[0].any())
     assert math.isfinite(objective.best_feasible_loss)
     assert objective.best_feasible_loss <= objective.first_feasible_loss
+
+
+@pytest.mark.integration
+def test_candidate_logs_a_partial_final_population_without_budget_overshoot() -> None:
+    objective = AnalyticObjective(n_params=5, max_evals=6)
+
+    BatchedRestartAdam().optimize(
+        objective,
+        random_seed=11,
+        population_size=4,
+        patience=10,
+        safety_seconds=0,
+    )
+
+    assert objective.eval_count == 6
+    assert [len(value) for value in objective.feasible_history] == [4, 2]
+
+
+@pytest.mark.integration
+def test_candidate_uses_observed_batch_time_for_the_tail_guard() -> None:
+    class TailGuardObjective(AnalyticObjective):
+        @property
+        def time_left(self):
+            return 1.0 if self.eval_count <= 2 else 1e-12
+
+    objective = TailGuardObjective(n_params=5, max_evals=20)
+
+    BatchedRestartAdam().optimize(
+        objective,
+        random_seed=11,
+        population_size=2,
+        patience=10,
+        safety_seconds=0,
+    )
+
+    assert objective.eval_count == 4
+    assert len(objective.feasible_history) == 2
 
 
 @pytest.mark.integration

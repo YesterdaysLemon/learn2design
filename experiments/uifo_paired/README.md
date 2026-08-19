@@ -11,6 +11,8 @@ An optional `adam` arm reproduces the organizer-style single-start Adam loop loc
 
 The harness never uses `Objective.best_loss` as the score. It saves full batched loss and feasibility histories, then calculates the minimum finite loss among physically feasible candidates.
 
+The current restart implementation resets each member's Adam age with its moments. It also submits a smaller final population when an evaluation cap is not divisible by the population size and uses recent device-complete batch durations for its time-budget tail guard. These are correctness and budget-accounting properties, not evidence that restarts improve UIFO loss; the paired artifacts record the relevant timing defaults and bind the exact source revision.
+
 ## Dry-run a plan
 
 ```bash
