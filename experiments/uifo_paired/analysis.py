@@ -245,6 +245,7 @@ def _assert_pair_integrity(
         "n_frequencies",
         "target_losses",
         "allow_cpu",
+        "evaluation_chunk_size",
     )
     for field in paired_config_fields:
         control_value = _required(control_config, field, "control config")

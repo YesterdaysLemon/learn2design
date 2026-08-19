@@ -25,6 +25,8 @@ Equal-evaluation runs may diagnose initialization and the first restart, but the
 
 The pinned dfbench 0.3.3 warmup helpers discard asynchronous device outputs, so neither the candidate nor local Adam baseline uses them. Compilation is conservatively counted inside the Objective clock until a public synchronous helper is available; deployment reports must state this policy.
 
+An optional scalar evaluation chunk exists only to obtain memory-limited mechanics and early initializer diagnostics. Results from that path cannot substitute for the default vmap wall-clock comparison because its throughput and call chronology differ.
+
 ## Required outputs
 
 - full batched loss and feasibility histories;

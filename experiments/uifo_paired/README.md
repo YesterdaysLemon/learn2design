@@ -66,6 +66,8 @@ The frozen `panels/` directory contains development, confirmation, and submissio
 
 Runs are serial and arm order rotates between pairs. Each worker has a host timeout (the Objective budget plus 30 minutes by default), durable stdout/stderr, full-process wall time, a strict JSON record, and an atomic compact NPZ candidate history. The aggregate indexes are rebuilt only after validating every completed artifact against its recorded digest and metrics.
 
+For memory-limited deployment diagnostics, `--evaluation-chunk-size 1` evaluates population members through the scalar public Objective API while preserving the same optimizer state and initial-population pairing. This is not the packaged default and cannot support a competition-throughput claim; use the default vmap path on A100-class hardware for confirmation.
+
 The orchestrator refuses a dirty Git tree and refuses to resume if the revision, plan, upstream reference, semantic-prior bytes, runtime versions, backend, or device identity changed. It also rejects stale/foreign run files and concurrent writers. Commit the harness and configuration before consuming accelerator time.
 
 Equal-evaluation studies are useful for diagnosing initialization and restarts, but competition-performance claims require equal wall-clock budgets on size-3 UIFO problems. Treat topology identity as the statistical unit; optimizer seeds are repeated measurements.

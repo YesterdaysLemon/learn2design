@@ -27,6 +27,7 @@ def build_plan(
     allow_cpu: bool = False,
     worker_timeout_seconds: float | None = None,
     topology_panel: dict[str, object] | None = None,
+    evaluation_chunk_size: int | None = None,
 ) -> dict[str, object]:
     """Build a stable plan with AB/BA-style arm-order rotation."""
     if bool(topology_seeds) == bool(topologies):
@@ -52,6 +53,12 @@ def build_plan(
         raise ValueError("max_evals must be positive")
     if population_size < 2:
         raise ValueError("population_size must be at least two")
+    if evaluation_chunk_size is not None and not (
+        1 <= evaluation_chunk_size <= population_size
+    ):
+        raise ValueError(
+            "evaluation_chunk_size must be between one and population_size"
+        )
     if n_frequencies < 1:
         raise ValueError("n_frequencies must be positive")
     targets = [float(target) for target in (target_losses or [])]
@@ -116,6 +123,7 @@ def build_plan(
         "configuration": {
             "allow_cpu": bool(allow_cpu),
             "arms": arms,
+            "evaluation_chunk_size": evaluation_chunk_size,
             "max_evals": max_evals,
             "max_time_seconds": max_time_seconds,
             "n_frequencies": int(n_frequencies),

@@ -170,6 +170,7 @@ class _FirstEvaluationCapture:
 
     def install(self, objective) -> None:
         original_single = objective.value_and_grad
+        original_single_aux = objective.value_and_grad_aux
         original_batch = objective.vmap_value_and_grad_aux
 
         def single(params):
@@ -182,8 +183,18 @@ class _FirstEvaluationCapture:
                 self.params = params
             return original_batch(params)
 
+        def single_aux(params):
+            if self.params is None:
+                self.params = params
+            return original_single_aux(params)
+
         objective.value_and_grad = single
+        objective.value_and_grad_aux = single_aux
         objective.vmap_value_and_grad_aux = batch
+
+    def capture_population(self, params) -> None:
+        if self.params is None:
+            self.params = params
 
 
 def execute_run(
@@ -262,6 +273,8 @@ def execute_run(
             random_seed=optimizer_seed,
             population_size=int(config["population_size"]),
             use_semantic_prior=arm == "semantic_prior",
+            evaluation_chunk_size=config.get("evaluation_chunk_size"),
+            initial_population_callback=capture.capture_population,
             **BATCHED_SETTINGS,
         )
         algorithm_settings = {
@@ -273,6 +286,7 @@ def execute_run(
                 "population_size": int(config["population_size"]),
                 "random_seed": optimizer_seed,
                 "use_semantic_prior": arm == "semantic_prior",
+                "evaluation_chunk_size": config.get("evaluation_chunk_size"),
             },
         }
     host_duration = time.perf_counter() - started
@@ -633,6 +647,10 @@ def validate_completed_record(
             "population_size"
         ]:
             raise RuntimeError("resume algorithm population mismatch")
+        if algorithm_kwargs.get("evaluation_chunk_size") != expected_config.get(
+            "evaluation_chunk_size"
+        ):
+            raise RuntimeError("resume algorithm evaluation chunk mismatch")
         expected_prior = expected_config["arm"] == "semantic_prior"
         if algorithm_kwargs.get("use_semantic_prior") is not expected_prior:
             raise RuntimeError("resume algorithm prior flag mismatch")
@@ -882,6 +900,7 @@ def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, 
     return {
         **run,
         "allow_cpu": common["allow_cpu"],
+        "evaluation_chunk_size": common.get("evaluation_chunk_size"),
         "max_evals": common["max_evals"],
         "max_time_seconds": common["max_time_seconds"],
         "n_frequencies": common["n_frequencies"],
@@ -1188,6 +1207,7 @@ def main() -> None:
     parser.add_argument("--max-time", type=float)
     parser.add_argument("--max-evals", type=int)
     parser.add_argument("--population-size", type=int, default=8)
+    parser.add_argument("--evaluation-chunk-size", type=int)
     parser.add_argument("--n-frequencies", type=int, default=50)
     parser.add_argument("--target-loss", action="append", type=float, default=[])
     parser.add_argument("--worker-timeout", type=float)
@@ -1272,6 +1292,7 @@ def main() -> None:
             allow_cpu=args.allow_cpu,
             worker_timeout_seconds=args.worker_timeout,
             topology_panel=topology_panel,
+            evaluation_chunk_size=args.evaluation_chunk_size,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         parser.error(str(error))
