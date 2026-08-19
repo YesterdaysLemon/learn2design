@@ -12,11 +12,16 @@ dev = [
 ]
 integration = [
   "dfbench==0.3.3",
+  "h5py>=3.15,<4",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+pythonpath = ["."]
+markers = [
+  "integration: tests that require the pinned scientific runtime",
+]
 
 [tool.uv]
 package = false

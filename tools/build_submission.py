@@ -15,6 +15,7 @@ from pathlib import Path
 REQUIRED_FILES = ("submission.py", "requirements.txt")
 FIXED_ZIP_TIME = (2026, 1, 1, 0, 0, 0)
 UPSTREAM_REFERENCE = "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
+TEXT_SUFFIXES = {".json", ".md", ".py", ".toml", ".txt", ".yaml", ".yml"}
 
 
 def sha256(path: Path) -> str:
@@ -23,6 +24,18 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def archive_bytes(path: Path) -> bytes:
+    """Return stable bytes for text while leaving weights/binaries untouched."""
+    if path.suffix.lower() in TEXT_SUFFIXES:
+        text = path.read_text(encoding="utf-8")
+        return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+    return path.read_bytes()
+
+
+def bytes_sha256(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
 def validate_submission_source(source_dir: Path) -> list[Path]:
@@ -82,7 +95,7 @@ def build_archive(source_dir: Path, output_path: Path) -> dict[str, object]:
             info = zipfile.ZipInfo(relative, FIXED_ZIP_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
-            archive.writestr(info, path.read_bytes())
+            archive.writestr(info, archive_bytes(path))
 
     with zipfile.ZipFile(output_path) as archive:
         names = set(archive.namelist())
@@ -116,8 +129,8 @@ def build_archive(source_dir: Path, output_path: Path) -> dict[str, object]:
         "source_files": [
             {
                 "path": path.relative_to(source_dir).as_posix(),
-                "sha256": sha256(path),
-                "size_bytes": path.stat().st_size,
+                "sha256": bytes_sha256(archive_bytes(path)),
+                "size_bytes": len(archive_bytes(path)),
             }
             for path in files
         ],

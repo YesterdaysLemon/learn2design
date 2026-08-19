@@ -29,6 +29,14 @@ uv run --group integration python tools/smoke_candidate.py --max-time 30
 
 CPU compilation can take much longer than the timed search. The resulting JSON records the device, seed, budget, and Objective summary; it is a mechanics check, not evidence of UIFO performance.
 
+To profile a local copy of the official design archive without copying the 75 MB dataset into this repository:
+
+```bash
+uv run --group integration python tools/profile_archive.py /path/to/dataset.h5
+```
+
+The JSON profile records the input checksum, topology reuse, lineage grouping, parameter dimensions, and loss quantiles. It is descriptive only; stored losses are not substitutes for live Objective evaluations.
+
 ## Where things live
 
 - `submission/` — the exact files placed at the root of the competition ZIP
