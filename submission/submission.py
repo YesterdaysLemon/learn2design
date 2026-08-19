@@ -29,7 +29,17 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         """Construct a conservative low-power point in unbounded coordinates."""
         unit = jnp.full((objective.n_params,), 0.5)
         for index, pair in enumerate(objective.optimization_pairs):
-            pairs = pair if isinstance(pair, list) else [pair]
+            if (
+                isinstance(pair, (list, tuple))
+                and len(pair) >= 2
+                and isinstance(pair[0], str)
+                and isinstance(pair[1], str)
+            ):
+                pairs = [pair]
+            elif isinstance(pair, (list, tuple)):
+                pairs = pair
+            else:
+                pairs = []
             properties = {
                 item[1]
                 for item in pairs
