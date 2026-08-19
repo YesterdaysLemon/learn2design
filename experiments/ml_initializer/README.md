@@ -30,3 +30,11 @@ uv run --group integration python -m experiments.ml_initializer.train /path/to/d
 ```
 
 The same model is trained again with topology tokens shuffled between training examples. The learned prior is licensed for live testing only if its held-out four-head error beats semantic medians by 15%, beats the shuffled control by 10%, and every head wins at least 5% of held-out topology identities.
+
+The neural gate failed. The simpler semantic median passed the comparative screen and is refit on all unique size-3 topology identities for one live-test population slot:
+
+```bash
+uv run --group integration python -m experiments.ml_initializer.export_prior /path/to/dataset.h5
+```
+
+The exporter refuses any dataset whose SHA-256 does not match the pinned official archive. The checked-in JSON records its source revision, checksum, sample policy, and support for each semantic key.

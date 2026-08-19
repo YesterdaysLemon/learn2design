@@ -112,6 +112,25 @@ def test_feasibility_anchor_understands_dfbench_pair_shapes() -> None:
 
 
 @pytest.mark.integration
+def test_semantic_prior_matches_runtime_pair_shapes() -> None:
+    objective = AnalyticObjective(n_params=5, max_evals=5)
+    objective.optimization_pairs[-1] = [
+        ["space_a", "length"],
+        ["space_b", "length"],
+    ]
+
+    unbounded = BatchedRestartAdam._semantic_prior(objective)
+    assert unbounded is not None
+    unit = jax.nn.sigmoid(unbounded)
+
+    assert unit.shape == (5,)
+    assert bool(jnp.all(jnp.isfinite(unit)))
+    assert bool(jnp.all((unit > 0.0) & (unit < 1.0)))
+    assert float(unit[0]) != pytest.approx(0.5)
+    assert float(unit[4]) != pytest.approx(0.5)
+
+
+@pytest.mark.integration
 def test_candidate_obeys_lifecycle_budget_and_feasibility() -> None:
     objective = AnalyticObjective(max_evals=60)
     BatchedRestartAdam().optimize(

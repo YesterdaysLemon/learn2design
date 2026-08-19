@@ -12,6 +12,7 @@ from tools.build_submission import build_archive
 
 ROOT = Path(__file__).parents[1]
 SOURCE = ROOT / "submission" / "submission.py"
+PRIOR = ROOT / "submission" / "semantic_prior.json"
 
 
 def test_exactly_one_algorithm_subclass_and_no_forbidden_import() -> None:
@@ -35,6 +36,27 @@ def test_exactly_one_algorithm_subclass_and_no_forbidden_import() -> None:
     assert "differometor" not in imported_roots
 
 
+def test_semantic_prior_has_pinned_provenance_and_support() -> None:
+    prior = json.loads(PRIOR.read_text(encoding="utf-8"))
+
+    assert prior["format_version"] == 1
+    assert prior["dataset_sha256"] == (
+        "149f6aac17aff2e33750b4e1b6cebd3cef1c39d47ae49a3a7ed77315cb7838a7"
+    )
+    assert prior["records"] == 11_678
+    assert len(prior["key_medians"]) == 247
+    assert min(prior["key_support"].values()) >= 400
+    assert set(prior["property_medians"]) == {
+        "angle",
+        "db",
+        "length",
+        "mass",
+        "power",
+        "reflectivity",
+        "tuning",
+    }
+
+
 def test_builder_creates_flat_deterministic_archive(tmp_path: Path) -> None:
     archive = tmp_path / "submission.zip"
     manifest = tmp_path / "manifest.json"
@@ -55,13 +77,18 @@ def test_builder_creates_flat_deterministic_archive(tmp_path: Path) -> None:
     assert archive.read_bytes() == first_bytes
 
     with zipfile.ZipFile(archive) as bundle:
-        assert set(bundle.namelist()) == {"requirements.txt", "submission.py"}
+        assert set(bundle.namelist()) == {
+            "requirements.txt",
+            "semantic_prior.json",
+            "submission.py",
+        }
         assert bundle.getinfo("submission.py").date_time == (2026, 1, 1, 0, 0, 0)
 
     recorded = json.loads(manifest.read_text(encoding="utf-8"))
     assert len(recorded["archive_sha256"]) == 64
     assert {item["path"] for item in recorded["source_files"]} == {
         "requirements.txt",
+        "semantic_prior.json",
         "submission.py",
     }
 
