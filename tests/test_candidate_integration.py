@@ -1,0 +1,114 @@
+from __future__ import annotations
+
+import math
+
+import pytest
+
+jax = pytest.importorskip("jax")
+jnp = pytest.importorskip("jax.numpy")
+pytest.importorskip("dfbench")
+
+from submission.submission import BatchedRestartAdam
+
+
+class AnalyticObjective:
+    """Small public-API stand-in for deterministic optimizer tests."""
+
+    def __init__(self, n_params: int = 12, max_evals: int = 60) -> None:
+        self.n_params = n_params
+        self.max_evals = max_evals
+        self.eval_count = 0
+        self.algorithm_str = ""
+        self.unbounded = False
+        self._key = jax.random.PRNGKey(0)
+        self._started = False
+        self.feasible_history: list[object] = []
+        self.best_feasible_loss = math.inf
+        self.first_feasible_loss = math.inf
+        self.optimization_pairs = [
+            ("laser", "power"),
+            ("squeezer", "db"),
+            ("mirror", "reflectivity"),
+            *[(f"component_{index}", "tuning") for index in range(n_params - 3)],
+        ]
+
+    def set_space_mode(self, unbounded: bool) -> None:
+        self.unbounded = unbounded
+
+    def set_seed(self, seed: int) -> None:
+        self._key = jax.random.PRNGKey(seed)
+
+    def random_params_unbounded(self, n_samples: int = 1):
+        self._key, sample_key = jax.random.split(self._key)
+        unit = jax.random.uniform(
+            sample_key,
+            shape=(n_samples, self.n_params),
+            minval=1e-4,
+            maxval=1.0 - 1e-4,
+        )
+        return jnp.log(unit) - jnp.log1p(-unit)
+
+    @property
+    def budget_exceeded(self) -> bool:
+        return self.eval_count >= self.max_evals
+
+    @property
+    def budget_progress_fraction(self) -> float:
+        return self.eval_count / self.max_evals
+
+    @property
+    def time_left(self):
+        return None
+
+    def _value(self, params):
+        unit = jax.nn.sigmoid(params)
+        target = jnp.full((self.n_params,), 0.70).at[:3].set(0.10)
+        sensitivity_loss = jnp.sum(jnp.square(unit - target))
+        violations = jnp.maximum(unit[:3] - 0.25, 0.0)
+        is_feasible = jnp.all(violations == 0.0)
+        penalty = 20.0 * jnp.sum(violations)
+        return sensitivity_loss + penalty, {"is_feasible": is_feasible}
+
+    def warmup_vmap_value_and_grad_aux(self, batch_size: int) -> None:
+        batch = jnp.zeros((batch_size, self.n_params))
+        values = jax.jit(jax.vmap(jax.value_and_grad(self._value, has_aux=True)))(batch)
+        jax.block_until_ready(values)
+
+    def start_logging(self) -> None:
+        self._started = True
+
+    def vmap_value_and_grad_aux(self, params):
+        if not self._started:
+            raise RuntimeError("evaluation before start_logging")
+        (losses, aux), grads = jax.vmap(
+            jax.value_and_grad(self._value, has_aux=True)
+        )(params)
+        self.eval_count += int(params.shape[0])
+        feasible = aux["is_feasible"]
+        self.feasible_history.append(feasible)
+        feasible_losses = jnp.where(feasible, losses, jnp.inf)
+        batch_best = float(jnp.min(feasible_losses))
+        if self.first_feasible_loss == math.inf and batch_best < math.inf:
+            self.first_feasible_loss = batch_best
+        self.best_feasible_loss = min(self.best_feasible_loss, batch_best)
+        return losses, grads, aux
+
+
+@pytest.mark.integration
+def test_candidate_obeys_lifecycle_budget_and_feasibility() -> None:
+    objective = AnalyticObjective(max_evals=60)
+    BatchedRestartAdam().optimize(
+        objective,
+        random_seed=11,
+        population_size=6,
+        patience=3,
+        safety_seconds=0,
+    )
+
+    assert objective.algorithm_str == "batched_restart_adam"
+    assert objective.unbounded is True
+    assert objective.eval_count == objective.max_evals
+    assert len(objective.feasible_history) == 10
+    assert bool(objective.feasible_history[0].any())
+    assert math.isfinite(objective.best_feasible_loss)
+    assert objective.best_feasible_loss <= objective.first_feasible_loss
