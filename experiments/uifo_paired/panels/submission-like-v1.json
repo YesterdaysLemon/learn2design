@@ -1,0 +1,113 @@
+{
+  "format_version": 1,
+  "generation": {
+    "method": "round-robin over readout/squeezer/directional strata",
+    "seed_start": 2026081900,
+    "upstream_reference": "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
+  },
+  "members": [
+    {
+      "directional_bin": "low",
+      "directional_interior_count": 3,
+      "readout": "D",
+      "squeezer_bin": "low",
+      "squeezer_count": 4,
+      "topology": "CBCHCHDAG-SLSLSSLLLLLD",
+      "topology_seed": 2026082049
+    },
+    {
+      "directional_bin": "low",
+      "directional_interior_count": 3,
+      "readout": "H",
+      "squeezer_bin": "low",
+      "squeezer_count": 3,
+      "topology": "BAFBCFGBC-HLLLSLLSSLLL",
+      "topology_seed": 2026081979
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 5,
+      "readout": "D",
+      "squeezer_bin": "middle",
+      "squeezer_count": 5,
+      "topology": "CFGFGBECB-SSSSLDLLSLLL",
+      "topology_seed": 2026081913
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 5,
+      "readout": "H",
+      "squeezer_bin": "middle",
+      "squeezer_count": 5,
+      "topology": "HCCBDFFFH-SSLHSLSSLLLL",
+      "topology_seed": 2026081952
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 6,
+      "readout": "D",
+      "squeezer_bin": "high",
+      "squeezer_count": 7,
+      "topology": "DHEHGGGCB-LDLSSSSLSSLS",
+      "topology_seed": 2026082005
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 6,
+      "readout": "H",
+      "squeezer_bin": "high",
+      "squeezer_count": 7,
+      "topology": "FBCFHEGCF-SLLSLLSSSSSH",
+      "topology_seed": 2026081919
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 5,
+      "readout": "D",
+      "squeezer_bin": "low",
+      "squeezer_count": 3,
+      "topology": "AGBFGFGAC-LLLSLSLLDLLS",
+      "topology_seed": 2026081934
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 4,
+      "readout": "H",
+      "squeezer_bin": "low",
+      "squeezer_count": 3,
+      "topology": "FBABHECAG-LLLSLLLHSLLS",
+      "topology_seed": 2026081932
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 7,
+      "readout": "D",
+      "squeezer_bin": "middle",
+      "squeezer_count": 6,
+      "topology": "DHHGGEAEH-SSSSLLSSLLDL",
+      "topology_seed": 2026081939
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 6,
+      "readout": "H",
+      "squeezer_bin": "middle",
+      "squeezer_count": 6,
+      "topology": "FDEFCDFGE-HLSSSLSSLSLL",
+      "topology_seed": 2026081931
+    }
+  ],
+  "panel_id": "submission-like-v1",
+  "topologies": [
+    "CBCHCHDAG-SLSLSSLLLLLD",
+    "BAFBCFGBC-HLLLSLLSSLLL",
+    "CFGFGBECB-SSSSLDLLSLLL",
+    "HCCBDFFFH-SSLHSLSSLLLL",
+    "DHEHGGGCB-LDLSSSSLSSLS",
+    "FBCFHEGCF-SLLSLLSSSSSH",
+    "AGBFGFGAC-LLLSLSLLDLLS",
+    "FBABHECAG-LLLSLLLHSLLS",
+    "DHHGGEAEH-SSSSLLSSLLDL",
+    "FDEFCDFGE-HLSSSLSSLSLL"
+  ]
+}
