@@ -49,6 +49,8 @@ uv run --group integration python tools/run_uifo_paired.py \
 
 See `experiments/uifo_paired/` for the artifact schema, execution command, audited-panel format, and evidence boundaries. CPU execution is rejected unless explicitly requested as a non-representative mechanics run; confirmation claims additionally require an archive-exclusion audit and accelerator/device provenance.
 
+Memory-limited candidate tails can be investigated with `tools/run_uifo_candidate_probe.py`. That six-worker forward/reverse diagnostic requires an otherwise idle GPU and makes no optimizer-performance claim.
+
 ## Where things live
 
 - `submission/` — the exact files placed at the root of the competition ZIP

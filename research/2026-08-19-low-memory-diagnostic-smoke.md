@@ -72,5 +72,22 @@ short predeclared host timeout, and repeat twice. Record process wall time and
 peak device memory. Only a repeated semantic-only timeout against completed
 anchor and random controls would support a parameter-dependent pathology claim.
 
+`tools/run_uifo_candidate_probe.py` implements this frozen six-worker protocol.
+It requires an explicit topology and predeclared idle memory/utilization limits,
+rejects compute processes visible to `nvidia-smi`, samples total-device telemetry
+throughout each worker, and refuses resume so a partial run cannot disturb the
+forward/reverse order. The global thresholds are still required because WSL may
+not expose every host-side WDDM process.
+
+Each worker writes the exact candidate hashes and an `evaluation_started`
+milestone before its Objective call. A timeout is admitted only when that
+milestone, the parent/worker/telemetry process-ID handshake, logs, telemetry,
+and post-worker idle state all validate. Such a timeout is right-censored and
+the planned reverse-order workers continue; any other error stops the protocol.
+
 Competition-throughput and optimizer-promotion evidence still require the
 default full-population vmap path on larger-memory hardware.
+
+Follow-up: `research/2026-08-19-idle-candidate-probe.md` records the completed
+idle-gated forward/reverse protocol. Both semantic-prior workers completed in
+about 42 seconds, so the contaminated run's gross latency tail did not reproduce.
