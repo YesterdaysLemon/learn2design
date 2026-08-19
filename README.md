@@ -40,6 +40,7 @@ The JSON profile records the input checksum, topology reuse, lineage grouping, p
 ## Where things live
 
 - `submission/` — the exact files placed at the root of the competition ZIP
+- `experiments/` — bounded model and optimizer comparisons with explicit gates
 - `tests/` — fast correctness and packaging checks
 - `research/` — literature notes, experiment records, and longer technical reports
 - `artifacts/` — generated submission bundles and evaluation summaries (not hand-edited)
