@@ -24,6 +24,7 @@ def main() -> None:
     parser.add_argument("--max-time", type=float, default=30.0)
     parser.add_argument("--population-size", type=int, default=4)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--no-semantic-prior", action="store_true")
     parser.add_argument(
         "--output",
         type=Path,
@@ -42,6 +43,7 @@ def main() -> None:
         random_seed=args.seed,
         population_size=args.population_size,
         safety_seconds=0.0,
+        use_semantic_prior=not args.no_semantic_prior,
     )
 
     feasible_calls = sum(
@@ -57,6 +59,7 @@ def main() -> None:
         "problem": "ConstrainedVoyagerProblem",
         "python": platform.python_version(),
         "random_seed": args.seed,
+        "semantic_prior": not args.no_semantic_prior,
         "summary": objective.get_summary(),
         "logged_calls_with_feasible_member": feasible_calls,
     }

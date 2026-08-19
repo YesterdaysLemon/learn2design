@@ -4,6 +4,9 @@ The evaluator imports this file from the root of the submitted ZIP. Keep the
 runtime self-contained and limited to packages provided by the competition.
 """
 
+import json
+from pathlib import Path
+
 import jax
 import jax.numpy as jnp
 
@@ -13,10 +16,11 @@ from dfbench import Objective, OptimizationAlgorithm
 class BatchedRestartAdam(OptimizationAlgorithm):
     """A small population of Adam searches with deterministic restarts.
 
-    Population members use different learning rates and share only the best
-    physically feasible point. Stalled members alternate between fresh random
-    starts and perturbations around that point. All simulator access goes
-    through the public ``Objective`` API.
+    Population members use different learning rates, reserve one slot for an
+    official-archive semantic prior, and share only the best physically
+    feasible point. Stalled members alternate between fresh random starts and
+    perturbations around that point. All simulator access goes through the
+    public ``Objective`` API.
     """
 
     algorithm_str = "batched_restart_adam"
@@ -54,6 +58,66 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         # map, so logit(unit) is the corresponding active-space coordinate.
         return jnp.log(unit) - jnp.log1p(-unit)
 
+    @staticmethod
+    def _semantic_key(pair):
+        """Return the archive key and property for one runtime parameter slot."""
+        if (
+            isinstance(pair, (list, tuple))
+            and len(pair) >= 2
+            and isinstance(pair[0], str)
+            and isinstance(pair[1], str)
+        ):
+            pairs = [pair]
+        elif isinstance(pair, (list, tuple)):
+            pairs = pair
+        else:
+            return None, None
+
+        decoded = [
+            (str(item[0]), str(item[1]))
+            for item in pairs
+            if isinstance(item, (list, tuple)) and len(item) >= 2
+        ]
+        properties = {property_name for _, property_name in decoded}
+        if not decoded or len(properties) != 1:
+            return None, None
+        property_name = next(iter(properties))
+        components = "+".join(sorted(component for component, _ in decoded))
+        return f"{property_name}:{components}", property_name
+
+    @classmethod
+    def _semantic_prior(cls, objective: Objective):
+        """Load the official-archive median candidate, with safe fallbacks."""
+        try:
+            payload = json.loads(
+                Path(__file__).with_name("semantic_prior.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            if payload.get("format_version") != 1:
+                return None
+            key_medians = payload["key_medians"]
+            property_medians = payload["property_medians"]
+        except (KeyError, OSError, TypeError, ValueError):
+            return None
+
+        unit_values = []
+        for pair in objective.optimization_pairs:
+            key, property_name = cls._semantic_key(pair)
+            value = key_medians.get(key, property_medians.get(property_name, 0.5))
+            try:
+                value = float(value)
+            except (TypeError, ValueError):
+                value = 0.5
+            if not 0.0 <= value <= 1.0:
+                value = 0.5
+            unit_values.append(value)
+        if len(unit_values) != objective.n_params:
+            return None
+
+        unit = jnp.clip(jnp.asarray(unit_values), 1e-6, 1.0 - 1e-6)
+        return jnp.log(unit) - jnp.log1p(-unit)
+
     def optimize(
         self,
         objective: Objective,
@@ -70,6 +134,7 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         gradient_clip_norm: float = 1.0,
         restart_noise_scale: float = 0.35,
         safety_seconds: float = 2.0,
+        use_semantic_prior: bool = True,
         **kwargs,
     ) -> None:
         del kwargs
@@ -78,7 +143,7 @@ class BatchedRestartAdam(OptimizationAlgorithm):
 
         population_size = max(2, int(population_size))
         params = obj.random_params_unbounded(population_size)
-        anchor_index = 0
+        next_index = 0
 
         if init_params is not None:
             supplied = jnp.asarray(init_params)
@@ -86,9 +151,14 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                 supplied = supplied[None, :]
             supplied = supplied[:population_size]
             params = params.at[: supplied.shape[0]].set(supplied)
-            anchor_index = min(int(supplied.shape[0]), population_size - 1)
+            next_index = int(supplied.shape[0])
 
-        params = params.at[anchor_index].set(self._feasibility_anchor(obj))
+        if next_index < population_size:
+            params = params.at[next_index].set(self._feasibility_anchor(obj))
+            next_index += 1
+        semantic_prior = self._semantic_prior(obj) if use_semantic_prior else None
+        if semantic_prior is not None and next_index < population_size:
+            params = params.at[next_index].set(semantic_prior)
 
         learning_rates = jnp.geomspace(
             learning_rate_low, learning_rate_high, population_size
