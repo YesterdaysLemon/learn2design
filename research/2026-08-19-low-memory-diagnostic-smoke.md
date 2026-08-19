@@ -87,3 +87,7 @@ the planned reverse-order workers continue; any other error stops the protocol.
 
 Competition-throughput and optimizer-promotion evidence still require the
 default full-population vmap path on larger-memory hardware.
+
+Follow-up: `research/2026-08-19-idle-candidate-probe.md` records the completed
+idle-gated forward/reverse protocol. Both semantic-prior workers completed in
+about 42 seconds, so the contaminated run's gross latency tail did not reproduce.
