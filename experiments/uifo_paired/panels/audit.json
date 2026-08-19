@@ -1,0 +1,96 @@
+{
+  "format_version": 1,
+  "generator": {
+    "candidate_attempts": 760,
+    "path": "tools/build_topology_panels.py",
+    "seed_start": 2026081900,
+    "upstream_reference": "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
+  },
+  "method": "exact topology-string set intersection",
+  "official_dataset": {
+    "entries": 29650,
+    "sha256": "149f6aac17aff2e33750b4e1b6cebd3cef1c39d47ae49a3a7ed77315cb7838a7",
+    "size_bytes": 74920439,
+    "source_name": "dataset.h5",
+    "unique_topologies": 12437
+  },
+  "panels": [
+    {
+      "archive_overlap_count": 0,
+      "distribution": {
+        "directional_bin": {
+          "high": 6,
+          "low": 6,
+          "middle": 4
+        },
+        "readout": {
+          "D": 8,
+          "H": 8
+        },
+        "squeezer_bin": {
+          "high": 4,
+          "low": 6,
+          "middle": 6
+        }
+      },
+      "panel_id": "development-v1",
+      "previous_panel_overlap_counts": {},
+      "source_name": "development-v1.json",
+      "source_sha256": "d5f660261e413f59b179d4fadf1f157b30f117aa265fd230d1d130bd6d69246b",
+      "topology_count": 16
+    },
+    {
+      "archive_overlap_count": 0,
+      "distribution": {
+        "directional_bin": {
+          "high": 4,
+          "low": 4,
+          "middle": 4
+        },
+        "readout": {
+          "D": 6,
+          "H": 6
+        },
+        "squeezer_bin": {
+          "high": 4,
+          "low": 4,
+          "middle": 4
+        }
+      },
+      "panel_id": "confirmation-v1",
+      "previous_panel_overlap_counts": {
+        "development-v1": 0
+      },
+      "source_name": "confirmation-v1.json",
+      "source_sha256": "52fe189709b27e2abb7de659fae0c080faf25b89f3ce66a3b1a13025be221dba",
+      "topology_count": 12
+    },
+    {
+      "archive_overlap_count": 0,
+      "distribution": {
+        "directional_bin": {
+          "high": 4,
+          "low": 2,
+          "middle": 4
+        },
+        "readout": {
+          "D": 5,
+          "H": 5
+        },
+        "squeezer_bin": {
+          "high": 2,
+          "low": 4,
+          "middle": 4
+        }
+      },
+      "panel_id": "submission-like-v1",
+      "previous_panel_overlap_counts": {
+        "confirmation-v1": 0,
+        "development-v1": 0
+      },
+      "source_name": "submission-like-v1.json",
+      "source_sha256": "d85227f216528d635e56a93094e661721f62f379808707f310bf4da60d8fa57b",
+      "topology_count": 10
+    }
+  ]
+}
