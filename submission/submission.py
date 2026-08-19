@@ -118,6 +118,44 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         unit = jnp.clip(jnp.asarray(unit_values), 1e-6, 1.0 - 1e-6)
         return jnp.log(unit) - jnp.log1p(-unit)
 
+    @staticmethod
+    def _evaluate_population(
+        objective: Objective,
+        params,
+        evaluation_chunk_size: int | None,
+    ):
+        """Evaluate a population in vmap or diagnostic low-memory chunks."""
+        population_size = int(params.shape[0])
+        if evaluation_chunk_size is None or evaluation_chunk_size >= population_size:
+            return objective.vmap_value_and_grad_aux(params)
+
+        loss_chunks = []
+        grad_chunks = []
+        aux_chunks = []
+        for start in range(0, population_size, evaluation_chunk_size):
+            chunk = params[start : start + evaluation_chunk_size]
+            if int(chunk.shape[0]) == 1:
+                loss, grad, aux = objective.value_and_grad_aux(chunk[0])
+                loss_chunks.append(jnp.asarray(loss)[None])
+                grad_chunks.append(jnp.asarray(grad)[None, :])
+                aux_chunks.append(
+                    jax.tree.map(lambda value: jnp.asarray(value)[None, ...], aux)
+                )
+            else:
+                losses, grads, aux = objective.vmap_value_and_grad_aux(chunk)
+                loss_chunks.append(losses)
+                grad_chunks.append(grads)
+                aux_chunks.append(aux)
+
+        combined_aux = jax.tree.map(
+            lambda *values: jnp.concatenate(values, axis=0), *aux_chunks
+        )
+        return (
+            jnp.concatenate(loss_chunks, axis=0),
+            jnp.concatenate(grad_chunks, axis=0),
+            combined_aux,
+        )
+
     def optimize(
         self,
         objective: Objective,
@@ -135,6 +173,8 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         restart_noise_scale: float = 0.35,
         safety_seconds: float = 2.0,
         use_semantic_prior: bool = True,
+        evaluation_chunk_size: int | None = None,
+        initial_population_callback=None,
         **kwargs,
     ) -> None:
         del kwargs
@@ -142,6 +182,12 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         self.prepare(obj, unbounded=True, random_seed=random_seed)
 
         population_size = max(2, int(population_size))
+        if evaluation_chunk_size is not None:
+            evaluation_chunk_size = int(evaluation_chunk_size)
+            if not 1 <= evaluation_chunk_size <= population_size:
+                raise ValueError(
+                    "evaluation_chunk_size must be between one and population_size"
+                )
         params = obj.random_params_unbounded(population_size)
         next_index = 0
 
@@ -176,12 +222,16 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         # dfbench 0.3.3's public warmup helper discards asynchronous outputs,
         # so it cannot provide a guaranteed device barrier. Count compilation
         # inside the scored wall clock until the public helper is synchronous.
+        if initial_population_callback is not None:
+            initial_population_callback(params)
         obj.start_logging()
 
         while not obj.budget_exceeded:
             if obj.time_left is not None and obj.time_left <= safety_seconds:
                 break
-            losses, grads, aux = obj.vmap_value_and_grad_aux(params)
+            losses, grads, aux = self._evaluate_population(
+                obj, params, evaluation_chunk_size
+            )
 
             finite_loss = jnp.isfinite(losses)
             improved = finite_loss & (

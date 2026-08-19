@@ -147,6 +147,21 @@ def test_evaluation_cap_must_fit_complete_batches() -> None:
         )
 
 
+def test_evaluation_chunk_must_fit_population() -> None:
+    with pytest.raises(ValueError, match="evaluation_chunk_size"):
+        build_plan(
+            topology_seeds=[1001],
+            topologies=None,
+            optimizer_seeds=[7],
+            arms=["no_prior", "semantic_prior"],
+            max_time_seconds=60,
+            max_evals=None,
+            population_size=2,
+            n_frequencies=50,
+            evaluation_chunk_size=3,
+        )
+
+
 @pytest.mark.parametrize("budget", [float("nan"), float("inf"), -float("inf")])
 def test_time_budget_must_be_finite(budget: float) -> None:
     with pytest.raises(ValueError, match="finite"):
@@ -309,6 +324,7 @@ def test_pair_summary_averages_seeds_within_topology() -> None:
                         "n_frequencies": 50,
                         "target_losses": [],
                         "allow_cpu": False,
+                        "evaluation_chunk_size": None,
                     },
                     "metrics": {
                         "has_feasible": True,
@@ -403,6 +419,7 @@ def test_pair_summary_rejects_cross_topology_pairing() -> None:
                     "n_frequencies": 50,
                     "target_losses": [],
                     "allow_cpu": False,
+                    "evaluation_chunk_size": None,
                 },
                 "metrics": {"has_feasible": True, "best_feasible_loss": 1.0},
                 "problem": {

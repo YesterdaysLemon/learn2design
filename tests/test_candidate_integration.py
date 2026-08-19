@@ -95,6 +95,19 @@ class AnalyticObjective:
         self.best_feasible_loss = min(self.best_feasible_loss, batch_best)
         return losses, grads, aux
 
+    def value_and_grad_aux(self, params):
+        if not self._started:
+            raise RuntimeError("evaluation before start_logging")
+        (loss, aux), grad = jax.value_and_grad(self._value, has_aux=True)(params)
+        self.eval_count += 1
+        feasible = aux["is_feasible"]
+        self.feasible_history.append(feasible)
+        feasible_loss = float(jnp.where(feasible, loss, jnp.inf))
+        if self.first_feasible_loss == math.inf and feasible_loss < math.inf:
+            self.first_feasible_loss = feasible_loss
+        self.best_feasible_loss = min(self.best_feasible_loss, feasible_loss)
+        return loss, grad, aux
+
 
 @pytest.mark.integration
 def test_feasibility_anchor_understands_dfbench_pair_shapes() -> None:
@@ -151,3 +164,23 @@ def test_candidate_obeys_lifecycle_budget_and_feasibility() -> None:
     assert bool(objective.feasible_history[0].any())
     assert math.isfinite(objective.best_feasible_loss)
     assert objective.best_feasible_loss <= objective.first_feasible_loss
+
+
+@pytest.mark.integration
+def test_low_memory_chunks_preserve_the_full_initial_population() -> None:
+    objective = AnalyticObjective(n_params=5, max_evals=4)
+    captured = []
+    BatchedRestartAdam().optimize(
+        objective,
+        random_seed=11,
+        population_size=2,
+        patience=10,
+        safety_seconds=0,
+        evaluation_chunk_size=1,
+        initial_population_callback=captured.append,
+    )
+
+    assert objective.eval_count == 4
+    assert len(objective.feasible_history) == 4
+    assert captured[0].shape == (2, 5)
+    assert objective.warmup_calls == 0
