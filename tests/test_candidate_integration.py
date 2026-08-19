@@ -22,6 +22,7 @@ class AnalyticObjective:
         self.unbounded = False
         self._key = jax.random.PRNGKey(0)
         self._started = False
+        self.warmup_calls = 0
         self.feasible_history: list[object] = []
         self.best_feasible_loss = math.inf
         self.first_feasible_loss = math.inf
@@ -70,6 +71,7 @@ class AnalyticObjective:
         return sensitivity_loss + penalty, {"is_feasible": is_feasible}
 
     def warmup_vmap_value_and_grad_aux(self, batch_size: int) -> None:
+        self.warmup_calls += 1
         batch = jnp.zeros((batch_size, self.n_params))
         values = jax.jit(jax.vmap(jax.value_and_grad(self._value, has_aux=True)))(batch)
         jax.block_until_ready(values)
@@ -144,6 +146,7 @@ def test_candidate_obeys_lifecycle_budget_and_feasibility() -> None:
     assert objective.algorithm_str == "batched_restart_adam"
     assert objective.unbounded is True
     assert objective.eval_count == objective.max_evals
+    assert objective.warmup_calls == 0
     assert len(objective.feasible_history) == 10
     assert bool(objective.feasible_history[0].any())
     assert math.isfinite(objective.best_feasible_loss)

@@ -1,0 +1,1286 @@
+"""Orchestrate isolated paired UIFO runs and persist resumable artifacts."""
+
+from __future__ import annotations
+
+import argparse
+from contextlib import contextmanager
+import hashlib
+import importlib.metadata
+import json
+import math
+import os
+import platform
+import subprocess
+import sys
+import time
+import traceback
+import zipfile
+from datetime import UTC, datetime
+from pathlib import Path
+
+from experiments.uifo_paired.analysis import summarize_records
+from experiments.uifo_paired.metrics import flatten_histories, summarize_rows
+from experiments.uifo_paired.plan import VALID_ARMS, build_plan
+
+
+ROOT = Path(__file__).parents[2]
+UPSTREAM_REFERENCE = "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
+OFFICIAL_DATASET_SHA256 = (
+    "149f6aac17aff2e33750b4e1b6cebd3cef1c39d47ae49a3a7ed77315cb7838a7"
+)
+HISTORY_SCHEMA = {
+    "call_index": {"dtype": "int32", "unit": None},
+    "candidate_index": {"dtype": "int16", "unit": None},
+    "eval_count_after_call": {"dtype": "int64", "unit": "evaluations"},
+    "time_seconds": {"dtype": "float64", "unit": "seconds"},
+    "loss": {"dtype": "float64", "unit": "competition loss"},
+    "sensitivity_loss": {"dtype": "float64", "unit": "loss"},
+    "penalty": {"dtype": "float64", "unit": "loss"},
+    "is_feasible": {"dtype": "bool", "unit": None},
+    "initial_params_unbounded": {"dtype": "runtime", "unit": "active space"},
+}
+TIME_GRID = [1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 7200, 14400]
+EVAL_GRID = [1, 8, 32, 128, 512, 2048, 8192, 32768, 131072]
+BATCHED_SETTINGS = {
+    "learning_rate_low": 0.03,
+    "learning_rate_high": 0.15,
+    "patience": 600,
+    "minimum_improvement": 1e-7,
+    "beta1": 0.9,
+    "beta2": 0.999,
+    "epsilon": 1e-8,
+    "gradient_clip_norm": 1.0,
+    "restart_noise_scale": 0.35,
+    "safety_seconds": 2.0,
+}
+
+
+def atomic_json(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(
+        json.dumps(strict_json(payload), indent=2, sort_keys=True, allow_nan=False)
+        + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, path)
+
+
+def atomic_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(content, encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def strict_json(value):
+    """Convert non-finite floats and array-like scalars to strict JSON values."""
+    if isinstance(value, dict):
+        return {str(key): strict_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [strict_json(item) for item in value]
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if hasattr(value, "item") and callable(value.item):
+        return strict_json(value.item())
+    return value
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def canonical_text_sha256(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+
+def _package_version(name: str) -> str:
+    try:
+        return importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        return "not-installed"
+
+
+def environment_fingerprint() -> dict[str, object]:
+    """Return the runtime/device identity that must remain fixed within a study."""
+    import jax
+
+    devices = jax.devices()
+    device_kinds = [str(getattr(device, "device_kind", "unknown")) for device in devices]
+    return {
+        "backend": jax.default_backend(),
+        "device_count": len(devices),
+        "device_kinds": device_kinds,
+        "device_platforms": [str(device.platform) for device in devices],
+        "devices": [str(device) for device in devices],
+        "competition_aligned_a100": any("A100" in kind.upper() for kind in device_kinds),
+        "versions": {
+            "dfbench": _package_version("dfbench"),
+            "differometor": _package_version("differometor"),
+            "jax": _package_version("jax"),
+            "jaxlib": _package_version("jaxlib"),
+            "optax": _package_version("optax"),
+        },
+        "platform": platform.platform(),
+        "python": platform.python_version(),
+    }
+
+
+def run_preflight(output_path: Path) -> int:
+    atomic_json(output_path, environment_fingerprint())
+    return 0
+
+
+@contextmanager
+def _study_lock(output_dir: Path):
+    """Prevent concurrent writers from mutating the same study directory."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = output_dir / ".study.lock"
+    try:
+        descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError as error:
+        raise RuntimeError(f"study is already locked: {lock_path}") from error
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(
+                    {"pid": os.getpid(), "created_utc": datetime.now(UTC).isoformat()}
+                )
+                + "\n"
+            )
+        yield
+    finally:
+        try:
+            lock_path.unlink()
+        except FileNotFoundError:
+            pass
+
+
+class _FirstEvaluationCapture:
+    """Retain the immutable first evaluated parameter array without syncing it."""
+
+    def __init__(self) -> None:
+        self.params = None
+
+    def install(self, objective) -> None:
+        original_single = objective.value_and_grad
+        original_batch = objective.vmap_value_and_grad_aux
+
+        def single(params):
+            if self.params is None:
+                self.params = params
+            return original_single(params)
+
+        def batch(params):
+            if self.params is None:
+                self.params = params
+            return original_batch(params)
+
+        objective.value_and_grad = single
+        objective.vmap_value_and_grad_aux = batch
+
+
+def execute_run(
+    config: dict[str, object],
+    history_path: Path,
+    runtime_environment: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Execute exactly one topology, seed, and arm in the worker process."""
+    import jax
+    import numpy as np
+
+    backend = jax.default_backend()
+    if backend == "cpu" and not bool(config["allow_cpu"]):
+        raise RuntimeError(
+            "UIFO evaluation requires an accelerator; pass --allow-cpu only "
+            "for an explicitly non-representative mechanics run"
+        )
+
+    from dfbench import Objective
+    from dfbench.problems import UIFOProblem
+
+    from experiments.uifo_paired.baselines import SingleStartAdam
+    from submission.submission import BatchedRestartAdam
+
+    topology = config["topology"]
+    problem_kwargs = {
+        "size": 3,
+        "n_frequencies": int(config["n_frequencies"]),
+    }
+    if topology["kind"] == "seed":
+        problem_kwargs["topology_seed"] = int(topology["value"])
+    else:
+        problem_kwargs["topology"] = str(topology["value"])
+
+    problem = UIFOProblem(**problem_kwargs)
+    objective = Objective(
+        problem,
+        max_time=config["max_time_seconds"],
+        max_evals=config["max_evals"],
+        save_time_steps=True,
+        save_params_history=False,
+        save_batched_params_history=False,
+        save=[
+            "eval_type",
+            "batched_loss",
+            "batched_sensitivity_loss",
+            "batched_penalty",
+            "batched_is_feasible",
+        ],
+        verbose=0,
+    )
+    capture = _FirstEvaluationCapture()
+    capture.install(objective)
+
+    arm = str(config["arm"])
+    optimizer_seed = int(config["optimizer_seed"])
+    started = time.perf_counter()
+    if arm == "adam":
+        SingleStartAdam().optimize(objective, random_seed=optimizer_seed)
+        algorithm_settings = {
+            "module": "experiments.uifo_paired.baselines",
+            "class": "SingleStartAdam",
+            "algorithm_str": "paired_single_start_adam",
+            "kwargs": {
+                "learning_rate": 0.1,
+                "patience": None,
+                "random_seed": optimizer_seed,
+            },
+        }
+    else:
+        algorithm = BatchedRestartAdam()
+        if arm == "semantic_prior" and algorithm._semantic_prior(objective) is None:
+            raise RuntimeError("semantic-prior arm could not load a valid prior")
+        algorithm.optimize(
+            objective,
+            random_seed=optimizer_seed,
+            population_size=int(config["population_size"]),
+            use_semantic_prior=arm == "semantic_prior",
+            **BATCHED_SETTINGS,
+        )
+        algorithm_settings = {
+            "module": "submission.submission",
+            "class": "BatchedRestartAdam",
+            "algorithm_str": "batched_restart_adam",
+            "kwargs": {
+                **BATCHED_SETTINGS,
+                "population_size": int(config["population_size"]),
+                "random_seed": optimizer_seed,
+                "use_semantic_prior": arm == "semantic_prior",
+            },
+        }
+    host_duration = time.perf_counter() - started
+    objective_elapsed_snapshot = float(objective.time_elapsed)
+    objective_summary = objective.get_summary()
+    last_admitted_time = (
+        float(objective.time_steps[-1]) if objective.time_steps else None
+    )
+
+    loss_history = [_host_list(value) for value in objective.loss_history]
+    feasible_history = [
+        _host_list(value) for value in objective.is_feasible_history
+    ]
+    sensitivity_history = [
+        _host_list(value) for value in objective.sensitivity_loss_history
+    ]
+    penalty_history = [_host_list(value) for value in objective.penalty_history]
+    rows = flatten_histories(
+        loss_history,
+        feasible_history,
+        objective.time_steps,
+        sensitivity_history,
+        penalty_history,
+    )
+    if not rows:
+        raise RuntimeError("run completed without an admitted candidate history")
+    if len(rows) > objective.eval_count:
+        raise RuntimeError("logged candidate count exceeds Objective eval_count")
+    if capture.params is None:
+        raise RuntimeError("run completed without capturing its first evaluation")
+    initial_params = np.asarray(jax.device_get(capture.params))
+    initial_hashes = _parameter_hashes(initial_params)
+
+    time_grid, eval_grid = _metric_grids(config)
+    metrics = summarize_rows(
+        rows,
+        list(config["target_losses"]),
+        time_grid=time_grid,
+        eval_grid=eval_grid,
+    )
+    if int(metrics["logged_calls"]) != objective.log_call_count:
+        raise RuntimeError("logged call count disagrees with Objective accounting")
+
+    history_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_history = history_path.with_suffix(".tmp.npz")
+    with temporary_history.open("wb") as handle:
+        np.savez_compressed(
+            handle,
+            call_index=np.asarray(
+                [row["call_index"] for row in rows], dtype=np.int32
+            ),
+            candidate_index=np.asarray(
+                [row["candidate_index"] for row in rows], dtype=np.int16
+            ),
+            eval_count_after_call=np.asarray(
+                [row["eval_count_after_call"] for row in rows], dtype=np.int64
+            ),
+            time_seconds=np.asarray(
+                [row["time_seconds"] for row in rows], dtype=np.float64
+            ),
+            loss=np.asarray(
+                [
+                    float("nan") if row["loss"] is None else row["loss"]
+                    for row in rows
+                ],
+                dtype=np.float64,
+            ),
+            sensitivity_loss=np.asarray(
+                [
+                    float("nan")
+                    if row["sensitivity_loss"] is None
+                    else row["sensitivity_loss"]
+                    for row in rows
+                ],
+                dtype=np.float64,
+            ),
+            penalty=np.asarray(
+                [
+                    float("nan") if row["penalty"] is None else row["penalty"]
+                    for row in rows
+                ],
+                dtype=np.float64,
+            ),
+            is_feasible=np.asarray(
+                [row["is_feasible"] for row in rows], dtype=np.bool_
+            ),
+            initial_params_unbounded=initial_params,
+        )
+    os.replace(temporary_history, history_path)
+    validate_history_artifact(history_path, expected_rows=len(rows))
+
+    problem_spec = objective.problem_spec
+    topology_string = str(problem.topology_string)
+    return {
+        "status": "complete",
+        "completed_utc": datetime.now(UTC).isoformat(),
+        "config": config,
+        "environment": runtime_environment or environment_fingerprint(),
+        "problem": {
+            "n_params": objective.n_params,
+            "spec": problem_spec,
+            "topology_sha256": hashlib.sha256(topology_string.encode()).hexdigest(),
+            "topology_string": topology_string,
+        },
+        "objective_summary": objective_summary,
+        "algorithm": algorithm_settings,
+        "objective_configuration": {
+            "max_evals": config["max_evals"],
+            "max_time_seconds": config["max_time_seconds"],
+            "save": [
+                "eval_type",
+                "batched_loss",
+                "batched_sensitivity_loss",
+                "batched_penalty",
+                "batched_is_feasible",
+            ],
+            "save_batched_params_history": False,
+            "save_params_history": False,
+            "save_time_steps": True,
+        },
+        "objective_accounting": {
+            "eval_count": objective.eval_count,
+            "log_call_count": objective.log_call_count,
+            "eval_type_counts": objective.eval_type_counts,
+        },
+        "objective_time_elapsed_snapshot": objective_elapsed_snapshot,
+        "host_optimize_duration_seconds": host_duration,
+        "last_admitted_time_seconds": last_admitted_time,
+        "initial_population_roles": _initial_population_roles(
+            arm, int(config["population_size"])
+        ),
+        "initial_parameter_hashes": initial_hashes,
+        "metrics": metrics,
+        "history": {
+            "format_version": 1,
+            "path": f"{history_path.parent.name}/{history_path.name}",
+            "rows": len(rows),
+            "schema": HISTORY_SCHEMA,
+            "sha256": sha256(history_path),
+        },
+    }
+
+
+def _host_list(value):
+    import jax
+    import numpy as np
+
+    array = np.asarray(jax.device_get(value))
+    if array.ndim == 0:
+        return array.item()
+    return array.tolist()
+
+
+def _initial_population_roles(arm: str, population_size: int) -> list[str]:
+    if arm == "adam":
+        return ["random"]
+    roles = ["anchor"]
+    if arm == "semantic_prior":
+        roles.append("semantic_prior")
+    return roles + ["random"] * (population_size - len(roles))
+
+
+def _parameter_hashes(params) -> list[str]:
+    import numpy as np
+
+    array = np.asarray(params)
+    members = array[None, :] if array.ndim == 1 else array
+    result = []
+    for member in members:
+        contiguous = np.ascontiguousarray(member)
+        digest = hashlib.sha256()
+        digest.update(str(contiguous.dtype).encode())
+        digest.update(str(contiguous.shape).encode())
+        digest.update(contiguous.tobytes())
+        result.append(digest.hexdigest())
+    return result
+
+
+def validate_history_artifact(
+    path: Path,
+    *,
+    expected_sha256: str | None = None,
+    expected_rows: int | None = None,
+) -> dict[str, object]:
+    """Validate a pickle-free NPZ and return its arrays for recomputation."""
+    import numpy as np
+
+    if not path.is_file():
+        raise RuntimeError(f"missing history artifact: {path}")
+    if expected_sha256 is not None and sha256(path) != expected_sha256:
+        raise RuntimeError(f"history digest mismatch: {path}")
+    with zipfile.ZipFile(path) as archive:
+        names = set(archive.namelist())
+    expected_names = {f"{name}.npy" for name in HISTORY_SCHEMA}
+    if names != expected_names:
+        raise RuntimeError(f"history schema mismatch: {sorted(names)}")
+
+    with np.load(path, allow_pickle=False) as archive:
+        arrays = {name: np.asarray(archive[name]) for name in HISTORY_SCHEMA}
+    row_fields = [name for name in HISTORY_SCHEMA if name != "initial_params_unbounded"]
+    expected_dtypes = {
+        "call_index": np.dtype("int32"),
+        "candidate_index": np.dtype("int16"),
+        "eval_count_after_call": np.dtype("int64"),
+        "time_seconds": np.dtype("float64"),
+        "loss": np.dtype("float64"),
+        "sensitivity_loss": np.dtype("float64"),
+        "penalty": np.dtype("float64"),
+        "is_feasible": np.dtype("bool"),
+    }
+    for name in row_fields:
+        if arrays[name].ndim != 1 or arrays[name].dtype != expected_dtypes[name]:
+            raise RuntimeError(f"history field has invalid shape/dtype: {name}")
+    lengths = {int(arrays[name].shape[0]) for name in row_fields}
+    if len(lengths) != 1:
+        raise RuntimeError("history row arrays have inconsistent lengths")
+    rows = next(iter(lengths))
+    if expected_rows is not None and rows != expected_rows:
+        raise RuntimeError("history row count mismatch")
+    if rows < 1:
+        raise RuntimeError("history artifact contains no candidate rows")
+    if arrays["initial_params_unbounded"].ndim not in (1, 2):
+        raise RuntimeError("initial parameter history must be a vector or matrix")
+    return arrays
+
+
+def _rows_from_history_arrays(arrays) -> list[dict[str, object]]:
+    import numpy as np
+
+    rows = []
+    for index in range(len(arrays["loss"])):
+        rows.append(
+            {
+                "call_index": int(arrays["call_index"][index]),
+                "candidate_index": int(arrays["candidate_index"][index]),
+                "eval_count_after_call": int(
+                    arrays["eval_count_after_call"][index]
+                ),
+                "time_seconds": float(arrays["time_seconds"][index]),
+                "loss": (
+                    None
+                    if not np.isfinite(arrays["loss"][index])
+                    else float(arrays["loss"][index])
+                ),
+                "sensitivity_loss": (
+                    None
+                    if not np.isfinite(arrays["sensitivity_loss"][index])
+                    else float(arrays["sensitivity_loss"][index])
+                ),
+                "penalty": (
+                    None
+                    if not np.isfinite(arrays["penalty"][index])
+                    else float(arrays["penalty"][index])
+                ),
+                "is_feasible": bool(arrays["is_feasible"][index]),
+            }
+        )
+    return rows
+
+
+def _metric_grids(config: dict[str, object]) -> tuple[list[float], list[int]]:
+    times = [
+        value
+        for value in TIME_GRID
+        if config["max_time_seconds"] is None
+        or value <= float(config["max_time_seconds"])
+    ]
+    evals = [
+        value
+        for value in EVAL_GRID
+        if config["max_evals"] is None or value <= int(config["max_evals"])
+    ]
+    return times, evals
+
+
+def validate_completed_record(
+    record: dict[str, object],
+    expected_config: dict[str, object],
+    history_path: Path,
+    expected_environment: dict[str, object] | None = None,
+) -> None:
+    if record.get("format_version") != 1 or record.get("status") != "complete":
+        raise RuntimeError("resume record is not a complete format-version-1 run")
+    if record.get("run_id") != expected_config["run_id"]:
+        raise RuntimeError("resume run ID mismatch")
+    if strict_json(record.get("config")) != strict_json(expected_config):
+        raise RuntimeError("resume run configuration mismatch")
+    if expected_environment is not None and strict_json(
+        record.get("environment")
+    ) != strict_json(expected_environment):
+        raise RuntimeError("resume runtime environment mismatch")
+
+    history = record.get("history", {})
+    expected_relative = f"{history_path.parent.name}/{history_path.name}"
+    if history.get("path") != expected_relative or history.get("format_version") != 1:
+        raise RuntimeError("resume history reference mismatch")
+    arrays = validate_history_artifact(
+        history_path,
+        expected_sha256=str(history.get("sha256")),
+        expected_rows=int(history.get("rows")),
+    )
+    if strict_json(history.get("schema")) != strict_json(HISTORY_SCHEMA):
+        raise RuntimeError("resume history schema metadata mismatch")
+
+    time_grid, eval_grid = _metric_grids(expected_config)
+    recomputed = summarize_rows(
+        _rows_from_history_arrays(arrays),
+        list(expected_config["target_losses"]),
+        time_grid=time_grid,
+        eval_grid=eval_grid,
+    )
+    if strict_json(record.get("metrics")) != strict_json(recomputed):
+        raise RuntimeError("resume metrics do not match the history artifact")
+    if record.get("initial_parameter_hashes") != _parameter_hashes(
+        arrays["initial_params_unbounded"]
+    ):
+        raise RuntimeError("resume initial-parameter hashes do not match history")
+    roles = record.get("initial_population_roles")
+    hashes = record.get("initial_parameter_hashes")
+    expected_members = (
+        1
+        if expected_config["arm"] == "adam"
+        else int(expected_config["population_size"])
+    )
+    if not isinstance(roles, list) or not isinstance(hashes, list):
+        raise RuntimeError("resume initial-population evidence is missing")
+    if len(roles) != expected_members or len(hashes) != expected_members:
+        raise RuntimeError("resume initial-population evidence has wrong size")
+    if roles != _initial_population_roles(
+        str(expected_config["arm"]), int(expected_config["population_size"])
+    ):
+        raise RuntimeError("resume initial-population roles are inconsistent")
+    if any(not isinstance(value, str) or not value for value in hashes):
+        raise RuntimeError("resume initial-parameter hash is invalid")
+
+    problem = record.get("problem", {})
+    topology_string = str(problem.get("topology_string", ""))
+    if not topology_string or problem.get("topology_sha256") != hashlib.sha256(
+        topology_string.encode()
+    ).hexdigest():
+        raise RuntimeError("resume topology identity evidence is invalid")
+
+    objective_configuration = record.get("objective_configuration", {})
+    if objective_configuration.get("max_evals") != expected_config["max_evals"]:
+        raise RuntimeError("resume Objective evaluation budget mismatch")
+    if (
+        objective_configuration.get("max_time_seconds")
+        != expected_config["max_time_seconds"]
+    ):
+        raise RuntimeError("resume Objective time budget mismatch")
+
+    algorithm = record.get("algorithm", {})
+    algorithm_kwargs = algorithm.get("kwargs", {})
+    if algorithm_kwargs.get("random_seed") != expected_config["optimizer_seed"]:
+        raise RuntimeError("resume algorithm seed mismatch")
+    if expected_config["arm"] != "adam":
+        if algorithm_kwargs.get("population_size") != expected_config[
+            "population_size"
+        ]:
+            raise RuntimeError("resume algorithm population mismatch")
+        expected_prior = expected_config["arm"] == "semantic_prior"
+        if algorithm_kwargs.get("use_semantic_prior") is not expected_prior:
+            raise RuntimeError("resume algorithm prior flag mismatch")
+
+    accounting = record.get("objective_accounting", {})
+    if int(accounting.get("log_call_count", -1)) != int(recomputed["logged_calls"]):
+        raise RuntimeError("resume Objective log-call accounting mismatch")
+    if int(accounting.get("eval_count", -1)) < int(recomputed["logged_candidates"]):
+        raise RuntimeError("resume Objective evaluation accounting mismatch")
+
+    process = record.get("worker_process")
+    if not isinstance(process, dict):
+        raise RuntimeError("resume worker-process evidence is missing")
+    wall_seconds = process.get("full_wall_seconds")
+    if not isinstance(wall_seconds, (int, float)) or not math.isfinite(
+        wall_seconds
+    ) or wall_seconds < 0:
+        raise RuntimeError("resume worker wall time is invalid")
+    if process.get("returncode") != 0 or process.get("timed_out") is not False:
+        raise RuntimeError("resume complete record has invalid worker exit status")
+    if process.get("within_official_4h30_container_limit") is not (
+        wall_seconds <= 4.5 * 60 * 60
+    ):
+        raise RuntimeError("resume worker runtime-limit evidence is inconsistent")
+    study_dir = history_path.parent.parent
+    for stream in ("stdout", "stderr"):
+        stream_record = process.get(stream, {})
+        expected_stream_path = f"logs/{expected_config['run_id']}.{stream}.log"
+        if stream_record.get("path") != expected_stream_path:
+            raise RuntimeError(f"resume worker {stream} path mismatch")
+        stream_path = study_dir / str(stream_record.get("path", ""))
+        if not stream_path.is_file() or sha256(stream_path) != stream_record.get(
+            "sha256"
+        ):
+            raise RuntimeError(f"resume worker {stream} evidence mismatch")
+
+
+def run_worker(config_path: Path, output_path: Path, history_path: Path) -> int:
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    base = {
+        "format_version": 1,
+        "run_id": config["run_id"],
+        "started_utc": datetime.now(UTC).isoformat(),
+    }
+    try:
+        runtime_environment = environment_fingerprint()
+        result = {
+            **base,
+            **execute_run(config, history_path, runtime_environment),
+        }
+        atomic_json(output_path, result)
+        return 0
+    except KeyboardInterrupt as error:
+        atomic_json(
+            output_path,
+            {
+                **base,
+                "status": "interrupted",
+                "completed_utc": datetime.now(UTC).isoformat(),
+                "config": config,
+                "error": {"type": type(error).__name__, "message": str(error)},
+            },
+        )
+        return 130
+    except Exception as error:
+        atomic_json(
+            output_path,
+            {
+                **base,
+                "status": "error",
+                "completed_utc": datetime.now(UTC).isoformat(),
+                "config": config,
+                "error": {
+                    "type": type(error).__name__,
+                    "message": str(error),
+                    "traceback": traceback.format_exc(),
+                },
+            },
+        )
+        return 1
+
+
+def orchestrate(plan: dict[str, object], output_dir: Path, resume: bool) -> int:
+    manifest_path = output_dir / "manifest.json"
+    if manifest_path.exists() and not resume:
+        raise FileExistsError(
+            f"study already exists at {output_dir}; pass --resume to continue it"
+        )
+    with _study_lock(output_dir):
+        return _orchestrate_locked(plan, output_dir, resume)
+
+
+def _orchestrate_locked(
+    plan: dict[str, object], output_dir: Path, resume: bool
+) -> int:
+    manifest_path = output_dir / "manifest.json"
+    if not manifest_path.exists():
+        unexpected = [
+            path for path in output_dir.iterdir() if path.name != ".study.lock"
+        ]
+        if unexpected:
+            raise RuntimeError(
+                "refusing to adopt a nonempty study directory without its manifest"
+            )
+    revision = _git("rev-parse", "HEAD")
+    dirty = bool(_git("status", "--porcelain"))
+    if dirty:
+        raise RuntimeError("refusing to run an accelerator study from a dirty tree")
+
+    runtime_environment = _preflight_environment(output_dir)
+    common = plan["configuration"]
+    if runtime_environment["backend"] == "cpu" and not common["allow_cpu"]:
+        raise RuntimeError(
+            "UIFO evaluation requires an accelerator; pass --allow-cpu only "
+            "for an explicitly non-representative mechanics run"
+        )
+
+    prior_path = ROOT / "submission" / "semantic_prior.json"
+    manifest = {
+        **plan,
+        "project_revision": revision,
+        "working_tree_dirty": dirty,
+        "semantic_prior_canonical_sha256": canonical_text_sha256(prior_path),
+        "upstream_reference": UPSTREAM_REFERENCE,
+        "environment": runtime_environment,
+    }
+    if manifest_path.exists():
+        _validate_resume_manifest(
+            json.loads(manifest_path.read_text(encoding="utf-8")), manifest
+        )
+    else:
+        atomic_json(manifest_path, manifest)
+
+    runs_dir = output_dir / "runs"
+    histories_dir = output_dir / "histories"
+    configs_dir = output_dir / "configs"
+    logs_dir = output_dir / "logs"
+    for directory in (runs_dir, histories_dir, configs_dir, logs_dir):
+        directory.mkdir(parents=True, exist_ok=True)
+
+    expected_configs = {
+        run["run_id"]: _run_config(run, common) for run in plan["runs"]
+    }
+    _rebuild_indexes(output_dir, expected_configs, runtime_environment)
+
+    failures = 0
+    try:
+        for run in plan["runs"]:
+            run_id = run["run_id"]
+            config = expected_configs[run_id]
+            output_path = runs_dir / f"{run_id}.json"
+            history_path = histories_dir / f"{run_id}.npz"
+            if resume and output_path.exists():
+                existing = json.loads(output_path.read_text(encoding="utf-8"))
+                if existing.get("status") == "complete":
+                    validate_completed_record(
+                        existing, config, history_path, runtime_environment
+                    )
+                    continue
+
+            config_path = configs_dir / f"{run_id}.json"
+            atomic_json(config_path, config)
+            started = time.perf_counter()
+            completed = None
+            timed_out = None
+            try:
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "experiments.uifo_paired.runner",
+                        "--worker-config",
+                        str(config_path),
+                        "--worker-output",
+                        str(output_path),
+                        "--history-output",
+                        str(history_path),
+                    ],
+                    cwd=ROOT,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=float(common["worker_timeout_seconds"]),
+                )
+            except subprocess.TimeoutExpired as error:
+                timed_out = error
+            full_wall_seconds = time.perf_counter() - started
+            stdout = _process_text(
+                timed_out.stdout if timed_out is not None else completed.stdout
+            )
+            stderr = _process_text(
+                timed_out.stderr if timed_out is not None else completed.stderr
+            )
+            process_info = _persist_worker_process(
+                output_dir,
+                run_id,
+                stdout,
+                stderr,
+                None if timed_out is not None else completed.returncode,
+                full_wall_seconds,
+                timed_out is not None,
+            )
+
+            if timed_out is not None:
+                record = _synthetic_worker_error(
+                    config,
+                    runtime_environment,
+                    process_info,
+                    "WorkerTimeout",
+                    f"worker exceeded {common['worker_timeout_seconds']} seconds",
+                )
+                atomic_json(output_path, record)
+                failures += 1
+            elif not output_path.is_file():
+                record = _synthetic_worker_error(
+                    config,
+                    runtime_environment,
+                    process_info,
+                    "WorkerProcessError",
+                    f"worker exited {completed.returncode} without a run record",
+                )
+                atomic_json(output_path, record)
+                failures += 1
+            else:
+                record = json.loads(output_path.read_text(encoding="utf-8"))
+                record["worker_process"] = process_info
+                atomic_json(output_path, record)
+                if completed.returncode != 0 or record.get("status") != "complete":
+                    failures += 1
+                else:
+                    validate_completed_record(
+                        record, config, history_path, runtime_environment
+                    )
+
+            _rebuild_indexes(output_dir, expected_configs, runtime_environment)
+            if failures:
+                break
+    except KeyboardInterrupt:
+        _rebuild_indexes(output_dir, expected_configs, runtime_environment)
+        raise
+
+    _rebuild_indexes(output_dir, expected_configs, runtime_environment)
+    return 1 if failures else 0
+
+
+def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, object]:
+    return {
+        **run,
+        "allow_cpu": common["allow_cpu"],
+        "max_evals": common["max_evals"],
+        "max_time_seconds": common["max_time_seconds"],
+        "n_frequencies": common["n_frequencies"],
+        "population_size": common["population_size"],
+        "target_losses": common["target_losses"],
+    }
+
+
+def _preflight_environment(output_dir: Path) -> dict[str, object]:
+    preflight_path = output_dir / "preflight.json"
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "experiments.uifo_paired.runner",
+                "--preflight-output",
+                str(preflight_path),
+            ],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired as error:
+        atomic_text(
+            output_dir / "preflight.stdout.log", _process_text(error.stdout)
+        )
+        atomic_text(
+            output_dir / "preflight.stderr.log", _process_text(error.stderr)
+        )
+        raise RuntimeError("runtime preflight exceeded 120 seconds") from error
+    atomic_text(output_dir / "preflight.stdout.log", completed.stdout)
+    atomic_text(output_dir / "preflight.stderr.log", completed.stderr)
+    if completed.returncode != 0 or not preflight_path.is_file():
+        raise RuntimeError(
+            "runtime preflight failed; inspect preflight.stderr.log "
+            f"(exit {completed.returncode})"
+        )
+    return json.loads(preflight_path.read_text(encoding="utf-8"))
+
+
+def _process_text(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value)
+
+
+def _persist_worker_process(
+    output_dir: Path,
+    run_id: str,
+    stdout: str,
+    stderr: str,
+    returncode: int | None,
+    wall_seconds: float,
+    timed_out: bool,
+) -> dict[str, object]:
+    stdout_path = output_dir / "logs" / f"{run_id}.stdout.log"
+    stderr_path = output_dir / "logs" / f"{run_id}.stderr.log"
+    atomic_text(stdout_path, stdout)
+    atomic_text(stderr_path, stderr)
+    return {
+        "returncode": returncode,
+        "timed_out": timed_out,
+        "full_wall_seconds": wall_seconds,
+        "within_official_4h30_container_limit": wall_seconds <= 4.5 * 60 * 60,
+        "stdout": {
+            "path": f"logs/{stdout_path.name}",
+            "sha256": sha256(stdout_path),
+        },
+        "stderr": {
+            "path": f"logs/{stderr_path.name}",
+            "sha256": sha256(stderr_path),
+        },
+    }
+
+
+def _synthetic_worker_error(
+    config: dict[str, object],
+    runtime_environment: dict[str, object],
+    process_info: dict[str, object],
+    error_type: str,
+    message: str,
+) -> dict[str, object]:
+    return {
+        "format_version": 1,
+        "run_id": config["run_id"],
+        "status": "error",
+        "completed_utc": datetime.now(UTC).isoformat(),
+        "config": config,
+        "environment": runtime_environment,
+        "worker_process": process_info,
+        "error": {"type": error_type, "message": message},
+    }
+
+
+def _validate_resume_manifest(existing: dict, current: dict) -> None:
+    for key in (
+        "format_version",
+        "plan_id",
+        "project_revision",
+        "semantic_prior_canonical_sha256",
+        "upstream_reference",
+        "environment",
+    ):
+        if existing.get(key) != current.get(key):
+            raise RuntimeError(f"resume manifest mismatch for {key}")
+
+
+def _rebuild_indexes(
+    output_dir: Path,
+    expected_configs: dict[str, dict[str, object]] | None = None,
+    expected_environment: dict[str, object] | None = None,
+) -> None:
+    records = []
+    for path in sorted((output_dir / "runs").glob("*.json")):
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if expected_configs is not None:
+            run_id = path.stem
+            if run_id not in expected_configs:
+                raise RuntimeError(f"unexpected run record outside plan: {path.name}")
+            if record.get("run_id") != run_id:
+                raise RuntimeError(f"run record filename/ID mismatch: {path.name}")
+            expected_config = expected_configs[run_id]
+            if strict_json(record.get("config")) != strict_json(expected_config):
+                raise RuntimeError(f"run record configuration mismatch: {run_id}")
+            if record.get("status") == "complete":
+                validate_completed_record(
+                    record,
+                    expected_config,
+                    output_dir / "histories" / f"{run_id}.npz",
+                    expected_environment,
+                )
+            elif record.get("status") not in {"error", "interrupted"}:
+                raise RuntimeError(f"invalid run status for {run_id}")
+        records.append(record)
+
+    if expected_configs is not None:
+        _validate_resolved_topology_identities(records)
+
+    jsonl = "".join(
+        json.dumps(strict_json(record), sort_keys=True, allow_nan=False) + "\n"
+        for record in records
+    )
+    temporary = output_dir / "runs.jsonl.tmp"
+    temporary.write_text(jsonl, encoding="utf-8")
+    os.replace(temporary, output_dir / "runs.jsonl")
+
+    atomic_json(
+        output_dir / "summary.json",
+        summarize_records(records, expected_configs),
+    )
+
+
+def _validate_resolved_topology_identities(
+    records: list[dict[str, object]],
+) -> None:
+    by_hash: dict[str, str] = {}
+    for record in records:
+        if record.get("status") != "complete":
+            continue
+        topology_hash = str(record["problem"]["topology_sha256"])
+        configured = json.dumps(
+            record["config"]["topology"], sort_keys=True, separators=(",", ":")
+        )
+        previous = by_hash.setdefault(topology_hash, configured)
+        if previous != configured:
+            raise RuntimeError(
+                "distinct planned topologies resolved to the same topology identity"
+            )
+
+
+def _git(*args: str) -> str:
+    return subprocess.run(
+        ["git", *args], cwd=ROOT, check=False, capture_output=True, text=True
+    ).stdout.strip()
+
+
+def parse_topology_panel(
+    path: Path, *, require_archive_exclusion: bool = False
+) -> tuple[list[str], dict[str, object]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    metadata = {
+        "source_kind": "json_topology_panel",
+        "source_name": path.name,
+        "source_sha256": sha256(path),
+        "archive_exclusion_verified": False,
+        "official_dataset_sha256": None,
+        "panel_id": None,
+    }
+    if isinstance(payload, dict):
+        topologies = payload.get("topologies")
+        if payload.get("archive_exclusion_verified") is True:
+            raise ValueError(
+                "self-attested archive exclusion is not accepted; pass the "
+                "pinned dataset with --official-dataset"
+            )
+        panel_id = payload.get("panel_id")
+        if panel_id is not None and not isinstance(panel_id, str):
+            raise ValueError("panel_id must be a string")
+        metadata["panel_id"] = panel_id
+    else:
+        topologies = payload
+    if not isinstance(topologies, list) or not all(
+        isinstance(value, str) for value in topologies
+    ):
+        raise ValueError("topology file must be a JSON list or {topologies: [...]} object")
+    if require_archive_exclusion:
+        raise ValueError(
+            "archive exclusion must be computed from --official-dataset, not "
+            "asserted inside the topology panel"
+        )
+    metadata["topology_count"] = len(topologies)
+    return topologies, metadata
+
+
+def parse_topologies(path: Path) -> list[str]:
+    """Backward-compatible convenience wrapper for unaudited smoke panels."""
+    return parse_topology_panel(path)[0]
+
+
+def audit_topology_exclusion(
+    topologies: list[str],
+    dataset_path: Path,
+    prior_panel_paths: list[Path] | None = None,
+) -> dict[str, object]:
+    """Compute exact archive/prior-panel set exclusion with hashed provenance."""
+    import h5py
+
+    dataset_digest = sha256(dataset_path)
+    if dataset_digest != OFFICIAL_DATASET_SHA256:
+        raise ValueError(
+            "official dataset SHA-256 mismatch; refusing an exclusion claim"
+        )
+    with h5py.File(dataset_path, "r") as archive:
+        entries = archive["entries"]
+        raw_topologies = entries["topology_string"][:]
+        archive_topologies = {
+            value.decode("utf-8") if isinstance(value, bytes) else str(value)
+            for value in raw_topologies
+        }
+        archive_entries = int(len(entries))
+
+    panel_set = set(topologies)
+    archive_overlap = sorted(panel_set & archive_topologies)
+    if archive_overlap:
+        raise ValueError(
+            f"topology panel overlaps the official archive in "
+            f"{len(archive_overlap)} identities"
+        )
+
+    prior_audits = []
+    for prior_path in prior_panel_paths or []:
+        prior_topologies, prior_metadata = parse_topology_panel(prior_path)
+        prior_overlap = sorted(panel_set & set(prior_topologies))
+        if prior_overlap:
+            raise ValueError(
+                f"topology panel overlaps prior panel {prior_path.name!r} in "
+                f"{len(prior_overlap)} identities"
+            )
+        prior_audits.append(
+            {
+                "source_name": prior_path.name,
+                "source_sha256": prior_metadata["source_sha256"],
+                "topology_count": len(prior_topologies),
+                "overlap_count": 0,
+            }
+        )
+
+    identity_digest = hashlib.sha256(
+        json.dumps(sorted(panel_set), separators=(",", ":")).encode()
+    ).hexdigest()
+    return {
+        "method": "exact topology-string set intersection",
+        "panel_identity_sha256": identity_digest,
+        "panel_topology_count": len(panel_set),
+        "official_dataset": {
+            "source_name": dataset_path.name,
+            "sha256": dataset_digest,
+            "size_bytes": dataset_path.stat().st_size,
+            "entries": archive_entries,
+            "unique_topologies": len(archive_topologies),
+            "overlap_count": 0,
+        },
+        "prior_panels": prior_audits,
+    }
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--topology-seeds", nargs="+", type=int)
+    source.add_argument("--topologies-file", type=Path)
+    parser.add_argument("--optimizer-seeds", nargs="+", type=int, default=[7])
+    parser.add_argument(
+        "--arms",
+        nargs="+",
+        choices=VALID_ARMS,
+        default=["no_prior", "semantic_prior"],
+    )
+    parser.add_argument("--max-time", type=float)
+    parser.add_argument("--max-evals", type=int)
+    parser.add_argument("--population-size", type=int, default=8)
+    parser.add_argument("--n-frequencies", type=int, default=50)
+    parser.add_argument("--target-loss", action="append", type=float, default=[])
+    parser.add_argument("--worker-timeout", type=float)
+    parser.add_argument("--require-archive-exclusion", action="store_true")
+    parser.add_argument("--official-dataset", type=Path)
+    parser.add_argument(
+        "--exclude-prior-panel", action="append", type=Path, default=[]
+    )
+    parser.add_argument("--allow-cpu", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--output", type=Path, default=Path("artifacts/generated/uifo-paired"))
+    parser.add_argument("--worker-config", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--worker-output", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--history-output", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--preflight-output", type=Path, help=argparse.SUPPRESS)
+    args = parser.parse_args()
+
+    if args.preflight_output:
+        raise SystemExit(run_preflight(args.preflight_output))
+
+    if args.worker_config:
+        if not args.worker_output or not args.history_output:
+            parser.error("worker mode requires output and history paths")
+        raise SystemExit(
+            run_worker(args.worker_config, args.worker_output, args.history_output)
+        )
+
+    if not args.topology_seeds and not args.topologies_file:
+        parser.error("one topology source is required")
+    try:
+        if args.topologies_file:
+            topologies, topology_panel = parse_topology_panel(
+                args.topologies_file
+            )
+            if args.require_archive_exclusion and not args.official_dataset:
+                raise ValueError(
+                    "--require-archive-exclusion requires --official-dataset"
+                )
+            if args.exclude_prior_panel and not args.official_dataset:
+                raise ValueError(
+                    "--exclude-prior-panel requires --official-dataset"
+                )
+            if args.official_dataset:
+                topology_panel["archive_exclusion_audit"] = (
+                    audit_topology_exclusion(
+                        topologies,
+                        args.official_dataset,
+                        args.exclude_prior_panel,
+                    )
+                )
+                topology_panel["archive_exclusion_verified"] = True
+                topology_panel["official_dataset_sha256"] = (
+                    OFFICIAL_DATASET_SHA256
+                )
+        else:
+            if (
+                args.require_archive_exclusion
+                or args.official_dataset
+                or args.exclude_prior_panel
+            ):
+                raise ValueError(
+                    "archive-exclusion audit requires --topologies-file"
+                )
+            topologies = None
+            topology_panel = {
+                "source_kind": "topology_seeds",
+                "archive_exclusion_verified": False,
+                "official_dataset_sha256": None,
+                "topology_count": len(args.topology_seeds),
+            }
+        plan = build_plan(
+            topology_seeds=args.topology_seeds,
+            topologies=topologies,
+            optimizer_seeds=args.optimizer_seeds,
+            arms=args.arms,
+            max_time_seconds=args.max_time,
+            max_evals=args.max_evals,
+            population_size=args.population_size,
+            n_frequencies=args.n_frequencies,
+            target_losses=args.target_loss,
+            allow_cpu=args.allow_cpu,
+            worker_timeout_seconds=args.worker_timeout,
+            topology_panel=topology_panel,
+        )
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        parser.error(str(error))
+    if args.dry_run:
+        print(json.dumps(plan, indent=2, sort_keys=True))
+        return
+    output_dir = args.output / plan["plan_id"]
+    raise SystemExit(orchestrate(plan, output_dir, resume=args.resume))
+
+
+if __name__ == "__main__":
+    main()
