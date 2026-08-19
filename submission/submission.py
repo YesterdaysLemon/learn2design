@@ -5,6 +5,8 @@ runtime self-contained and limited to packages provided by the competition.
 """
 
 import json
+import math
+import time
 from pathlib import Path
 
 import jax
@@ -156,6 +158,34 @@ class BatchedRestartAdam(OptimizationAlgorithm):
             combined_aux,
         )
 
+    @staticmethod
+    def _adam_step(
+        params,
+        grads,
+        first_moment,
+        second_moment,
+        member_steps,
+        learning_rates,
+        beta1: float,
+        beta2: float,
+        epsilon: float,
+    ):
+        """Apply Adam with an independent bias-correction age per member."""
+        member_steps = member_steps + 1
+        first_moment = beta1 * first_moment + (1.0 - beta1) * grads
+        second_moment = beta2 * second_moment + (1.0 - beta2) * jnp.square(grads)
+        member_ages = member_steps[:, None]
+        corrected_first = first_moment / (
+            1.0 - jnp.power(beta1, member_ages)
+        )
+        corrected_second = second_moment / (
+            1.0 - jnp.power(beta2, member_ages)
+        )
+        params = params - learning_rates * corrected_first / (
+            jnp.sqrt(corrected_second) + epsilon
+        )
+        return params, first_moment, second_moment, member_steps
+
     def optimize(
         self,
         objective: Objective,
@@ -172,6 +202,8 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         gradient_clip_norm: float = 1.0,
         restart_noise_scale: float = 0.35,
         safety_seconds: float = 2.0,
+        batch_time_safety_factor: float = 1.5,
+        batch_time_window: int = 8,
         use_semantic_prior: bool = True,
         evaluation_chunk_size: int | None = None,
         initial_population_callback=None,
@@ -182,6 +214,20 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         self.prepare(obj, unbounded=True, random_seed=random_seed)
 
         population_size = max(2, int(population_size))
+        safety_seconds = float(safety_seconds)
+        batch_time_safety_factor = float(batch_time_safety_factor)
+        batch_time_window = int(batch_time_window)
+        if not math.isfinite(safety_seconds) or safety_seconds < 0.0:
+            raise ValueError("safety_seconds must be finite and non-negative")
+        if (
+            not math.isfinite(batch_time_safety_factor)
+            or batch_time_safety_factor < 1.0
+        ):
+            raise ValueError(
+                "batch_time_safety_factor must be finite and at least one"
+            )
+        if batch_time_window < 1:
+            raise ValueError("batch_time_window must be positive")
         if evaluation_chunk_size is not None:
             evaluation_chunk_size = int(evaluation_chunk_size)
             if not 1 <= evaluation_chunk_size <= population_size:
@@ -211,13 +257,15 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         )[:, None]
         first_moment = jnp.zeros_like(params)
         second_moment = jnp.zeros_like(params)
+        member_steps = jnp.zeros((population_size,), dtype=jnp.int32)
         member_best_loss = jnp.full((population_size,), jnp.inf)
         stalled_steps = jnp.zeros((population_size,), dtype=jnp.int32)
 
         global_feasible_loss = float("inf")
         global_feasible_params = params[0]
         restart_round = 0
-        step = 0
+        completed_batches = 0
+        recent_batch_seconds = []
 
         # dfbench 0.3.3's public warmup helper discards asynchronous outputs,
         # so it cannot provide a guaranteed device barrier. Count compilation
@@ -227,19 +275,36 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         obj.start_logging()
 
         while not obj.budget_exceeded:
-            if obj.time_left is not None and obj.time_left <= safety_seconds:
+            required_time_margin = float(safety_seconds)
+            if recent_batch_seconds:
+                required_time_margin = max(
+                    required_time_margin,
+                    batch_time_safety_factor * max(recent_batch_seconds),
+                )
+            if (
+                obj.time_left is not None
+                and obj.time_left <= required_time_margin
+            ):
                 break
+
+            active_members = population_size
+            if obj.evals_left is not None:
+                active_members = min(active_members, int(obj.evals_left))
+                if active_members <= 0:
+                    break
+
+            batch_started = time.perf_counter()
             losses, grads, aux = self._evaluate_population(
-                obj, params, evaluation_chunk_size
+                obj, params[:active_members], evaluation_chunk_size
             )
+            jax.block_until_ready((losses, grads, aux))
+            batch_seconds = time.perf_counter() - batch_started
+            completed_batches += 1
+            if completed_batches > 1:
+                recent_batch_seconds.append(batch_seconds)
+                recent_batch_seconds = recent_batch_seconds[-batch_time_window:]
 
             finite_loss = jnp.isfinite(losses)
-            improved = finite_loss & (
-                losses < member_best_loss - minimum_improvement
-            )
-            member_best_loss = jnp.where(improved, losses, member_best_loss)
-            stalled_steps = jnp.where(improved, 0, stalled_steps + 1)
-
             feasible_losses = jnp.where(
                 finite_loss & jnp.asarray(aux["is_feasible"], dtype=bool),
                 losses,
@@ -251,6 +316,17 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                 global_feasible_loss = feasible_loss
                 global_feasible_params = params[feasible_index]
 
+            # An evaluation-limited partial tail has now consumed the remaining
+            # budget. Objective logged it, and no further update can be used.
+            if active_members < population_size:
+                break
+
+            improved = finite_loss & (
+                losses < member_best_loss - minimum_improvement
+            )
+            member_best_loss = jnp.where(improved, losses, member_best_loss)
+            stalled_steps = jnp.where(improved, 0, stalled_steps + 1)
+
             # Sanitize exceptional derivatives, then clip each population member
             # independently before applying an explicit Adam update.
             grads = jnp.nan_to_num(grads, nan=0.0, posinf=0.0, neginf=0.0)
@@ -259,13 +335,16 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                 1.0, gradient_clip_norm / (grad_norms + 1e-12)
             )
 
-            step += 1
-            first_moment = beta1 * first_moment + (1.0 - beta1) * grads
-            second_moment = beta2 * second_moment + (1.0 - beta2) * jnp.square(grads)
-            corrected_first = first_moment / (1.0 - beta1**step)
-            corrected_second = second_moment / (1.0 - beta2**step)
-            params = params - learning_rates * corrected_first / (
-                jnp.sqrt(corrected_second) + epsilon
+            params, first_moment, second_moment, member_steps = self._adam_step(
+                params,
+                grads,
+                first_moment,
+                second_moment,
+                member_steps,
+                learning_rates,
+                beta1,
+                beta2,
+                epsilon,
             )
 
             restart_mask = stalled_steps >= patience
@@ -297,6 +376,7 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                 second_moment = jnp.where(
                     restart_mask[:, None], jnp.zeros_like(second_moment), second_moment
                 )
+                member_steps = jnp.where(restart_mask, 0, member_steps)
                 member_best_loss = jnp.where(
                     restart_mask, jnp.inf, member_best_loss
                 )

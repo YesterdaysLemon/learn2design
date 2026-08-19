@@ -52,6 +52,8 @@ BATCHED_SETTINGS = {
     "gradient_clip_norm": 1.0,
     "restart_noise_scale": 0.35,
     "safety_seconds": 2.0,
+    "batch_time_safety_factor": 1.5,
+    "batch_time_window": 8,
 }
 
 
