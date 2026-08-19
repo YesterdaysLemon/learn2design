@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 
 import pytest
@@ -9,6 +10,8 @@ jnp = pytest.importorskip("jax.numpy")
 pytest.importorskip("dfbench")
 
 from submission.submission import BatchedRestartAdam
+from experiments.uifo_paired.candidate_probe import construct_candidates, host_pytree
+from experiments.uifo_paired.runner import _parameter_hashes
 
 
 class AnalyticObjective:
@@ -184,3 +187,43 @@ def test_low_memory_chunks_preserve_the_full_initial_population() -> None:
     assert len(objective.feasible_history) == 4
     assert captured[0].shape == (2, 5)
     assert objective.warmup_calls == 0
+
+
+@pytest.mark.integration
+def test_candidate_probe_reproduces_population_two_roles() -> None:
+    objective = AnalyticObjective(n_params=5, max_evals=2)
+    candidates, random_population = construct_candidates(
+        objective, optimizer_seed=11, population_size=2
+    )
+
+    control = jnp.stack(
+        [candidates["anchor"], candidates["random_member_1"]]
+    )
+    treatment = jnp.stack(
+        [candidates["anchor"], candidates["semantic_prior"]]
+    )
+
+    assert _parameter_hashes(control)[0] == _parameter_hashes(treatment)[0]
+    assert _parameter_hashes(control)[1] == _parameter_hashes(random_population)[1]
+    assert _parameter_hashes(treatment)[1] == _parameter_hashes(
+        candidates["semantic_prior"]
+    )[0]
+
+
+@pytest.mark.integration
+def test_candidate_probe_recursively_hosts_nested_auxiliary_data() -> None:
+    hosted = host_pytree(
+        {
+            "is_feasible": jnp.asarray(True),
+            "power_values": {
+                "laser": jnp.asarray([1.0, 2.0]),
+                "nested": (jnp.asarray(3.0),),
+            },
+        }
+    )
+
+    assert hosted == {
+        "is_feasible": True,
+        "power_values": {"laser": [1.0, 2.0], "nested": (3.0,)},
+    }
+    json.dumps(hosted, allow_nan=False)
