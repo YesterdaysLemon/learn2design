@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Builds and generated submissions
+build/
+dist/
+*.egg-info/
+artifacts/generated/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local data, caches, and secrets
+.env
+.env.*
+!.env.example
+data/
+.cache/
+wandb/
