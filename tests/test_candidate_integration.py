@@ -26,10 +26,10 @@ class AnalyticObjective:
         self.best_feasible_loss = math.inf
         self.first_feasible_loss = math.inf
         self.optimization_pairs = [
-            ("laser", "power"),
-            ("squeezer", "db"),
-            ("mirror", "reflectivity"),
-            *[(f"component_{index}", "tuning") for index in range(n_params - 3)],
+            ["laser", "power"],
+            ["squeezer", "db"],
+            ["mirror", "reflectivity"],
+            *[[f"component_{index}", "tuning"] for index in range(n_params - 3)],
         ]
 
     def set_space_mode(self, unbounded: bool) -> None:
@@ -92,6 +92,23 @@ class AnalyticObjective:
             self.first_feasible_loss = batch_best
         self.best_feasible_loss = min(self.best_feasible_loss, batch_best)
         return losses, grads, aux
+
+
+@pytest.mark.integration
+def test_feasibility_anchor_understands_dfbench_pair_shapes() -> None:
+    objective = AnalyticObjective(n_params=5, max_evals=5)
+    objective.optimization_pairs[-1] = [
+        ["space_a", "length"],
+        ["space_b", "length"],
+    ]
+
+    unit = jax.nn.sigmoid(BatchedRestartAdam._feasibility_anchor(objective))
+
+    assert float(unit[0]) < 1e-6
+    assert float(unit[1]) < 1e-6
+    assert float(unit[2]) == pytest.approx(1e-4, rel=1e-4)
+    assert float(unit[3]) == pytest.approx(0.5)
+    assert float(unit[4]) == pytest.approx(0.5)
 
 
 @pytest.mark.integration
