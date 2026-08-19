@@ -173,11 +173,9 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         restart_round = 0
         step = 0
 
-        # Compilation through the Objective helper is outside the scored budget.
-        obj.warmup_vmap_value_and_grad_aux(batch_size=population_size)
-        # dfbench 0.3.3 dispatches warmups asynchronously. A dependent device
-        # operation prevents queued warmup work from leaking into the clock.
-        jax.block_until_ready(params + jnp.zeros_like(params))
+        # dfbench 0.3.3's public warmup helper discards asynchronous outputs,
+        # so it cannot provide a guaranteed device barrier. Count compilation
+        # inside the scored wall clock until the public helper is synchronous.
         obj.start_logging()
 
         while not obj.budget_exceeded:

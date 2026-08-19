@@ -37,6 +37,18 @@ uv run --group integration python tools/profile_archive.py /path/to/dataset.h5
 
 The JSON profile records the input checksum, topology reuse, lineage grouping, parameter dimensions, and loss quantiles. It is descriptive only; stored losses are not substitutes for live Objective evaluations.
 
+For paired size-3 UIFO evaluation on a JAX-compatible accelerator, use the resumable isolated-process harness:
+
+```bash
+uv run --group integration python tools/run_uifo_paired.py \
+  --topology-seeds 1001 1002 \
+  --optimizer-seeds 7 11 \
+  --max-time 600 \
+  --dry-run
+```
+
+See `experiments/uifo_paired/` for the artifact schema, execution command, audited-panel format, and evidence boundaries. CPU execution is rejected unless explicitly requested as a non-representative mechanics run; confirmation claims additionally require an archive-exclusion audit and accelerator/device provenance.
+
 ## Where things live
 
 - `submission/` — the exact files placed at the root of the competition ZIP
