@@ -1,0 +1,176 @@
+"""Learn2Design 2026 submission entry point.
+
+The evaluator imports this file from the root of the submitted ZIP. Keep the
+runtime self-contained and limited to packages provided by the competition.
+"""
+
+import jax
+import jax.numpy as jnp
+
+from dfbench import Objective, OptimizationAlgorithm
+
+
+class BatchedRestartAdam(OptimizationAlgorithm):
+    """A small population of Adam searches with deterministic restarts.
+
+    Population members use different learning rates and share only the best
+    physically feasible point. Stalled members alternate between fresh random
+    starts and perturbations around that point. All simulator access goes
+    through the public ``Objective`` API.
+    """
+
+    algorithm_str = "batched_restart_adam"
+
+    def __init__(self) -> None:
+        pass
+
+    @staticmethod
+    def _feasibility_anchor(objective: Objective):
+        """Construct a conservative low-power point in unbounded coordinates."""
+        unit = jnp.full((objective.n_params,), 0.5)
+        for index, pair in enumerate(objective.optimization_pairs):
+            pairs = pair if isinstance(pair, list) else [pair]
+            properties = {
+                item[1]
+                for item in pairs
+                if isinstance(item, (list, tuple)) and len(item) >= 2
+            }
+            if "power" in properties or "db" in properties:
+                unit = unit.at[index].set(1e-8)
+            elif "reflectivity" in properties:
+                unit = unit.at[index].set(1e-4)
+
+        # ``prepare(..., unbounded=True)`` selects dfbench's default sigmoid
+        # map, so logit(unit) is the corresponding active-space coordinate.
+        return jnp.log(unit) - jnp.log1p(-unit)
+
+    def optimize(
+        self,
+        objective: Objective,
+        init_params=None,
+        random_seed: int | None = None,
+        population_size: int = 8,
+        learning_rate_low: float = 0.03,
+        learning_rate_high: float = 0.15,
+        patience: int = 600,
+        minimum_improvement: float = 1e-7,
+        beta1: float = 0.9,
+        beta2: float = 0.999,
+        epsilon: float = 1e-8,
+        gradient_clip_norm: float = 1.0,
+        restart_noise_scale: float = 0.35,
+        safety_seconds: float = 2.0,
+        **kwargs,
+    ) -> None:
+        del kwargs
+        obj = objective
+        self.prepare(obj, unbounded=True, random_seed=random_seed)
+
+        population_size = max(2, int(population_size))
+        params = obj.random_params_unbounded(population_size)
+        anchor_index = 0
+
+        if init_params is not None:
+            supplied = jnp.asarray(init_params)
+            if supplied.ndim == 1:
+                supplied = supplied[None, :]
+            supplied = supplied[:population_size]
+            params = params.at[: supplied.shape[0]].set(supplied)
+            anchor_index = min(int(supplied.shape[0]), population_size - 1)
+
+        params = params.at[anchor_index].set(self._feasibility_anchor(obj))
+
+        learning_rates = jnp.geomspace(
+            learning_rate_low, learning_rate_high, population_size
+        )[:, None]
+        first_moment = jnp.zeros_like(params)
+        second_moment = jnp.zeros_like(params)
+        member_best_loss = jnp.full((population_size,), jnp.inf)
+        stalled_steps = jnp.zeros((population_size,), dtype=jnp.int32)
+
+        global_feasible_loss = float("inf")
+        global_feasible_params = params[0]
+        restart_round = 0
+        step = 0
+
+        # Compilation through the Objective helper is outside the scored budget.
+        obj.warmup_vmap_value_and_grad_aux(batch_size=population_size)
+        # dfbench 0.3.3 dispatches warmups asynchronously. A dependent device
+        # operation prevents queued warmup work from leaking into the clock.
+        jax.block_until_ready(params + jnp.zeros_like(params))
+        obj.start_logging()
+
+        while not obj.budget_exceeded:
+            if obj.time_left is not None and obj.time_left <= safety_seconds:
+                break
+            losses, grads, aux = obj.vmap_value_and_grad_aux(params)
+
+            finite_loss = jnp.isfinite(losses)
+            improved = finite_loss & (
+                losses < member_best_loss - minimum_improvement
+            )
+            member_best_loss = jnp.where(improved, losses, member_best_loss)
+            stalled_steps = jnp.where(improved, 0, stalled_steps + 1)
+
+            feasible_losses = jnp.where(
+                finite_loss & jnp.asarray(aux["is_feasible"], dtype=bool),
+                losses,
+                jnp.inf,
+            )
+            feasible_index = int(jnp.argmin(feasible_losses))
+            feasible_loss = float(feasible_losses[feasible_index])
+            if feasible_loss < global_feasible_loss:
+                global_feasible_loss = feasible_loss
+                global_feasible_params = params[feasible_index]
+
+            # Sanitize exceptional derivatives, then clip each population member
+            # independently before applying an explicit Adam update.
+            grads = jnp.nan_to_num(grads, nan=0.0, posinf=0.0, neginf=0.0)
+            grad_norms = jnp.linalg.norm(grads, axis=1, keepdims=True)
+            grads = grads * jnp.minimum(
+                1.0, gradient_clip_norm / (grad_norms + 1e-12)
+            )
+
+            step += 1
+            first_moment = beta1 * first_moment + (1.0 - beta1) * grads
+            second_moment = beta2 * second_moment + (1.0 - beta2) * jnp.square(grads)
+            corrected_first = first_moment / (1.0 - beta1**step)
+            corrected_second = second_moment / (1.0 - beta2**step)
+            params = params - learning_rates * corrected_first / (
+                jnp.sqrt(corrected_second) + epsilon
+            )
+
+            restart_mask = stalled_steps >= patience
+            if bool(jnp.any(restart_mask)):
+                fresh_params = obj.random_params_unbounded(population_size)
+                if global_feasible_loss < float("inf"):
+                    # A smaller radius late in the run turns restarts from broad
+                    # exploration into local refinement.
+                    progress = float(obj.budget_progress_fraction)
+                    scale = restart_noise_scale * max(0.10, 1.0 - progress)
+                    noise = obj.random_params_unbounded(population_size)
+                    noise = noise - jnp.mean(noise, axis=0, keepdims=True)
+                    noise = noise / (
+                        jnp.std(noise, axis=0, keepdims=True) + 1e-6
+                    )
+                    exploit_params = global_feasible_params[None, :] + scale * noise
+                    member_ids = jnp.arange(population_size)
+                    exploit_mask = (member_ids + restart_round) % 2 == 0
+                    restart_params = jnp.where(
+                        exploit_mask[:, None], exploit_params, fresh_params
+                    )
+                else:
+                    restart_params = fresh_params
+
+                params = jnp.where(restart_mask[:, None], restart_params, params)
+                first_moment = jnp.where(
+                    restart_mask[:, None], jnp.zeros_like(first_moment), first_moment
+                )
+                second_moment = jnp.where(
+                    restart_mask[:, None], jnp.zeros_like(second_moment), second_moment
+                )
+                member_best_loss = jnp.where(
+                    restart_mask, jnp.inf, member_best_loss
+                )
+                stalled_steps = jnp.where(restart_mask, 0, stalled_steps)
+                restart_round += 1

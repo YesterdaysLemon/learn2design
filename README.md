@@ -6,11 +6,32 @@ The competition asks for an algorithm—not one fixed detector. On each hidden t
 
 ## Current status
 
-**Bootstrap stage.** We are auditing the official starter kit, reproducing its baselines, and turning promising ideas into measured experiments. No leaderboard claim has been made yet.
+**Baseline stage.** A first submission candidate and deterministic artifact builder are in place. The optimizer has not yet earned a leaderboard or multi-topology performance claim.
+
+## Build the current candidate
+
+Requires Python 3.11–3.13. The contract tests are intentionally light and do not run the expensive physics simulator.
+
+```bash
+python -m pip install pytest
+pytest
+python tools/build_submission.py
+```
+
+The builder writes `artifacts/generated/submission.zip` and a SHA-256 manifest. CI runs the same checks and publishes both files as a workflow artifact.
+
+For a real API smoke test on the smaller constrained Voyager problem:
+
+```bash
+uv sync --group dev --group integration
+uv run --group integration python tools/smoke_candidate.py --max-time 30
+```
+
+CPU compilation can take much longer than the timed search. The resulting JSON records the device, seed, budget, and Objective summary; it is a mechanics check, not evidence of UIFO performance.
 
 ## Where things live
 
-- `src/` — submission code and reusable implementation
+- `submission/` — the exact files placed at the root of the competition ZIP
 - `tests/` — fast correctness and packaging checks
 - `research/` — literature notes, experiment records, and longer technical reports
 - `artifacts/` — generated submission bundles and evaluation summaries (not hand-edited)
