@@ -1,0 +1,22 @@
+{
+  "gates": {
+    "licenses_live_testing": false,
+    "nearest_vs_median_improvement_fraction": -0.09075747915756012,
+    "nearest_vs_shuffled_improvement_fraction": -0.0023855951684074385,
+    "quantile_vs_median_improvement_fraction": 0.028868398845351407
+  },
+  "metric": "topology-macro property-balanced unit-space MAE",
+  "metrics": {
+    "nearest_topology_1": {"mean": 0.2592688798388846, "median": 0.28607558246169773, "p90": 0.39763649638210025},
+    "nearest_topology_oracle_4": {"mean": 0.19412207012488755, "median": 0.15746478831195937, "p90": 0.35310044458934237},
+    "random_1": {"mean": 0.4315932151291059, "median": 0.43177968159197444, "p90": 0.476875764466047},
+    "random_oracle_4": {"mean": 0.39968160300863537, "median": 0.40068388579165365, "p90": 0.4334785725503224},
+    "semantic_median": {"mean": 0.1779699647577173, "median": 0.13202569576346182, "p90": 0.3675802345786777},
+    "semantic_quantile_oracle_4": {"mean": 0.1728322568325984, "median": 0.12793824887298147, "p90": 0.3568423671381814},
+    "shuffled_topology_oracle_4": {"mean": 0.19366007558426032, "median": 0.15725691504277556, "p90": 0.35572240618722784}
+  },
+  "neighbors": 4,
+  "records": 11678,
+  "test_topologies": 2327,
+  "train_topologies": 9351
+}
