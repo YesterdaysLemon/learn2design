@@ -28,6 +28,7 @@ was not yet decision-complete:
 - the Adam orientation arm consumed one third of the rental without entering
   the promotion decision;
 - threshold censoring needed topology-level analysis before any speedup claim;
+- feasibility needed an explicit co-primary or lexicographic decision route;
 - one outcome-independent timing pilot should precede the panel;
 - partial recovery and repeated validation overhead deserved paid-run guards.
 
@@ -64,7 +65,8 @@ The updated `development-v2` profile contains 64 runs and 10 hours 40 minutes
 of scored Objective time. Its complete configuration and decision policy are
 bound into the plan ID. A disjoint 12-topology, 1,800-second `confirmation-v1`
 profile is also frozen, but it runs only after a machine-reported development
-pass.
+pass. The decision treats strict finite-feasibility dominance as a guarded
+lexicographic route and otherwise requires the complete paired-loss rule.
 
 The primary report remains the repository's dated accelerator evaluation plan;
 the rental commands and recovery procedure remain the A100 runbook. This note

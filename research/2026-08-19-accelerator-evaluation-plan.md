@@ -53,8 +53,18 @@ units. It is one tenth of the smallest 0.5-unit separation among the frozen
 diagnostic loss thresholds. Because the competition loss can cross zero,
 relative final-loss improvements are not used.
 
-Development advances to confirmation only when the complete, uncensored panel
-satisfies every condition:
+Both profiles first apply a topology-level finite-feasibility route. It passes
+only when the complete panel has at least one topology where `semantic_prior`
+has a higher seed-level finite-feasibility rate, no topology where `no_prior`
+has the higher rate, zero no-prior-only or neither-finite seed pairs, and no
+observed 90th-percentile regret above 0.5. That guard includes available paired
+losses inside otherwise censored topologies.
+This route is lexicographically primary because a finite feasible design is the
+locally observable prerequisite for a valid loss. It cannot hide a reverse
+feasibility failure or harmful observed loss tail.
+
+When finite feasibility is equal, development advances through the paired-loss
+route only when the complete, uncensored panel satisfies every condition:
 
 - semantic prior wins at least 12 of 16 topology-macro comparisons;
 - topology-macro median `(semantic_prior - no_prior)` is at most -0.05;
@@ -65,8 +75,9 @@ This is intentionally a liberal screening rule, not a confirmatory p-value. With
 16 topology units, 12 wins has a two-sided exact sign-test value of about 0.077;
 13 wins would be about 0.021.
 
-Confirmation keeps the semantic prior only when the complete, uncensored panel
-satisfies every condition:
+When finite feasibility is equal, confirmation keeps the semantic prior through
+the paired-loss route only when the complete, uncensored panel satisfies every
+condition:
 
 - semantic prior wins at least 10 of 12 topology-macro comparisons;
 - topology-macro median difference is at most -0.05;
@@ -74,11 +85,14 @@ satisfies every condition:
 - the 90th-percentile topology regret is at most 0.5;
 - the upper 95% topology-bootstrap bound for the mean difference is below zero.
 
-Otherwise the honest action is to retain the no-prior candidate. There is no
+Either profile also passes through the strict finite-feasibility route described
+above. Otherwise the honest action is to retain the no-prior candidate. There is no
 interim stopping, rule adjustment, topology removal, threshold replacement, or
 seed addition in response to observed outcomes. Missing runs are
-`not_evaluable`; a completed panel with a no-feasible/censored comparison fails
-rather than being converted into an outcome-conditional complete-case analysis.
+`not_evaluable`. A semantic-only finite-feasible result is handled by the
+predeclared dominance route; the reverse result fails. Neither-reached and mixed
+reverse censoring cannot be converted into an outcome-conditional complete-case
+pass.
 
 ## Deployment and execution stages
 

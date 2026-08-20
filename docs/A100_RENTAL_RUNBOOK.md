@@ -286,6 +286,11 @@ recovery material only and cannot satisfy the development decision.
 After local checksum verification, inspect
 `summary.json -> semantic_prior_vs_no_prior -> predeclared_decision`. A complete
 development pass says `advance_to_confirmation_v1`; a complete failure,
-including a no-feasible/censored comparison, says `retain_no_prior_candidate`;
-missing runs say `collect_complete_predeclared_panel`. Do not edit the rule or
-start confirmation in response to any other informal summary.
+including a no-prior-only finite-feasible comparison, says
+`retain_no_prior_candidate`; missing runs say
+`collect_complete_predeclared_panel`. A semantic-only finite-feasible comparison
+can pass only through the reported `finite_feasibility_dominance` route, which
+also requires no reverse or neither-finite seed outcome, no reverse topology
+disadvantage, and no observed p90 regret above 0.5—including available paired
+losses inside a censored topology. Do not edit the rule or start confirmation in
+response to any other informal summary.

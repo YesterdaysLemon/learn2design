@@ -92,6 +92,8 @@ def _paired_prior_summary(
         )
         control_loss = control_metrics.get("best_feasible_loss")
         treatment_loss = treatment_metrics.get("best_feasible_loss")
+        control_finite_feasible = control_loss is not None
+        treatment_finite_feasible = treatment_loss is not None
         difference = None
         if control_loss is not None and treatment_loss is not None:
             control_value = _finite_float(control_loss, "control best feasible loss")
@@ -114,6 +116,8 @@ def _paired_prior_summary(
                 "configured_topology_key": _canonical(config["topology"]),
                 "control_physically_feasible": control_feasible,
                 "treatment_physically_feasible": treatment_feasible,
+                "control_finite_feasible": control_finite_feasible,
+                "treatment_finite_feasible": treatment_finite_feasible,
                 "difference_treatment_minus_control": difference,
                 "target_hitting": _paired_target_hits(
                     pair_id,
@@ -133,6 +137,12 @@ def _paired_prior_summary(
         float(row["mean_seed_difference_treatment_minus_control"])
         for row in topology_differences
         if row["inference_complete"]
+        and row["mean_seed_difference_treatment_minus_control"] is not None
+    ]
+    observed_topology_values = [
+        float(row["mean_seed_difference_treatment_minus_control"])
+        for row in topology_differences
+        if row["replication_complete"]
         and row["mean_seed_difference_treatment_minus_control"] is not None
     ]
 
@@ -163,6 +173,26 @@ def _paired_prior_summary(
             < row["control_physical_feasibility_rate"]
             for row in complete_topology_rows
             if row["treatment_physical_feasibility_rate"] is not None
+        ),
+    }
+    topology_finite_feasibility_discordance = {
+        "semantic_prior_higher_seed_finite_feasibility_rate": sum(
+            row["treatment_finite_feasibility_rate"]
+            > row["control_finite_feasibility_rate"]
+            for row in complete_topology_rows
+            if row["treatment_finite_feasibility_rate"] is not None
+        ),
+        "equal_seed_finite_feasibility_rate": sum(
+            row["treatment_finite_feasibility_rate"]
+            == row["control_finite_feasibility_rate"]
+            for row in complete_topology_rows
+            if row["treatment_finite_feasibility_rate"] is not None
+        ),
+        "no_prior_higher_seed_finite_feasibility_rate": sum(
+            row["treatment_finite_feasibility_rate"]
+            < row["control_finite_feasibility_rate"]
+            for row in complete_topology_rows
+            if row["treatment_finite_feasibility_rate"] is not None
         ),
     }
 
@@ -197,6 +227,11 @@ def _paired_prior_summary(
     topology_p90_regret = (
         _percentile(sorted(macro_values), 0.9) if macro_values else None
     )
+    observed_topology_p90_regret_guard = (
+        _percentile(sorted(observed_topology_values), 0.9)
+        if observed_topology_values
+        else None
+    )
     panel_execution_complete = (
         not incomplete_topologies and bool(expected_by_topology)
         if expected_configs is not None
@@ -213,9 +248,11 @@ def _paired_prior_summary(
         panel_execution_complete,
         promotion_inference_ready,
         topology_wins_ties_losses,
+        topology_finite_feasibility_discordance,
         seed_pair_diagnostics,
         median(macro_values) if macro_values else None,
         topology_p90_regret,
+        observed_topology_p90_regret_guard,
         bootstrap_ci,
     )
 
@@ -234,11 +271,17 @@ def _paired_prior_summary(
         "finite_comparable_topologies": len(macro_values),
         "wins_ties_losses": topology_wins_ties_losses,
         "physical_feasibility_discordance": topology_feasibility_discordance,
+        "finite_feasibility_discordance": (
+            topology_finite_feasibility_discordance
+        ),
         "topology_macro_mean_difference": mean(macro_values) if macro_values else None,
         "topology_macro_median_difference": (
             median(macro_values) if macro_values else None
         ),
         "topology_p90_regret": topology_p90_regret,
+        "observed_topology_p90_regret_guard": (
+            observed_topology_p90_regret_guard
+        ),
         "topology_bootstrap_mean_difference_ci_95": bootstrap_ci,
         "predeclared_decision": predeclared_decision,
         "target_hitting_time_inference": _target_hitting_summary(
@@ -253,8 +296,10 @@ def _paired_prior_summary(
             "Primary wins, ties, losses, feasibility discordance, and confidence "
             "intervals use topology as the inference unit after collapsing optimizer "
             "seeds. Primary loss aggregates require every predeclared seed pair to "
-            "be present and finite-feasible in both arms. Inspect incomplete and "
-            "censored topology lists, feasibility rates, and seed diagnostics."
+            "be present and finite-feasible in both arms; the separate guarded "
+            "finite-feasibility dominance route handles semantic-only outcomes. "
+            "Inspect incomplete and censored topology lists, feasibility rates, "
+            "decision routes, and seed diagnostics."
         ),
     }
 
@@ -508,6 +553,12 @@ def _optimizer_seed_pair_diagnostics(
         "semantic_prior_only": 0,
         "no_prior_only": 0,
     }
+    finite_discordance = {
+        "both_finite_feasible": 0,
+        "neither_finite_feasible": 0,
+        "semantic_prior_only": 0,
+        "no_prior_only": 0,
+    }
     for row in seed_pair_rows:
         control_feasible = bool(row["control_physically_feasible"])
         treatment_feasible = bool(row["treatment_physically_feasible"])
@@ -519,6 +570,16 @@ def _optimizer_seed_pair_diagnostics(
             discordance["no_prior_only"] += 1
         else:
             discordance["neither_physically_feasible"] += 1
+        control_finite = bool(row["control_finite_feasible"])
+        treatment_finite = bool(row["treatment_finite_feasible"])
+        if control_finite and treatment_finite:
+            finite_discordance["both_finite_feasible"] += 1
+        elif treatment_finite:
+            finite_discordance["semantic_prior_only"] += 1
+        elif control_finite:
+            finite_discordance["no_prior_only"] += 1
+        else:
+            finite_discordance["neither_finite_feasible"] += 1
     return {
         "complete_optimizer_seed_pairs": len(seed_pair_rows),
         "finite_comparable_optimizer_seed_pairs": len(finite_rows),
@@ -528,6 +589,7 @@ def _optimizer_seed_pair_diagnostics(
             "semantic_prior_losses": sum(value > 0 for value in differences),
         },
         "optimizer_seed_pair_physical_feasibility_discordance": discordance,
+        "optimizer_seed_pair_finite_feasibility_discordance": finite_discordance,
         "optimizer_seed_pair_rows": seed_pair_rows,
     }
 
@@ -574,6 +636,10 @@ def _collapse_seed_pairs_by_topology(
         treatment_feasible = sum(
             bool(row["treatment_physically_feasible"]) for row in rows
         )
+        control_finite = sum(bool(row["control_finite_feasible"]) for row in rows)
+        treatment_finite = sum(
+            bool(row["treatment_finite_feasible"]) for row in rows
+        )
         result.append(
             {
                 "topology_sha256": topology,
@@ -591,6 +657,10 @@ def _collapse_seed_pairs_by_topology(
                 "treatment_physical_feasibility_rate": (
                     treatment_feasible / len(rows)
                 ),
+                "control_finite_feasible_optimizer_seeds": control_finite,
+                "treatment_finite_feasible_optimizer_seeds": treatment_finite,
+                "control_finite_feasibility_rate": control_finite / len(rows),
+                "treatment_finite_feasibility_rate": treatment_finite / len(rows),
                 "optimizer_seeds": optimizer_seeds,
             }
         )
@@ -614,6 +684,10 @@ def _collapse_seed_pairs_by_topology(
                 "treatment_physically_feasible_optimizer_seeds": 0,
                 "control_physical_feasibility_rate": None,
                 "treatment_physical_feasibility_rate": None,
+                "control_finite_feasible_optimizer_seeds": 0,
+                "treatment_finite_feasible_optimizer_seeds": 0,
+                "control_finite_feasibility_rate": None,
+                "treatment_finite_feasibility_rate": None,
                 "optimizer_seeds": [],
             }
         )
@@ -672,26 +746,63 @@ def _evaluate_predeclared_decision(
     panel_execution_complete: bool | None,
     inference_ready: bool | None,
     wins_ties_losses: dict[str, int],
+    topology_finite_feasibility_discordance: dict[str, int],
     seed_pair_diagnostics: dict[str, object],
     median_difference: float | None,
     p90_regret: float | None,
+    observed_p90_regret_guard: float | None,
     bootstrap_ci: dict[str, object] | None,
 ) -> dict[str, object] | None:
     if policy is None:
         return None
     seed_discordance = seed_pair_diagnostics[
-        "optimizer_seed_pair_physical_feasibility_discordance"
+        "optimizer_seed_pair_finite_feasibility_discordance"
     ]
     assert isinstance(seed_discordance, dict)
     required_wins = int(policy["minimum_semantic_prior_topology_wins"])
     minimum_reduction = float(policy["minimum_practical_median_loss_reduction"])
     maximum_no_prior_only = int(policy["maximum_no_prior_only_seed_pairs"])
+    maximum_neither_finite = int(
+        policy.get("maximum_neither_finite_feasible_seed_pairs", 0)
+    )
+    minimum_semantic_higher_topologies = int(
+        policy.get(
+            "minimum_semantic_prior_higher_finite_feasibility_topologies", 1
+        )
+    )
+    maximum_no_prior_higher_topologies = int(
+        policy.get("maximum_no_prior_higher_finite_feasibility_topologies", 0)
+    )
     maximum_p90_regret = float(policy["maximum_topology_p90_regret"])
     require_bootstrap = bool(
         policy["require_bootstrap_mean_ci_upper_below_zero"]
     )
     bootstrap_upper = None if bootstrap_ci is None else float(bootstrap_ci["upper"])
-    criteria = {
+    no_prior_only_passed = (
+        int(seed_discordance["no_prior_only"]) <= maximum_no_prior_only
+    )
+    neither_finite_passed = (
+        int(seed_discordance["neither_finite_feasible"])
+        <= maximum_neither_finite
+    )
+    common_criteria = {
+        "panel_execution_complete": {
+            "observed": panel_execution_complete,
+            "required": True,
+            "passed": panel_execution_complete is True,
+        },
+        "no_prior_only_seed_pairs": {
+            "observed": int(seed_discordance["no_prior_only"]),
+            "required_maximum": maximum_no_prior_only,
+            "passed": no_prior_only_passed,
+        },
+        "neither_finite_feasible_seed_pairs": {
+            "observed": int(seed_discordance["neither_finite_feasible"]),
+            "required_maximum": maximum_neither_finite,
+            "passed": neither_finite_passed,
+        },
+    }
+    loss_criteria = {
         "complete_uncensored_panel": {
             "observed": inference_ready,
             "required": bool(policy["require_complete_uncensored_panel"]),
@@ -710,12 +821,6 @@ def _evaluate_predeclared_decision(
                 and median_difference <= -minimum_reduction
             ),
         },
-        "no_prior_only_seed_pairs": {
-            "observed": int(seed_discordance["no_prior_only"]),
-            "required_maximum": maximum_no_prior_only,
-            "passed": int(seed_discordance["no_prior_only"])
-            <= maximum_no_prior_only,
-        },
         "topology_p90_regret": {
             "observed": p90_regret,
             "required_maximum": maximum_p90_regret,
@@ -731,8 +836,60 @@ def _evaluate_predeclared_decision(
             ),
         },
     }
+    loss_route_passed = (
+        panel_execution_complete is True
+        and no_prior_only_passed
+        and all(bool(item["passed"]) for item in loss_criteria.values())
+    )
+
+    semantic_higher_topologies = int(
+        topology_finite_feasibility_discordance[
+            "semantic_prior_higher_seed_finite_feasibility_rate"
+        ]
+    )
+    no_prior_higher_topologies = int(
+        topology_finite_feasibility_discordance[
+            "no_prior_higher_seed_finite_feasibility_rate"
+        ]
+    )
+    feasibility_criteria = {
+        "semantic_prior_strictly_higher_finite_feasibility_topologies": {
+            "observed": semantic_higher_topologies,
+            "required_minimum": minimum_semantic_higher_topologies,
+            "passed": semantic_higher_topologies
+            >= minimum_semantic_higher_topologies,
+        },
+        "no_prior_higher_finite_feasibility_topologies": {
+            "observed": no_prior_higher_topologies,
+            "required_maximum": maximum_no_prior_higher_topologies,
+            "passed": no_prior_higher_topologies
+            <= maximum_no_prior_higher_topologies,
+        },
+        "no_prior_only_seed_pairs": common_criteria[
+            "no_prior_only_seed_pairs"
+        ],
+        "neither_finite_feasible_seed_pairs": common_criteria[
+            "neither_finite_feasible_seed_pairs"
+        ],
+        "observed_topology_p90_regret_guard": {
+            "observed": observed_p90_regret_guard,
+            "required_maximum_when_observed": maximum_p90_regret,
+            "passed": observed_p90_regret_guard is None
+            or observed_p90_regret_guard <= maximum_p90_regret,
+        },
+    }
+    feasibility_route_passed = (
+        panel_execution_complete is True
+        and all(bool(item["passed"]) for item in feasibility_criteria.values())
+    )
+
     evaluable = panel_execution_complete is True
-    passed = evaluable and all(bool(item["passed"]) for item in criteria.values())
+    passed = evaluable and (feasibility_route_passed or loss_route_passed)
+    selected_route = None
+    if feasibility_route_passed:
+        selected_route = "finite_feasibility_dominance"
+    elif loss_route_passed:
+        selected_route = "paired_loss"
     if not evaluable:
         action = "collect_complete_predeclared_panel"
         status = "not_evaluable"
@@ -747,14 +904,26 @@ def _evaluate_predeclared_decision(
         "status": status,
         "action": action,
         "all_criteria_passed": passed,
-        "criteria": criteria,
+        "selected_route": selected_route,
+        "criteria": common_criteria,
+        "routes": {
+            "finite_feasibility_dominance": {
+                "passed": feasibility_route_passed,
+                "criteria": feasibility_criteria,
+            },
+            "paired_loss": {
+                "passed": loss_route_passed,
+                "criteria": loss_criteria,
+            },
+        },
         "note": (
-            "This deterministic rule was bound into the plan before execution. "
-            "Do not alter it in response to observed study outcomes."
+            "Finite-feasibility dominance is lexicographically primary, requires "
+            "no reverse seed or topology disadvantage, and retains the observed "
+            "upper-tail regret guard. Otherwise the complete paired-loss route "
+            "applies. This deterministic rule was bound into the plan before "
+            "execution; do not alter it in response to study outcomes."
         ),
     }
-
-
 def _target_hitting_summary(
     seed_pair_rows: list[dict[str, object]],
     expected_by_topology: dict[str, set[str]],

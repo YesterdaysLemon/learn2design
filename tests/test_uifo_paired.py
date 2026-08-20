@@ -105,6 +105,26 @@ def _causal_record(
     }
 
 
+def _test_decision_policy(*, require_bootstrap: bool = False) -> dict[str, object]:
+    return {
+        "policy_id": "test-policy",
+        "study_profile": "test-profile",
+        "stage": "test",
+        "action_if_passed": "advance",
+        "action_if_failed": "stop",
+        "minimum_semantic_prior_topology_wins": 1,
+        "minimum_practical_median_loss_reduction": 0.05,
+        "minimum_semantic_prior_higher_finite_feasibility_topologies": 1,
+        "maximum_no_prior_higher_finite_feasibility_topologies": 0,
+        "maximum_no_prior_only_seed_pairs": 0,
+        "maximum_neither_finite_feasible_seed_pairs": 0,
+        "maximum_topology_p90_regret": 0.5,
+        "require_bootstrap_mean_ci_upper_below_zero": require_bootstrap,
+        "require_complete_uncensored_panel": True,
+        "inference_unit": "topology",
+    }
+
+
 def test_plan_is_deterministic_and_rotates_arm_order() -> None:
     kwargs = {
         "topology_seeds": [1001, 1002],
@@ -1070,20 +1090,7 @@ def test_pair_summary_averages_seeds_within_topology() -> None:
 
 
 def test_predeclared_decision_and_threshold_claim_use_topology_inference() -> None:
-    policy = {
-        "policy_id": "test-policy",
-        "study_profile": "test-profile",
-        "stage": "test",
-        "action_if_passed": "advance",
-        "action_if_failed": "stop",
-        "minimum_semantic_prior_topology_wins": 1,
-        "minimum_practical_median_loss_reduction": 0.05,
-        "maximum_no_prior_only_seed_pairs": 0,
-        "maximum_topology_p90_regret": 0.5,
-        "require_bootstrap_mean_ci_upper_below_zero": True,
-        "require_complete_uncensored_panel": True,
-        "inference_unit": "topology",
-    }
+    policy = _test_decision_policy(require_bootstrap=True)
     records = []
     for seed in (7, 11):
         records.extend(
@@ -1200,20 +1207,7 @@ def test_semantic_only_threshold_hit_uses_conservative_censoring_bound() -> None
 
 
 def test_completed_no_feasible_outcome_fails_instead_of_inviting_selective_rerun() -> None:
-    policy = {
-        "policy_id": "test-policy",
-        "study_profile": "test-profile",
-        "stage": "test",
-        "action_if_passed": "advance",
-        "action_if_failed": "stop",
-        "minimum_semantic_prior_topology_wins": 1,
-        "minimum_practical_median_loss_reduction": 0.05,
-        "maximum_no_prior_only_seed_pairs": 0,
-        "maximum_topology_p90_regret": 0.5,
-        "require_bootstrap_mean_ci_upper_below_zero": False,
-        "require_complete_uncensored_panel": True,
-        "inference_unit": "topology",
-    }
+    policy = _test_decision_policy()
     records = [
         _causal_record(
             topology="topology-a",
@@ -1248,6 +1242,162 @@ def test_completed_no_feasible_outcome_fails_instead_of_inviting_selective_rerun
     assert paired["predeclared_decision"]["criteria"][
         "no_prior_only_seed_pairs"
     ]["passed"] is False
+
+
+def test_semantic_only_finite_feasibility_uses_lexicographic_route() -> None:
+    policy = _test_decision_policy()
+    records = [
+        _causal_record(
+            topology="topology-a",
+            seed=7,
+            arm="no_prior",
+            loss=None,
+            target_time=None,
+            target_evals=None,
+            decision_policy=policy,
+            has_feasible=False,
+        ),
+        _causal_record(
+            topology="topology-a",
+            seed=7,
+            arm="semantic_prior",
+            loss=1.0,
+            target_time=1.0,
+            target_evals=10,
+            decision_policy=policy,
+        ),
+    ]
+    expected_configs = {record["run_id"]: record["config"] for record in records}
+
+    paired = summarize_records(records, expected_configs)[
+        "semantic_prior_vs_no_prior"
+    ]
+    decision = paired["predeclared_decision"]
+
+    assert paired["panel_execution_complete"] is True
+    assert paired["promotion_inference_ready"] is False
+    assert paired["finite_feasibility_discordance"] == {
+        "semantic_prior_higher_seed_finite_feasibility_rate": 1,
+        "equal_seed_finite_feasibility_rate": 0,
+        "no_prior_higher_seed_finite_feasibility_rate": 0,
+    }
+    assert decision["status"] == "passed"
+    assert decision["action"] == "advance"
+    assert decision["selected_route"] == "finite_feasibility_dominance"
+    assert decision["routes"]["paired_loss"]["passed"] is False
+
+
+def test_feasibility_dominance_does_not_override_harmful_observed_regret() -> None:
+    policy = _test_decision_policy()
+    records = [
+        _causal_record(
+            topology="topology-a",
+            seed=7,
+            arm="no_prior",
+            loss=None,
+            target_time=None,
+            target_evals=None,
+            decision_policy=policy,
+            has_feasible=False,
+        ),
+        _causal_record(
+            topology="topology-a",
+            seed=7,
+            arm="semantic_prior",
+            loss=1.0,
+            target_time=1.0,
+            target_evals=10,
+            decision_policy=policy,
+        ),
+        _causal_record(
+            topology="topology-a",
+            seed=11,
+            arm="no_prior",
+            loss=1.0,
+            target_time=10.0,
+            target_evals=100,
+            decision_policy=policy,
+        ),
+        _causal_record(
+            topology="topology-a",
+            seed=11,
+            arm="semantic_prior",
+            loss=2.0,
+            target_time=1.0,
+            target_evals=10,
+            decision_policy=policy,
+        ),
+    ]
+    expected_configs = {record["run_id"]: record["config"] for record in records}
+
+    decision = summarize_records(records, expected_configs)[
+        "semantic_prior_vs_no_prior"
+    ]["predeclared_decision"]
+
+    assert decision["status"] == "failed"
+    assert decision["selected_route"] is None
+    regret_guard = decision["routes"]["finite_feasibility_dominance"][
+        "criteria"
+    ]["observed_topology_p90_regret_guard"]
+    assert regret_guard["observed"] == pytest.approx(1.0)
+    assert regret_guard["passed"] is False
+
+
+def test_feasibility_dominance_cannot_hide_neither_finite_seed_pair() -> None:
+    policy = _test_decision_policy()
+    records = [
+        _causal_record(
+            topology="topology-a",
+            seed=7,
+            arm="no_prior",
+            loss=None,
+            target_time=None,
+            target_evals=None,
+            decision_policy=policy,
+            has_feasible=False,
+        ),
+        _causal_record(
+            topology="topology-a",
+            seed=7,
+            arm="semantic_prior",
+            loss=1.0,
+            target_time=1.0,
+            target_evals=10,
+            decision_policy=policy,
+        ),
+        _causal_record(
+            topology="topology-b",
+            seed=7,
+            arm="no_prior",
+            loss=None,
+            target_time=None,
+            target_evals=None,
+            decision_policy=policy,
+            has_feasible=False,
+        ),
+        _causal_record(
+            topology="topology-b",
+            seed=7,
+            arm="semantic_prior",
+            loss=None,
+            target_time=None,
+            target_evals=None,
+            decision_policy=policy,
+            has_feasible=False,
+        ),
+    ]
+    expected_configs = {record["run_id"]: record["config"] for record in records}
+
+    decision = summarize_records(records, expected_configs)[
+        "semantic_prior_vs_no_prior"
+    ]["predeclared_decision"]
+
+    assert decision["status"] == "failed"
+    neither_guard = decision["routes"]["finite_feasibility_dominance"][
+        "criteria"
+    ]["neither_finite_feasible_seed_pairs"]
+    assert neither_guard["observed"] == 1
+    assert neither_guard["passed"] is False
 
 
 def test_pair_summary_rejects_cross_topology_pairing() -> None:
