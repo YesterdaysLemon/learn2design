@@ -246,6 +246,8 @@ def _assert_pair_integrity(
         "target_losses",
         "allow_cpu",
         "evaluation_chunk_size",
+        "require_a100",
+        "jax_compilation_cache_policy",
     )
     for field in paired_config_fields:
         control_value = _required(control_config, field, "control config")

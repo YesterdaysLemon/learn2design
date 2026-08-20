@@ -8,7 +8,6 @@ import math
 import re
 from datetime import UTC, datetime
 
-
 VALID_ARMS = ("adam", "no_prior", "semantic_prior")
 TOPOLOGY_PATTERN = re.compile(r"^[A-H]{9}-[LSDH]{12}$")
 
@@ -28,6 +27,12 @@ def build_plan(
     worker_timeout_seconds: float | None = None,
     topology_panel: dict[str, object] | None = None,
     evaluation_chunk_size: int | None = None,
+    require_a100: bool = False,
+    minimum_gpu_memory_mib: int | None = None,
+    max_idle_gpu_memory_mib: int | None = None,
+    max_idle_gpu_utilization_percent: int | None = None,
+    minimum_free_disk_gib: float | None = None,
+    max_session_wall_seconds: float | None = None,
 ) -> dict[str, object]:
     """Build a stable plan with AB/BA-style arm-order rotation."""
     if bool(topology_seeds) == bool(topologies):
@@ -61,6 +66,36 @@ def build_plan(
         )
     if n_frequencies < 1:
         raise ValueError("n_frequencies must be positive")
+    if require_a100 and allow_cpu:
+        raise ValueError("require_a100 and allow_cpu are mutually exclusive")
+    if minimum_gpu_memory_mib is not None and minimum_gpu_memory_mib <= 0:
+        raise ValueError("minimum_gpu_memory_mib must be positive")
+    if max_idle_gpu_memory_mib is not None and max_idle_gpu_memory_mib < 0:
+        raise ValueError("max_idle_gpu_memory_mib must be non-negative")
+    if max_idle_gpu_utilization_percent is not None and not (
+        0 <= max_idle_gpu_utilization_percent <= 100
+    ):
+        raise ValueError(
+            "max_idle_gpu_utilization_percent must be between zero and 100"
+        )
+    if minimum_free_disk_gib is not None and (
+        not math.isfinite(minimum_free_disk_gib) or minimum_free_disk_gib <= 0
+    ):
+        raise ValueError("minimum_free_disk_gib must be finite and positive")
+    if max_session_wall_seconds is not None and (
+        not math.isfinite(max_session_wall_seconds)
+        or max_session_wall_seconds <= 0
+    ):
+        raise ValueError("max_session_wall_seconds must be finite and positive")
+    if not require_a100 and any(
+        value is not None
+        for value in (
+            minimum_gpu_memory_mib,
+            max_idle_gpu_memory_mib,
+            max_idle_gpu_utilization_percent,
+        )
+    ):
+        raise ValueError("GPU rental constraints require require_a100")
     targets = [float(target) for target in (target_losses or [])]
     if any(not math.isfinite(target) for target in targets):
         raise ValueError("target losses must be finite")
@@ -125,10 +160,17 @@ def build_plan(
             "arms": arms,
             "evaluation_chunk_size": evaluation_chunk_size,
             "max_evals": max_evals,
+            "max_idle_gpu_memory_mib": max_idle_gpu_memory_mib,
+            "max_idle_gpu_utilization_percent": max_idle_gpu_utilization_percent,
             "max_time_seconds": max_time_seconds,
+            "max_session_wall_seconds": max_session_wall_seconds,
+            "minimum_free_disk_gib": minimum_free_disk_gib,
+            "minimum_gpu_memory_mib": minimum_gpu_memory_mib,
             "n_frequencies": int(n_frequencies),
             "optimizer_seeds": [int(seed) for seed in optimizer_seeds],
             "population_size": int(population_size),
+            "require_a100": bool(require_a100),
+            "jax_compilation_cache_policy": "disabled",
             "target_losses": sorted(set(targets), reverse=True),
             "topologies": topology_specs,
             "topology_panel": topology_panel,

@@ -8,19 +8,9 @@ The competition asks for an algorithm—not one fixed detector. On each hidden t
 
 **Accelerator-gated candidate stage.** The repository now contains a deterministic submission candidate, a frozen-topology paired UIFO harness, and audited development/confirmation panels. An offline topology-conditioned neural initializer failed its control gate; the smaller semantic archive prior remains only a live-test candidate. A clean RTX 4060 diagnostic found no gross candidate-specific latency tail, but the 8 GB device cannot run the required full-population UIFO comparison. The optimizer has not yet earned a leaderboard or multi-topology performance claim.
 
-The next decisive experiment is the predeclared equal-wall-clock `semantic_prior` versus `no_prior` screen on an otherwise idle A100-class accelerator:
+The next decisive experiment is a predeclared three-arm development screen on one otherwise idle A100 80 GB accelerator. The causal comparison remains `semantic_prior` versus `no_prior`; organizer-style Adam is an orientation arm. The canonical paid-machine command, deployment ladder, recovery procedure, and artifact evacuation checklist live in [`docs/A100_RENTAL_RUNBOOK.md`](docs/A100_RENTAL_RUNBOOK.md).
 
-```bash
-uv run --group integration python tools/run_uifo_paired.py \
-  --topologies-file experiments/uifo_paired/panels/development-v1.json \
-  --official-dataset /path/to/dataset.h5 \
-  --require-archive-exclusion \
-  --optimizer-seeds 7 11 \
-  --max-time 600 \
-  --output artifacts/generated/uifo-development-v1
-```
-
-The semantic prior is promoted only if it survives the frozen confirmation rule in `research/2026-08-19-accelerator-evaluation-plan.md`; otherwise the no-prior arm remains the honest candidate.
+This plan contains 96 serial runs and 16 scored Objective-hours. Persistent JAX compilation caching is forcibly disabled because compilation occurs inside the scored clock; cross-process cache reuse would bias later arms. The semantic prior is promoted only if it survives the frozen confirmation rule in `research/2026-08-19-accelerator-evaluation-plan.md`; otherwise the no-prior arm remains the honest candidate.
 
 ## Build the current candidate
 

@@ -2,25 +2,33 @@ from __future__ import annotations
 
 import hashlib
 import json
+import platform
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
 
 from experiments.uifo_paired.analysis import summarize_records
 from experiments.uifo_paired.metrics import flatten_histories, summarize_rows
+from experiments.uifo_paired.package import package_study
 from experiments.uifo_paired.plan import build_plan
 from experiments.uifo_paired.runner import (
+    _nvidia_smi_snapshot,
     _orchestrate_locked,
+    _preflight_environment,
     _rebuild_indexes,
+    _recover_orphaned_provisional_results,
+    _rental_preflight,
     _study_lock,
+    _validate_required_a100,
     _validate_resume_manifest,
     atomic_json,
+    cache_disabled_jax_environment,
     orchestrate,
     parse_topology_panel,
 )
-
 
 ROOT = Path(__file__).parents[1]
 
@@ -47,6 +55,182 @@ def test_plan_is_deterministic_and_rotates_arm_order() -> None:
         "no_prior",
     ]
     assert len({run["run_id"] for run in first["runs"]}) == 4
+
+
+def test_rental_plan_binds_accelerator_and_cache_policy() -> None:
+    plan = build_plan(
+        topology_seeds=[1001],
+        topologies=None,
+        optimizer_seeds=[7],
+        arms=["adam", "no_prior", "semantic_prior"],
+        max_time_seconds=600,
+        max_evals=None,
+        population_size=8,
+        n_frequencies=50,
+        require_a100=True,
+        minimum_gpu_memory_mib=75_000,
+        max_idle_gpu_memory_mib=1_000,
+        max_idle_gpu_utilization_percent=5,
+        minimum_free_disk_gib=20,
+        max_session_wall_seconds=22 * 60 * 60,
+    )
+
+    configuration = plan["configuration"]
+    assert configuration["require_a100"] is True
+    assert configuration["minimum_gpu_memory_mib"] == 75_000
+    assert configuration["jax_compilation_cache_policy"] == "disabled"
+    assert configuration["max_session_wall_seconds"] == 22 * 60 * 60
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        build_plan(
+            topology_seeds=[1001],
+            topologies=None,
+            optimizer_seeds=[7],
+            arms=["no_prior", "semantic_prior"],
+            max_time_seconds=60,
+            max_evals=None,
+            population_size=8,
+            n_frequencies=50,
+            allow_cpu=True,
+            require_a100=True,
+        )
+
+
+def test_scored_child_environment_strips_hostile_persistent_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JAX_COMPILATION_CACHE_DIR", "/tmp/untrusted-cache")
+    monkeypatch.setenv("JAX_ENABLE_COMPILATION_CACHE", "true")
+    monkeypatch.setenv("JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS", "0")
+    monkeypatch.setenv("JAX_XLA_GPU_PER_FUSION_AUTOTUNE_CACHE_DIR", "/tmp/other-cache")
+    monkeypatch.setenv("XLA_FLAGS", "--example")
+
+    child = cache_disabled_jax_environment()
+
+    assert child["JAX_ENABLE_COMPILATION_CACHE"] == "false"
+    assert "JAX_COMPILATION_CACHE_DIR" not in child
+    assert "JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS" not in child
+    assert "JAX_XLA_GPU_PER_FUSION_AUTOTUNE_CACHE_DIR" not in child
+    assert child["XLA_FLAGS"] == "--example"
+    assert child["CUDA_CACHE_DISABLE"] == "1"
+
+    monkeypatch.setenv("XLA_FLAGS", "--xla_gpu_kernel_cache_file=/tmp/hostile")
+    with pytest.raises(RuntimeError, match="cache-related XLA_FLAGS"):
+        cache_disabled_jax_environment()
+
+
+def test_rental_preflight_checks_one_idle_80gb_a100(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    snapshot = {
+        "status": "ok",
+        "gpus": [
+            {
+                "index": 0,
+                "uuid": "GPU-test",
+                "name": "NVIDIA A100 80GB PCIe",
+                "driver_version": "575.00",
+                "memory_total_mib": 81_920,
+                "mig_mode_current": "Disabled",
+                "memory_used_mib": 10,
+                "utilization_percent": 0,
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner._nvidia_smi_snapshot",
+        lambda *, include_dynamic: snapshot,
+    )
+    configuration = {
+        "require_a100": True,
+        "minimum_gpu_memory_mib": 75_000,
+        "max_idle_gpu_memory_mib": 1_000,
+        "max_idle_gpu_utilization_percent": 5,
+        "minimum_free_disk_gib": None,
+    }
+
+    result = _rental_preflight(tmp_path, configuration)
+    assert result["gpu_idle"] == snapshot
+
+    snapshot["gpus"][0]["memory_used_mib"] = 2_000
+    with pytest.raises(RuntimeError, match="idle GPU memory"):
+        _rental_preflight(tmp_path, configuration)
+
+    snapshot["gpus"][0]["memory_used_mib"] = 10
+    snapshot["gpus"][0]["mig_mode_current"] = "Enabled"
+    with pytest.raises(RuntimeError, match="MIG mode disabled"):
+        _rental_preflight(tmp_path, configuration)
+
+
+def test_jax_device_gate_requires_exactly_one_a100() -> None:
+    _validate_required_a100(
+        {
+            "backend": "gpu",
+            "device_count": 1,
+            "competition_aligned_a100": True,
+        }
+    )
+    with pytest.raises(RuntimeError, match="exactly one"):
+        _validate_required_a100(
+            {
+                "backend": "gpu",
+                "device_count": 2,
+                "competition_aligned_a100": True,
+            }
+        )
+
+
+def test_nvidia_smi_snapshot_parses_static_and_idle_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner.subprocess.run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=(
+                "0, GPU-abc, NVIDIA A100 80GB PCIe, 575.00, 81920, Disabled, 12, 0\n"
+            ),
+            stderr="",
+        ),
+    )
+
+    snapshot = _nvidia_smi_snapshot(include_dynamic=True)
+
+    assert snapshot["status"] == "ok"
+    assert snapshot["gpus"][0]["uuid"] == "GPU-abc"
+    assert snapshot["gpus"][0]["memory_total_mib"] == 81_920
+    assert snapshot["gpus"][0]["mig_mode_current"] == "Disabled"
+    assert snapshot["gpus"][0]["memory_used_mib"] == 12
+
+
+def test_resume_preflight_uses_new_artifacts_without_overwriting_original(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_run(args, **kwargs):
+        output_path = Path(args[args.index("--preflight-output") + 1])
+        atomic_json(output_path, {"artifact": output_path.name})
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=f"stdout for {output_path.name}",
+            stderr="",
+        )
+
+    monkeypatch.setattr("experiments.uifo_paired.runner.subprocess.run", fake_run)
+
+    _preflight_environment(tmp_path, artifact_stem="preflight")
+    _preflight_environment(tmp_path, artifact_stem="preflight-resume-session")
+
+    original = json.loads((tmp_path / "preflight.json").read_text(encoding="utf-8"))
+    resumed = json.loads(
+        (tmp_path / "preflight-resume-session.json").read_text(encoding="utf-8")
+    )
+    assert original["artifact"] == "preflight.json"
+    assert resumed["artifact"] == "preflight-resume-session.json"
+    assert (tmp_path / "preflight.stdout.log").read_text(encoding="utf-8") == (
+        "stdout for preflight.json"
+    )
 
 
 def test_metrics_use_feasible_nonminimum_member() -> None:
@@ -118,9 +302,7 @@ def test_scalar_mixed_and_ragged_histories_flatten_exactly() -> None:
 
 
 def test_anytime_history_is_reduced_to_fixed_grid() -> None:
-    rows = flatten_histories(
-        [[2.0], [1.0]], [[True], [True]], [2.0, 5.0]
-    )
+    rows = flatten_histories([[2.0], [1.0]], [[True], [True]], [2.0, 5.0])
     summary = summarize_rows(rows, time_grid=[1, 2, 4, 5], eval_grid=[1, 2])
 
     assert summary["anytime_grid"]["time_seconds"] == {
@@ -254,6 +436,205 @@ def test_study_lock_rejects_a_second_writer(tmp_path: Path) -> None:
     assert not (tmp_path / ".study.lock").exists()
 
 
+def test_stale_study_lock_recovery_is_explicit_and_preserved(tmp_path: Path) -> None:
+    lock_path = tmp_path / ".study.lock"
+    atomic_json(
+        lock_path,
+        {
+            "pid": 2_000_000_000,
+            "hostname": platform.node(),
+            "created_utc": "2026-08-19T00:00:00+00:00",
+        },
+    )
+
+    with _study_lock(tmp_path, recover_stale=True):
+        assert lock_path.exists()
+
+    recovered = list((tmp_path / "recovery").glob("stale-study-lock-*.json"))
+    assert len(recovered) == 1
+    assert not lock_path.exists()
+
+
+def test_orphaned_worker_result_is_preserved_before_rerun(tmp_path: Path) -> None:
+    output = tmp_path / "study"
+    runs = output / "runs"
+    histories = output / "histories"
+    runs.mkdir(parents=True)
+    histories.mkdir()
+    config = {"run_id": "run", "arm": "no_prior"}
+    environment = {"backend": "gpu"}
+    atomic_json(
+        runs / "run.json",
+        {
+            "format_version": 1,
+            "run_id": "run",
+            "status": "complete",
+            "config": config,
+            "environment": environment,
+        },
+    )
+    (histories / "run.npz").write_bytes(b"provisional")
+
+    _recover_orphaned_provisional_results(output, {"run": config}, environment)
+
+    assert not (runs / "run.json").exists()
+    assert not (histories / "run.npz").exists()
+    recovery = output / "recovery" / "orphaned-workers" / "run"
+    assert len(list(recovery.glob("*.json"))) == 1
+    assert len(list(recovery.glob("*.npz"))) == 1
+
+
+def test_completed_study_packages_deterministically(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    study = tmp_path / "study"
+    runs_dir = study / "runs"
+    runs_dir.mkdir(parents=True)
+    histories_dir = study / "histories"
+    histories_dir.mkdir()
+    run = {
+        "planned_run_index": 0,
+        "run_id": "pair__adam",
+        "pair_id": "pair",
+        "run_order_within_pair": 0,
+        "topology": {"kind": "seed", "value": 1},
+        "optimizer_seed": 7,
+        "arm": "adam",
+    }
+    configuration = {
+        "allow_cpu": False,
+        "evaluation_chunk_size": None,
+        "max_evals": None,
+        "max_time_seconds": 60,
+        "n_frequencies": 50,
+        "population_size": 8,
+        "require_a100": True,
+        "jax_compilation_cache_policy": "disabled",
+        "target_losses": [1.0],
+    }
+    environment = {
+        "backend": "gpu",
+        "jax_runtime_configuration": {
+            "compilation_cache_dir": None,
+            "enable_compilation_cache": False,
+        },
+    }
+    manifest = {
+        "format_version": 1,
+        "plan_id": "plan",
+        "project_revision": "revision",
+        "configuration": configuration,
+        "runs": [run],
+        "environment": environment,
+        "runtime_policy": {
+            "jax_compilation_cache": {
+                "policy": "disabled",
+                "effective_environment": {
+                    "CUDA_CACHE_DISABLE": "1",
+                    "JAX_COMPILATION_CACHE_DIR": None,
+                    "JAX_ENABLE_COMPILATION_CACHE": "false",
+                    "XLA_FLAGS": None,
+                },
+            }
+        },
+    }
+    atomic_json(study / "manifest.json", manifest)
+    config = {
+        **run,
+        "allow_cpu": False,
+        "evaluation_chunk_size": None,
+        "max_evals": None,
+        "max_time_seconds": 60,
+        "n_frequencies": 50,
+        "population_size": 8,
+        "require_a100": True,
+        "jax_compilation_cache_policy": "disabled",
+        "target_losses": [1.0],
+    }
+    topology = "test-topology"
+    atomic_json(
+        runs_dir / "pair__adam.json",
+        {
+            "format_version": 1,
+            "run_id": "pair__adam",
+            "status": "complete",
+            "config": config,
+            "environment": environment,
+            "metrics": {"has_feasible": True, "best_feasible_loss": 1.0},
+            "problem": {
+                "topology_sha256": hashlib.sha256(topology.encode()).hexdigest(),
+                "topology_string": topology,
+                "spec": {},
+                "n_params": 1,
+            },
+        },
+    )
+    (histories_dir / "pair__adam.npz").write_bytes(b"compressed-history")
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner.validate_completed_record",
+        lambda *args, **kwargs: None,
+    )
+
+    first = package_study(study, tmp_path / "first.zip")
+    second = package_study(study, tmp_path / "second.zip")
+
+    assert first["archive"]["sha256"] == second["archive"]["sha256"]
+    assert (tmp_path / "first.zip.sha256").is_file()
+    assert (tmp_path / "first.zip.manifest.json").is_file()
+    with zipfile.ZipFile(tmp_path / "first.zip") as archive:
+        assert archive.testzip() is None
+        assert "manifest.json" in archive.namelist()
+        assert (
+            archive.getinfo("histories/pair__adam.npz").compress_type
+            == zipfile.ZIP_STORED
+        )
+        assert "runs.jsonl" in archive.namelist()
+        assert "summary.json" in archive.namelist()
+
+
+def test_session_wall_limit_stops_before_launching_another_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = build_plan(
+        topology_seeds=[1001],
+        topologies=None,
+        optimizer_seeds=[7],
+        arms=["adam"],
+        max_time_seconds=60,
+        max_evals=None,
+        population_size=8,
+        n_frequencies=50,
+        max_session_wall_seconds=1e-9,
+    )
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner._git",
+        lambda *args: "revision" if args == ("rev-parse", "HEAD") else "",
+    )
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner._rental_preflight",
+        lambda output_dir, configuration: {"status": "test"},
+    )
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner._preflight_environment",
+        lambda output_dir, subprocess_environment=None, artifact_stem="preflight": {
+            "backend": "gpu",
+            "device_count": 1,
+            "competition_aligned_a100": True,
+            "jax_runtime_configuration": {
+                "compilation_cache_dir": None,
+                "enable_compilation_cache": False,
+            },
+        },
+    )
+
+    exit_code = _orchestrate_locked(plan, tmp_path, resume=False)
+
+    assert exit_code == 2
+    session = json.loads((tmp_path / "session.json").read_text(encoding="utf-8"))
+    assert session["status"] == "wall_limit_reached"
+    assert not list((tmp_path / "runs").glob("*.json"))
+
+
 def test_manifestless_nonempty_study_is_never_adopted(tmp_path: Path) -> None:
     (tmp_path / "runs").mkdir()
     with pytest.raises(RuntimeError, match="without its manifest"):
@@ -325,6 +706,8 @@ def test_pair_summary_averages_seeds_within_topology() -> None:
                         "target_losses": [],
                         "allow_cpu": False,
                         "evaluation_chunk_size": None,
+                        "require_a100": False,
+                        "jax_compilation_cache_policy": "disabled",
                     },
                     "metrics": {
                         "has_feasible": True,
@@ -376,9 +759,7 @@ def test_pair_summary_averages_seeds_within_topology() -> None:
     # Topology A contributes its mean (-1.5) once; topology B contributes +1.
     assert paired["topology_macro_mean_difference"] == pytest.approx(-0.25)
 
-    expected_configs = {
-        record["run_id"]: record["config"] for record in records
-    }
+    expected_configs = {record["run_id"]: record["config"] for record in records}
     for arm in ("no_prior", "semantic_prior"):
         expected_configs[f"topology-b-11-{arm}"] = {
             **records[-1]["config"],
@@ -386,9 +767,7 @@ def test_pair_summary_averages_seeds_within_topology() -> None:
             "pair_id": "topology-b-11",
             "optimizer_seed": 11,
         }
-    planned = summarize_records(records, expected_configs)[
-        "semantic_prior_vs_no_prior"
-    ]
+    planned = summarize_records(records, expected_configs)["semantic_prior_vs_no_prior"]
     assert planned["complete_topologies"] == 1
     assert len(planned["incomplete_topologies"]) == 1
     assert planned["promotion_inference_ready"] is False
@@ -420,6 +799,8 @@ def test_pair_summary_rejects_cross_topology_pairing() -> None:
                     "target_losses": [],
                     "allow_cpu": False,
                     "evaluation_chunk_size": None,
+                    "require_a100": False,
+                    "jax_compilation_cache_policy": "disabled",
                 },
                 "metrics": {"has_feasible": True, "best_feasible_loss": 1.0},
                 "problem": {
@@ -438,14 +819,10 @@ def test_pair_summary_rejects_cross_topology_pairing() -> None:
                     "kwargs": {"use_semantic_prior": use_prior},
                 },
                 "initial_population_roles": (
-                    ["anchor", "semantic_prior"]
-                    if use_prior
-                    else ["anchor", "random"]
+                    ["anchor", "semantic_prior"] if use_prior else ["anchor", "random"]
                 ),
                 "initial_parameter_hashes": (
-                    ["anchor", "prior"]
-                    if use_prior
-                    else ["anchor", "random"]
+                    ["anchor", "prior"] if use_prior else ["anchor", "random"]
                 ),
             }
         )
@@ -470,6 +847,11 @@ def test_resume_manifest_rejects_revision_drift() -> None:
     existing = {**existing, "environment": {"jax": "old"}}
     current = {**existing, "environment": {"jax": "new"}}
     with pytest.raises(RuntimeError, match="environment"):
+        _validate_resume_manifest(existing, current)
+
+    existing = {**existing, "runtime_policy": {"cache": "disabled"}}
+    current = {**existing, "runtime_policy": {"cache": "enabled"}}
+    with pytest.raises(RuntimeError, match="runtime_policy"):
         _validate_resume_manifest(existing, current)
 
 
