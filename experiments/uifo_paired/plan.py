@@ -8,6 +8,8 @@ import math
 import re
 from datetime import UTC, datetime
 
+from experiments.uifo_paired.study_profiles import bind_study_profile
+
 VALID_ARMS = ("adam", "no_prior", "semantic_prior")
 TOPOLOGY_PATTERN = re.compile(r"^[A-H]{9}-[LSDH]{12}$")
 
@@ -33,6 +35,8 @@ def build_plan(
     max_idle_gpu_utilization_percent: int | None = None,
     minimum_free_disk_gib: float | None = None,
     max_session_wall_seconds: float | None = None,
+    max_worker_failures: int = 1,
+    study_profile: str | None = None,
 ) -> dict[str, object]:
     """Build a stable plan with AB/BA-style arm-order rotation."""
     if bool(topology_seeds) == bool(topologies):
@@ -87,6 +91,8 @@ def build_plan(
         or max_session_wall_seconds <= 0
     ):
         raise ValueError("max_session_wall_seconds must be finite and positive")
+    if max_worker_failures < 1:
+        raise ValueError("max_worker_failures must be positive")
     if not require_a100 and any(
         value is not None
         for value in (
@@ -154,29 +160,45 @@ def build_plan(
                 )
             pair_index += 1
 
+    configuration = {
+        "allow_cpu": bool(allow_cpu),
+        "arms": arms,
+        "evaluation_chunk_size": evaluation_chunk_size,
+        "max_evals": max_evals,
+        "max_idle_gpu_memory_mib": max_idle_gpu_memory_mib,
+        "max_idle_gpu_utilization_percent": max_idle_gpu_utilization_percent,
+        "max_time_seconds": max_time_seconds,
+        "max_session_wall_seconds": max_session_wall_seconds,
+        "max_worker_failures": int(max_worker_failures),
+        "minimum_free_disk_gib": minimum_free_disk_gib,
+        "minimum_gpu_memory_mib": minimum_gpu_memory_mib,
+        "n_frequencies": int(n_frequencies),
+        "optimizer_seeds": [int(seed) for seed in optimizer_seeds],
+        "population_size": int(population_size),
+        "require_a100": bool(require_a100),
+        "jax_compilation_cache_policy": "disabled",
+        "target_losses": sorted(set(targets), reverse=True),
+        "topologies": topology_specs,
+        "topology_panel": topology_panel,
+        "worker_timeout_seconds": float(worker_timeout_seconds),
+        "study_profile": study_profile,
+    }
+    configuration["decision_policy"] = bind_study_profile(study_profile, configuration)
+    primary_order = primary_pair_order_counts(runs)
+    if study_profile:
+        expected_pairs = len(topology_specs) * len(optimizer_seeds)
+        if (
+            primary_order["complete_primary_pairs"] != expected_pairs
+            or primary_order["absolute_imbalance"] != 0
+        ):
+            raise ValueError(
+                f"study profile {study_profile!r} has an incomplete or imbalanced "
+                "primary arm order"
+            )
     core = {
-        "configuration": {
-            "allow_cpu": bool(allow_cpu),
-            "arms": arms,
-            "evaluation_chunk_size": evaluation_chunk_size,
-            "max_evals": max_evals,
-            "max_idle_gpu_memory_mib": max_idle_gpu_memory_mib,
-            "max_idle_gpu_utilization_percent": max_idle_gpu_utilization_percent,
-            "max_time_seconds": max_time_seconds,
-            "max_session_wall_seconds": max_session_wall_seconds,
-            "minimum_free_disk_gib": minimum_free_disk_gib,
-            "minimum_gpu_memory_mib": minimum_gpu_memory_mib,
-            "n_frequencies": int(n_frequencies),
-            "optimizer_seeds": [int(seed) for seed in optimizer_seeds],
-            "population_size": int(population_size),
-            "require_a100": bool(require_a100),
-            "jax_compilation_cache_policy": "disabled",
-            "target_losses": sorted(set(targets), reverse=True),
-            "topologies": topology_specs,
-            "topology_panel": topology_panel,
-            "worker_timeout_seconds": float(worker_timeout_seconds),
-        },
+        "configuration": configuration,
         "run_order_policy": "rotate arms once per topology-seed pair",
+        "primary_pair_order": primary_order,
         "runs": runs,
     }
     plan_id = hashlib.sha256(
@@ -197,3 +219,35 @@ def _pair_id(topology_spec: dict[str, object], optimizer_seed: int) -> str:
         digest = hashlib.sha256(str(topology_spec["value"]).encode()).hexdigest()[:12]
         topology_id = f"topo{digest}"
     return f"{topology_id}__oseed{int(optimizer_seed):010d}"
+
+
+def primary_pair_order_counts(runs: list[dict[str, object]]) -> dict[str, int]:
+    """Count the pairwise order of the causal arms, ignoring optional arms."""
+    by_pair: dict[str, list[dict[str, object]]] = {}
+    for run in runs:
+        arm = str(run["arm"])
+        if arm not in {"no_prior", "semantic_prior"}:
+            continue
+        by_pair.setdefault(str(run["pair_id"]), []).append(run)
+
+    control_first = 0
+    treatment_first = 0
+    complete_pairs = 0
+    for pair_runs in by_pair.values():
+        positions = {
+            str(run["arm"]): int(run["run_order_within_pair"])
+            for run in pair_runs
+        }
+        if set(positions) != {"no_prior", "semantic_prior"}:
+            continue
+        complete_pairs += 1
+        if positions["no_prior"] < positions["semantic_prior"]:
+            control_first += 1
+        else:
+            treatment_first += 1
+    return {
+        "complete_primary_pairs": complete_pairs,
+        "no_prior_first": control_first,
+        "semantic_prior_first": treatment_first,
+        "absolute_imbalance": abs(control_first - treatment_first),
+    }

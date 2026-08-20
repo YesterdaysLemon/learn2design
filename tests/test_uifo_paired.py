@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import platform
 import subprocess
 import sys
@@ -31,6 +32,77 @@ from experiments.uifo_paired.runner import (
 )
 
 ROOT = Path(__file__).parents[1]
+
+
+def _causal_record(
+    *,
+    topology: str,
+    seed: int,
+    arm: str,
+    loss: float | None,
+    target_time: float | None,
+    target_evals: int | None,
+    decision_policy: dict[str, object] | None = None,
+    has_feasible: bool = True,
+) -> dict[str, object]:
+    use_prior = arm == "semantic_prior"
+    pair_id = f"{topology}-{seed}"
+    config = {
+        "arm": arm,
+        "pair_id": pair_id,
+        "optimizer_seed": seed,
+        "topology": {"kind": "string", "value": topology},
+        "max_evals": None,
+        "max_time_seconds": 600,
+        "population_size": 3,
+        "n_frequencies": 50,
+        "target_losses": [1.0],
+        "allow_cpu": False,
+        "evaluation_chunk_size": None,
+        "require_a100": True,
+        "jax_compilation_cache_policy": "disabled",
+    }
+    if decision_policy is not None:
+        config["study_profile"] = "test-profile"
+        config["decision_policy"] = decision_policy
+    return {
+        "run_id": f"{pair_id}-{arm}",
+        "status": "complete",
+        "config": config,
+        "metrics": {
+            "has_feasible": has_feasible,
+            "best_feasible_loss": loss,
+            "targets": {
+                "1": {"time_seconds": target_time, "eval_count": target_evals}
+            },
+            "last_logged_time_seconds": 600.0,
+            "last_logged_eval_count": 1_000,
+        },
+        "problem": {
+            "topology_sha256": hashlib.sha256(topology.encode()).hexdigest(),
+            "topology_string": topology,
+            "spec": {"kind": "test"},
+            "n_params": 2,
+        },
+        "environment": {"backend": "test"},
+        "objective_configuration": {"save": ["batched_loss"]},
+        "algorithm": {
+            "module": "submission.submission",
+            "class": "BatchedRestartAdam",
+            "algorithm_str": "batched_restart_adam",
+            "kwargs": {"use_semantic_prior": use_prior, "random_seed": seed},
+        },
+        "initial_population_roles": (
+            ["anchor", "semantic_prior", "random"]
+            if use_prior
+            else ["anchor", "random", "random"]
+        ),
+        "initial_parameter_hashes": (
+            ["anchor", "prior", "random-2"]
+            if use_prior
+            else ["anchor", "random-1", "random-2"]
+        ),
+    }
 
 
 def test_plan_is_deterministic_and_rotates_arm_order() -> None:
@@ -94,6 +166,116 @@ def test_rental_plan_binds_accelerator_and_cache_policy() -> None:
             allow_cpu=True,
             require_a100=True,
         )
+
+
+def test_frozen_development_profile_is_two_arm_and_order_balanced() -> None:
+    panel = json.loads(
+        (ROOT / "experiments/uifo_paired/panels/development-v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    plan = build_plan(
+        topology_seeds=None,
+        topologies=panel["topologies"],
+        optimizer_seeds=[7, 11],
+        arms=["no_prior", "semantic_prior"],
+        max_time_seconds=600,
+        max_evals=None,
+        population_size=8,
+        n_frequencies=50,
+        target_losses=[4.0, 1.0, 0.5, 0.0],
+        worker_timeout_seconds=1_200,
+        topology_panel={
+            "panel_id": "development-v1",
+            "topology_count": 16,
+            "archive_exclusion_verified": True,
+        },
+        require_a100=True,
+        minimum_gpu_memory_mib=75_000,
+        max_idle_gpu_memory_mib=1_000,
+        max_idle_gpu_utilization_percent=5,
+        minimum_free_disk_gib=20,
+        max_session_wall_seconds=16 * 60 * 60,
+        max_worker_failures=2,
+        study_profile="development-v2",
+    )
+
+    assert len(plan["runs"]) == 64
+    assert plan["primary_pair_order"] == {
+        "complete_primary_pairs": 32,
+        "no_prior_first": 16,
+        "semantic_prior_first": 16,
+        "absolute_imbalance": 0,
+    }
+    assert plan["configuration"]["decision_policy"]["policy_id"] == (
+        "semantic-prior-development-v2"
+    )
+
+    with pytest.raises(ValueError, match="requires arms"):
+        build_plan(
+            topology_seeds=None,
+            topologies=panel["topologies"],
+            optimizer_seeds=[7, 11],
+            arms=["adam", "no_prior", "semantic_prior"],
+            max_time_seconds=600,
+            max_evals=None,
+            population_size=8,
+            n_frequencies=50,
+            target_losses=[4.0, 1.0, 0.5, 0.0],
+            worker_timeout_seconds=1_200,
+            topology_panel={
+                "panel_id": "development-v1",
+                "topology_count": 16,
+                "archive_exclusion_verified": True,
+            },
+            require_a100=True,
+            minimum_gpu_memory_mib=75_000,
+            max_idle_gpu_memory_mib=1_000,
+            max_idle_gpu_utilization_percent=5,
+            minimum_free_disk_gib=20,
+            max_session_wall_seconds=16 * 60 * 60,
+            max_worker_failures=2,
+            study_profile="development-v2",
+        )
+
+
+def test_frozen_confirmation_profile_binds_longer_disjoint_panel() -> None:
+    panel = json.loads(
+        (ROOT / "experiments/uifo_paired/panels/confirmation-v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    plan = build_plan(
+        topology_seeds=None,
+        topologies=panel["topologies"],
+        optimizer_seeds=[7, 11],
+        arms=["no_prior", "semantic_prior"],
+        max_time_seconds=1_800,
+        max_evals=None,
+        population_size=8,
+        n_frequencies=50,
+        target_losses=[4.0, 1.0, 0.5, 0.0],
+        worker_timeout_seconds=3_000,
+        topology_panel={
+            "panel_id": "confirmation-v1",
+            "topology_count": 12,
+            "archive_exclusion_verified": True,
+        },
+        require_a100=True,
+        minimum_gpu_memory_mib=75_000,
+        max_idle_gpu_memory_mib=1_000,
+        max_idle_gpu_utilization_percent=5,
+        minimum_free_disk_gib=20,
+        max_session_wall_seconds=16 * 60 * 60,
+        max_worker_failures=2,
+        study_profile="confirmation-v1",
+    )
+
+    assert len(plan["runs"]) == 48
+    assert plan["primary_pair_order"]["absolute_imbalance"] == 0
+    assert plan["configuration"]["decision_policy"][
+        "require_bootstrap_mean_ci_upper_below_zero"
+    ] is True
 
 
 def test_scored_child_environment_strips_hostile_persistent_cache(
@@ -584,12 +766,71 @@ def test_completed_study_packages_deterministically(
     with zipfile.ZipFile(tmp_path / "first.zip") as archive:
         assert archive.testzip() is None
         assert "manifest.json" in archive.namelist()
+        assert "package-state.json" in archive.namelist()
+        assert json.loads(archive.read("package-state.json"))["study_complete"]
         assert (
             archive.getinfo("histories/pair__adam.npz").compress_type
             == zipfile.ZIP_STORED
         )
         assert "runs.jsonl" in archive.namelist()
         assert "summary.json" in archive.namelist()
+
+    second_run = {
+        **run,
+        "planned_run_index": 1,
+        "run_id": "missing__adam",
+        "pair_id": "missing",
+    }
+    manifest["runs"].append(second_run)
+    atomic_json(study / "manifest.json", manifest)
+    with pytest.raises(RuntimeError, match="missing run"):
+        package_study(study, tmp_path / "refused-partial.zip")
+    partial = package_study(
+        study, tmp_path / "partial.zip", allow_incomplete=True
+    )
+    assert partial["study_complete"] is False
+    assert partial["planned_runs"] == 2
+    assert partial["completed_runs"] == 1
+    assert partial["incomplete_runs"] == [
+        {"run_id": "missing__adam", "status": "missing"}
+    ]
+
+
+def test_lightweight_index_rebuild_skips_revalidating_old_histories(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runs_dir = tmp_path / "runs"
+    runs_dir.mkdir()
+    config = {
+        "run_id": "run",
+        "arm": "adam",
+        "pair_id": "pair",
+        "topology": {"kind": "seed", "value": 1},
+    }
+    atomic_json(
+        runs_dir / "run.json",
+        {
+            "run_id": "run",
+            "status": "complete",
+            "config": config,
+            "problem": {"topology_sha256": "topology"},
+            "metrics": {"has_feasible": True, "best_feasible_loss": 1.0},
+        },
+    )
+    calls = []
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner.validate_completed_record",
+        lambda *args, **kwargs: calls.append(args),
+    )
+
+    _rebuild_indexes(
+        tmp_path,
+        {"run": config},
+        {"backend": "gpu"},
+        validate_complete_records=False,
+    )
+
+    assert calls == []
 
 
 def test_session_wall_limit_stops_before_launching_another_worker(
@@ -633,6 +874,60 @@ def test_session_wall_limit_stops_before_launching_another_worker(
     session = json.loads((tmp_path / "session.json").read_text(encoding="utf-8"))
     assert session["status"] == "wall_limit_reached"
     assert not list((tmp_path / "runs").glob("*.json"))
+
+
+def test_orchestrator_preserves_one_failure_and_stops_at_predeclared_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = build_plan(
+        topology_seeds=[1001, 1002, 1003],
+        topologies=None,
+        optimizer_seeds=[7],
+        arms=["adam"],
+        max_time_seconds=60,
+        max_evals=None,
+        population_size=8,
+        n_frequencies=50,
+        max_worker_failures=2,
+    )
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner._git",
+        lambda *args: "revision" if args == ("rev-parse", "HEAD") else "",
+    )
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner._rental_preflight",
+        lambda output_dir, configuration: {"status": "test"},
+    )
+    monkeypatch.setattr(
+        "experiments.uifo_paired.runner._preflight_environment",
+        lambda output_dir, subprocess_environment=None, artifact_stem="preflight": {
+            "backend": "gpu",
+            "device_count": 1,
+            "competition_aligned_a100": True,
+            "jax_runtime_configuration": {
+                "compilation_cache_dir": None,
+                "enable_compilation_cache": False,
+            },
+        },
+    )
+    launched = []
+
+    def fail_worker(*args, **kwargs):
+        launched.append(args)
+        return subprocess.CompletedProcess(args=args, returncode=1, stdout="", stderr="")
+
+    monkeypatch.setattr("experiments.uifo_paired.runner.subprocess.run", fail_worker)
+
+    exit_code = _orchestrate_locked(plan, tmp_path, resume=False)
+
+    assert exit_code == 1
+    assert len(launched) == 2
+    records = list((tmp_path / "runs").glob("*.json"))
+    assert len(records) == 2
+    assert all(
+        json.loads(path.read_text(encoding="utf-8"))["status"] == "error"
+        for path in records
+    )
 
 
 def test_manifestless_nonempty_study_is_never_adopted(tmp_path: Path) -> None:
@@ -772,6 +1067,187 @@ def test_pair_summary_averages_seeds_within_topology() -> None:
     assert len(planned["incomplete_topologies"]) == 1
     assert planned["promotion_inference_ready"] is False
     assert planned["topology_macro_mean_difference"] == pytest.approx(-1.5)
+
+
+def test_predeclared_decision_and_threshold_claim_use_topology_inference() -> None:
+    policy = {
+        "policy_id": "test-policy",
+        "study_profile": "test-profile",
+        "stage": "test",
+        "action_if_passed": "advance",
+        "action_if_failed": "stop",
+        "minimum_semantic_prior_topology_wins": 1,
+        "minimum_practical_median_loss_reduction": 0.05,
+        "maximum_no_prior_only_seed_pairs": 0,
+        "maximum_topology_p90_regret": 0.5,
+        "require_bootstrap_mean_ci_upper_below_zero": True,
+        "require_complete_uncensored_panel": True,
+        "inference_unit": "topology",
+    }
+    records = []
+    for seed in (7, 11):
+        records.extend(
+            [
+                _causal_record(
+                    topology="topology-a",
+                    seed=seed,
+                    arm="no_prior",
+                    loss=2.0,
+                    target_time=10.0,
+                    target_evals=100,
+                    decision_policy=policy,
+                ),
+                _causal_record(
+                    topology="topology-a",
+                    seed=seed,
+                    arm="semantic_prior",
+                    loss=1.0,
+                    target_time=1.0,
+                    target_evals=10,
+                    decision_policy=policy,
+                ),
+            ]
+        )
+    expected_configs = {record["run_id"]: record["config"] for record in records}
+
+    paired = summarize_records(records, expected_configs)[
+        "semantic_prior_vs_no_prior"
+    ]
+
+    assert paired["predeclared_decision"]["status"] == "passed"
+    assert paired["predeclared_decision"]["action"] == "advance"
+    threshold = paired["target_hitting_time_inference"]["targets"]["1"]
+    assert threshold["topology_inference_ready"] is True
+    assert threshold["topology_macro_mean_log10_time_ratio"] == pytest.approx(-1)
+    assert threshold["topology_macro_mean_log10_eval_ratio"] == pytest.approx(-1)
+    assert threshold["order_of_magnitude_claim_ready"] is True
+
+
+def test_unreached_threshold_remains_censored_and_cannot_support_speedup() -> None:
+    records = []
+    for seed in (7, 11):
+        records.extend(
+            [
+                _causal_record(
+                    topology="topology-a",
+                    seed=seed,
+                    arm="no_prior",
+                    loss=2.0,
+                    target_time=10.0,
+                    target_evals=100,
+                ),
+                _causal_record(
+                    topology="topology-a",
+                    seed=seed,
+                    arm="semantic_prior",
+                    loss=1.0,
+                    target_time=None if seed == 11 else 1.0,
+                    target_evals=None if seed == 11 else 10,
+                ),
+            ]
+        )
+    expected_configs = {record["run_id"]: record["config"] for record in records}
+
+    threshold = summarize_records(records, expected_configs)[
+        "semantic_prior_vs_no_prior"
+    ]["target_hitting_time_inference"]["targets"]["1"]
+
+    assert threshold["topology_inference_ready"] is False
+    assert threshold["finite_comparable_topologies"] == 0
+    assert threshold["seed_pair_outcomes"]["no_prior_only"] == 1
+    assert threshold["order_of_magnitude_claim_ready"] is False
+
+
+def test_semantic_only_threshold_hit_uses_conservative_censoring_bound() -> None:
+    records = []
+    for seed in (7, 11):
+        records.extend(
+            [
+                _causal_record(
+                    topology="topology-a",
+                    seed=seed,
+                    arm="no_prior",
+                    loss=2.0,
+                    target_time=None,
+                    target_evals=None,
+                ),
+                _causal_record(
+                    topology="topology-a",
+                    seed=seed,
+                    arm="semantic_prior",
+                    loss=1.0,
+                    target_time=1.0,
+                    target_evals=10,
+                ),
+            ]
+        )
+    expected_configs = {record["run_id"]: record["config"] for record in records}
+
+    threshold = summarize_records(records, expected_configs)[
+        "semantic_prior_vs_no_prior"
+    ]["target_hitting_time_inference"]["targets"]["1"]
+
+    assert threshold["topology_inference_ready"] is True
+    assert threshold["seed_pair_outcomes"]["semantic_prior_only"] == 2
+    assert threshold["topology_macro_mean_log10_time_ratio"] == pytest.approx(
+        math.log10(1 / 600)
+    )
+    assert threshold["topology_macro_mean_log10_eval_ratio"] == pytest.approx(-2)
+    assert threshold["right_censored_upper_bound_topologies"] == [
+        {"kind": "string", "value": "topology-a"}
+    ]
+    assert threshold["order_of_magnitude_claim_ready"] is True
+
+
+def test_completed_no_feasible_outcome_fails_instead_of_inviting_selective_rerun() -> None:
+    policy = {
+        "policy_id": "test-policy",
+        "study_profile": "test-profile",
+        "stage": "test",
+        "action_if_passed": "advance",
+        "action_if_failed": "stop",
+        "minimum_semantic_prior_topology_wins": 1,
+        "minimum_practical_median_loss_reduction": 0.05,
+        "maximum_no_prior_only_seed_pairs": 0,
+        "maximum_topology_p90_regret": 0.5,
+        "require_bootstrap_mean_ci_upper_below_zero": False,
+        "require_complete_uncensored_panel": True,
+        "inference_unit": "topology",
+    }
+    records = [
+        _causal_record(
+            topology="topology-a",
+            seed=7,
+            arm="no_prior",
+            loss=1.0,
+            target_time=10.0,
+            target_evals=100,
+            decision_policy=policy,
+        ),
+        _causal_record(
+            topology="topology-a",
+            seed=7,
+            arm="semantic_prior",
+            loss=None,
+            target_time=None,
+            target_evals=None,
+            decision_policy=policy,
+            has_feasible=False,
+        ),
+    ]
+    expected_configs = {record["run_id"]: record["config"] for record in records}
+
+    paired = summarize_records(records, expected_configs)[
+        "semantic_prior_vs_no_prior"
+    ]
+
+    assert paired["panel_execution_complete"] is True
+    assert paired["promotion_inference_ready"] is False
+    assert paired["predeclared_decision"]["status"] == "failed"
+    assert paired["predeclared_decision"]["action"] == "stop"
+    assert paired["predeclared_decision"]["criteria"][
+        "no_prior_only_seed_pairs"
+    ]["passed"] is False
 
 
 def test_pair_summary_rejects_cross_topology_pairing() -> None:
