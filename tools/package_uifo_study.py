@@ -17,8 +17,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("study_dir", type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument(
+        "--allow-incomplete",
+        action="store_true",
+        help="package a stopped partial study for recovery; never marks it complete",
+    )
     args = parser.parse_args()
-    result = package_study(args.study_dir, args.output)
+    result = package_study(
+        args.study_dir, args.output, allow_incomplete=args.allow_incomplete
+    )
     print(json.dumps(result, indent=2, sort_keys=True))
 
 

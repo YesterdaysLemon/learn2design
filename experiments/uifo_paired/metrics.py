@@ -170,6 +170,8 @@ def summarize_rows(
         "calls_with_feasible_member": len(feasible_calls),
         "logged_calls": logged_calls,
         "logged_candidates": len(rows),
+        "last_logged_time_seconds": curve[-1]["time_seconds"] if curve else None,
+        "last_logged_eval_count": curve[-1]["eval_count"] if curve else None,
         "targets": hits,
         "anytime_grid": {
             "time_seconds": _grid_snapshot(curve, "time_seconds", time_grid or []),

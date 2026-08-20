@@ -7,7 +7,7 @@ The initial causal comparison is:
 - `no_prior`: feasibility anchor plus seven seeded random population members;
 - `semantic_prior`: the identical initial draw, with member 1 replaced by the checked-in semantic prior.
 
-An optional `adam` arm reproduces the organizer-style single-start Adam loop locally. It lives in this experiment package so importing it does not pull in dfbench's unrelated optional algorithm dependencies.
+An optional `adam` arm reproduces the organizer-style single-start Adam loop locally. It remains available for bounded diagnostics but is not part of the frozen paid primary panel.
 
 The harness never uses `Objective.best_loss` as the score. It saves full batched loss and feasibility histories, then calculates the minimum finite loss among physically feasible candidates.
 
@@ -66,7 +66,9 @@ The harness verifies the pinned 75 MB dataset SHA-256, computes exact topology-s
 
 The frozen `panels/` directory contains development, confirmation, and submission-like panels plus a deterministic audit. Rebuild them with `tools/build_topology_panels.py`; live results never enter panel selection.
 
-Runs are serial and arm order rotates between pairs. Each worker has a host timeout (the Objective budget plus 30 minutes by default), durable stdout/stderr, full-process wall time, a strict JSON record, and an atomic compact NPZ candidate history. The aggregate indexes are rebuilt only after validating every completed artifact against its recorded digest and metrics.
+Runs are serial and arm order rotates between pairs. A frozen study profile validates that the primary pairwise order is balanced, not merely that each arm occupies each marginal position. Each worker has a host timeout (the Objective budget plus 30 minutes by default), durable stdout/stderr, full-process wall time, a strict JSON record, and an atomic compact NPZ candidate history. Existing completed histories are fully revalidated at startup, resume, finalization, and packaging; between workers, the already-validated new record is indexed without reopening every old history or recomputing bootstrap intervals. Final and packaged summaries always include the frozen bootstrap analysis.
+
+The summary collapses optimizer seeds within topology before inference. The predeclared decision has two explicit routes: strict topology-level finite-feasibility dominance, guarded against every reverse seed/topology outcome and harmful observed p90 regret; otherwise, the complete paired-loss gate. Frozen target-loss hits are paired in both wall time and Objective evaluations; unreached thresholds remain explicit censoring. A semantic-only hit can contribute a conservative ratio upper bound using the no-prior arm's last logged time and evaluation count. An order-of-magnitude flag can become true only when every predeclared pair supplies an observed ratio or that conservative upper bound and both topology-bootstrap upper bounds for the log10 ratios are at most -1. No-prior-only and neither-reached pairs cannot pass.
 
 Scored runs launch every isolated worker with persistent JAX compilation caching disabled. The effective cache policy is bound into the manifest, while the inherited host settings are preserved in per-session preflight artifacts. This is required because compilation currently occurs inside the Objective clock. The rental flags can additionally require exactly one A100, disabled MIG mode, minimum physical GPU memory and free disk, maximum idle memory/utilization, a shorter worker timeout, and a total session wall limit. Use the canonical paid-machine procedure in [`docs/A100_RENTAL_RUNBOOK.md`](../../docs/A100_RENTAL_RUNBOOK.md).
 
@@ -88,7 +90,7 @@ Set the idle thresholds from a clean baseline before the run; do not loosen them
 
 The orchestrator refuses a dirty Git tree and refuses to resume if the revision, plan, upstream reference, semantic-prior bytes, runtime versions, backend, or device identity changed. It also rejects stale/foreign run files and concurrent writers. Commit the harness and configuration before consuming accelerator time.
 
-After a clean completion, `tools/package_uifo_study.py` revalidates every run, history, log, and plan membership before writing a deterministic ZIP, SHA-256 sidecar, and package manifest. A hard-kill lock can be recovered only with the explicit `--resume --recover-stale-lock` combination after the owner process is proven dead; the stale lock is preserved under `recovery/`.
+After a clean completion, `tools/package_uifo_study.py` revalidates every run, history, log, and plan membership before writing a deterministic ZIP, SHA-256 sidecar, and package manifest. If a paid machine must be evacuated after the writer has stopped, `--allow-incomplete` writes an explicitly partial package with missing/error run IDs; it cannot pass as a completed study. A hard-kill lock can be recovered only with the explicit `--resume --recover-stale-lock` combination after the owner process is proven dead; the stale lock is preserved under `recovery/`.
 
 Equal-evaluation studies are useful for diagnosing initialization and restarts, but competition-performance claims require equal wall-clock budgets on size-3 UIFO problems. Treat topology identity as the statistical unit; optimizer seeds are repeated measurements.
 

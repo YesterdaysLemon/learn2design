@@ -23,6 +23,7 @@ from pathlib import Path
 from experiments.uifo_paired.analysis import summarize_records
 from experiments.uifo_paired.metrics import flatten_histories, summarize_rows
 from experiments.uifo_paired.plan import VALID_ARMS, build_plan
+from experiments.uifo_paired.study_profiles import profile_names
 
 ROOT = Path(__file__).parents[2]
 UPSTREAM_REFERENCE = "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
@@ -1254,8 +1255,13 @@ def _orchestrate_locked(
                         record, config, history_path, runtime_environment
                     )
 
-            _rebuild_indexes(output_dir, expected_configs, runtime_environment)
-            if failures:
+            _rebuild_indexes(
+                output_dir,
+                expected_configs,
+                runtime_environment,
+                validate_complete_records=False,
+            )
+            if failures >= int(common.get("max_worker_failures", 1)):
                 break
     except KeyboardInterrupt:
         atomic_json(
@@ -1286,7 +1292,7 @@ def _orchestrate_locked(
 
 
 def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, object]:
-    return {
+    config = {
         **run,
         "allow_cpu": common["allow_cpu"],
         "evaluation_chunk_size": common.get("evaluation_chunk_size"),
@@ -1300,6 +1306,10 @@ def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, 
         ),
         "target_losses": common["target_losses"],
     }
+    for key in ("max_worker_failures", "study_profile", "decision_policy"):
+        if key in common:
+            config[key] = common[key]
+    return config
 
 
 def _recover_orphaned_provisional_results(
@@ -1476,6 +1486,8 @@ def _rebuild_indexes(
     output_dir: Path,
     expected_configs: dict[str, dict[str, object]] | None = None,
     expected_environment: dict[str, object] | None = None,
+    *,
+    validate_complete_records: bool = True,
 ) -> None:
     records = []
     for path in sorted((output_dir / "runs").glob("*.json")):
@@ -1490,12 +1502,13 @@ def _rebuild_indexes(
             if strict_json(record.get("config")) != strict_json(expected_config):
                 raise RuntimeError(f"run record configuration mismatch: {run_id}")
             if record.get("status") == "complete":
-                validate_completed_record(
-                    record,
-                    expected_config,
-                    output_dir / "histories" / f"{run_id}.npz",
-                    expected_environment,
-                )
+                if validate_complete_records:
+                    validate_completed_record(
+                        record,
+                        expected_config,
+                        output_dir / "histories" / f"{run_id}.npz",
+                        expected_environment,
+                    )
             elif record.get("status") not in {"error", "interrupted"}:
                 raise RuntimeError(f"invalid run status for {run_id}")
         records.append(record)
@@ -1513,7 +1526,11 @@ def _rebuild_indexes(
 
     atomic_json(
         output_dir / "summary.json",
-        summarize_records(records, expected_configs),
+        summarize_records(
+            records,
+            expected_configs,
+            compute_bootstrap=validate_complete_records,
+        ),
     )
 
 
@@ -1673,6 +1690,8 @@ def main() -> None:
     parser.add_argument("--target-loss", action="append", type=float, default=[])
     parser.add_argument("--worker-timeout", type=float)
     parser.add_argument("--max-session-wall", type=float)
+    parser.add_argument("--max-worker-failures", type=int, default=1)
+    parser.add_argument("--study-profile", choices=profile_names())
     parser.add_argument("--require-a100", action="store_true")
     parser.add_argument("--minimum-gpu-memory-mib", type=int)
     parser.add_argument("--max-idle-gpu-memory-mib", type=int)
@@ -1757,6 +1776,8 @@ def main() -> None:
             max_idle_gpu_utilization_percent=args.max_idle_gpu_utilization,
             minimum_free_disk_gib=args.minimum_free_disk_gib,
             max_session_wall_seconds=args.max_session_wall,
+            max_worker_failures=args.max_worker_failures,
+            study_profile=args.study_profile,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         parser.error(str(error))
