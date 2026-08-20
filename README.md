@@ -12,6 +12,8 @@ The next decisive experiment is a predeclared three-arm development screen on on
 
 This plan contains 96 serial runs and 16 scored Objective-hours. Persistent JAX compilation caching is forcibly disabled because compilation occurs inside the scored clock; cross-process cache reuse would bias later arms. The semantic prior is promoted only if it survives the frozen confirmation rule in `research/2026-08-19-accelerator-evaluation-plan.md`; otherwise the no-prior arm remains the honest candidate.
 
+New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
+
 ## Build the current candidate
 
 Requires Python 3.11–3.13. The contract tests are intentionally light and do not run the expensive physics simulator.
