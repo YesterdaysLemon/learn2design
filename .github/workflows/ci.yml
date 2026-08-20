@@ -32,5 +32,6 @@ jobs:
         with:
           python-version: "3.12"
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --group dev --group integration
+      - run: uv lock --check
+      - run: uv sync --frozen --group dev --group integration
       - run: uv run --group dev --group integration pytest -m integration

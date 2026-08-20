@@ -3,25 +3,26 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
+import csv
 import hashlib
 import importlib.metadata
 import json
 import math
 import os
 import platform
+import shutil
 import subprocess
 import sys
 import time
 import traceback
 import zipfile
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
 from experiments.uifo_paired.analysis import summarize_records
 from experiments.uifo_paired.metrics import flatten_histories, summarize_rows
 from experiments.uifo_paired.plan import VALID_ARMS, build_plan
-
 
 ROOT = Path(__file__).parents[2]
 UPSTREAM_REFERENCE = "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
@@ -55,6 +56,25 @@ BATCHED_SETTINGS = {
     "batch_time_safety_factor": 1.5,
     "batch_time_window": 8,
 }
+JAX_RUNTIME_ENVIRONMENT_KEYS = (
+    "CUDA_CACHE_DISABLE",
+    "CUDA_CACHE_MAXSIZE",
+    "CUDA_CACHE_PATH",
+    "CUDA_VISIBLE_DEVICES",
+    "JAX_COMPILATION_CACHE_EXPECT_PGLE",
+    "JAX_COMPILATION_CACHE_INCLUDE_METADATA_IN_KEY",
+    "JAX_COMPILATION_CACHE_DIR",
+    "JAX_COMPILATION_CACHE_MAX_SIZE",
+    "JAX_ENABLE_COMPILATION_CACHE",
+    "JAX_PERSISTENT_CACHE_ENABLE_XLA_CACHES",
+    "JAX_PERSISTENT_CACHE_MIN_ENTRY_SIZE_BYTES",
+    "JAX_PERSISTENT_CACHE_MIN_COMPILE_TIME_SECS",
+    "JAX_RAISE_PERSISTENT_CACHE_ERRORS",
+    "LD_LIBRARY_PATH",
+    "XLA_FLAGS",
+    "XLA_PYTHON_CLIENT_MEM_FRACTION",
+    "XLA_PYTHON_CLIENT_PREALLOCATE",
+)
 
 
 def atomic_json(path: Path, payload: dict[str, object]) -> None:
@@ -111,21 +131,36 @@ def _package_version(name: str) -> str:
 
 def environment_fingerprint() -> dict[str, object]:
     """Return the runtime/device identity that must remain fixed within a study."""
+    nvidia_smi = _nvidia_smi_snapshot(include_dynamic=False)
     import jax
 
     devices = jax.devices()
-    device_kinds = [str(getattr(device, "device_kind", "unknown")) for device in devices]
+    device_kinds = [
+        str(getattr(device, "device_kind", "unknown")) for device in devices
+    ]
     return {
         "backend": jax.default_backend(),
         "device_count": len(devices),
         "device_kinds": device_kinds,
         "device_platforms": [str(device.platform) for device in devices],
         "devices": [str(device) for device in devices],
-        "competition_aligned_a100": any("A100" in kind.upper() for kind in device_kinds),
+        "competition_aligned_a100": any(
+            "A100" in kind.upper() for kind in device_kinds
+        ),
+        "jax_runtime_environment": {
+            name: os.environ.get(name) for name in JAX_RUNTIME_ENVIRONMENT_KEYS
+        },
+        "jax_runtime_configuration": {
+            "compilation_cache_dir": jax.config.jax_compilation_cache_dir,
+            "enable_compilation_cache": bool(jax.config.jax_enable_compilation_cache),
+        },
+        "nvidia_smi": nvidia_smi,
         "versions": {
             "dfbench": _package_version("dfbench"),
             "differometor": _package_version("differometor"),
             "jax": _package_version("jax"),
+            "jax-cuda12-pjrt": _package_version("jax-cuda12-pjrt"),
+            "jax-cuda12-plugin": _package_version("jax-cuda12-plugin"),
             "jaxlib": _package_version("jaxlib"),
             "optax": _package_version("optax"),
         },
@@ -134,25 +169,270 @@ def environment_fingerprint() -> dict[str, object]:
     }
 
 
+def cache_disabled_jax_environment() -> dict[str, str]:
+    """Return a child environment that cannot reuse persistent JAX executables."""
+    environment = os.environ.copy()
+    xla_flags = environment.get("XLA_FLAGS", "")
+    if "cache" in xla_flags.lower():
+        raise RuntimeError(
+            "scored studies reject cache-related XLA_FLAGS; unset XLA_FLAGS"
+        )
+    for name in tuple(environment):
+        if "CACHE" in name.upper() and name.startswith(("CUDA_", "JAX_")):
+            environment.pop(name, None)
+    environment["JAX_ENABLE_COMPILATION_CACHE"] = "false"
+    environment["CUDA_CACHE_DISABLE"] = "1"
+    _validate_cache_disabled_environment(environment)
+    return environment
+
+
+def _jax_runtime_environment_policy(
+    environment: dict[str, str] | None = None,
+) -> dict[str, str | None]:
+    source = os.environ if environment is None else environment
+    return {name: source.get(name) for name in JAX_RUNTIME_ENVIRONMENT_KEYS}
+
+
+def _validate_cache_disabled_environment(
+    environment: dict[str, str | None],
+) -> None:
+    if str(environment.get("JAX_ENABLE_COMPILATION_CACHE") or "").lower() != "false":
+        raise RuntimeError("scored studies require the persistent JAX cache disabled")
+    if environment.get("JAX_COMPILATION_CACHE_DIR") is not None:
+        raise RuntimeError("scored studies cannot set JAX_COMPILATION_CACHE_DIR")
+    if environment.get("CUDA_CACHE_DISABLE") != "1":
+        raise RuntimeError("scored studies require the CUDA driver cache disabled")
+    allowed_cache_settings = {
+        "CUDA_CACHE_DISABLE",
+        "JAX_ENABLE_COMPILATION_CACHE",
+    }
+    unexpected_cache_settings = sorted(
+        name
+        for name, value in environment.items()
+        if value is not None
+        and "CACHE" in name.upper()
+        and name.startswith(("CUDA_", "JAX_"))
+        and name not in allowed_cache_settings
+    )
+    if unexpected_cache_settings:
+        raise RuntimeError(
+            "scored studies reject cache-related environment settings: "
+            + ", ".join(unexpected_cache_settings)
+        )
+    if "cache" in str(environment.get("XLA_FLAGS") or "").lower():
+        raise RuntimeError("scored studies reject cache-related XLA_FLAGS")
+
+
+def _validate_cache_disabled_runtime(runtime_environment: dict[str, object]) -> None:
+    configuration = runtime_environment.get("jax_runtime_configuration")
+    if not isinstance(configuration, dict):
+        raise RuntimeError("runtime is missing effective JAX cache configuration")
+    if configuration.get("enable_compilation_cache") is not False:
+        raise RuntimeError("effective JAX compilation cache is not disabled")
+    if configuration.get("compilation_cache_dir") is not None:
+        raise RuntimeError("effective JAX compilation cache directory is set")
+
+
+def _nvidia_smi_snapshot(*, include_dynamic: bool) -> dict[str, object]:
+    fields = [
+        "index",
+        "uuid",
+        "name",
+        "driver_version",
+        "memory.total",
+        "mig.mode.current",
+    ]
+    if include_dynamic:
+        fields.extend(["memory.used", "utilization.gpu"])
+    try:
+        completed = subprocess.run(
+            [
+                "nvidia-smi",
+                f"--query-gpu={','.join(fields)}",
+                "--format=csv,noheader,nounits",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return {
+            "status": "unavailable",
+            "error_type": type(error).__name__,
+            "message": str(error),
+        }
+    if completed.returncode != 0:
+        return {
+            "status": "error",
+            "returncode": completed.returncode,
+            "stderr": completed.stderr.strip(),
+        }
+
+    rows = []
+    for values in csv.reader(completed.stdout.splitlines(), skipinitialspace=True):
+        if not values:
+            continue
+        if len(values) != len(fields):
+            return {
+                "status": "error",
+                "message": "unexpected nvidia-smi field count",
+            }
+        row = dict(zip(fields, (value.strip() for value in values), strict=True))
+        try:
+            parsed = {
+                "index": int(row["index"]),
+                "uuid": row["uuid"],
+                "name": row["name"],
+                "driver_version": row["driver_version"],
+                "memory_total_mib": int(row["memory.total"]),
+                "mig_mode_current": row["mig.mode.current"],
+            }
+            if include_dynamic:
+                parsed.update(
+                    {
+                        "memory_used_mib": int(row["memory.used"]),
+                        "utilization_percent": int(row["utilization.gpu"]),
+                    }
+                )
+        except (KeyError, ValueError) as error:
+            return {
+                "status": "error",
+                "message": f"could not parse nvidia-smi output: {error}",
+            }
+        rows.append(parsed)
+    return {"status": "ok", "gpus": rows}
+
+
+def _rental_preflight(
+    output_dir: Path, configuration: dict[str, object]
+) -> dict[str, object]:
+    disk = shutil.disk_usage(output_dir)
+    result: dict[str, object] = {
+        "disk": {
+            "path": str(output_dir.resolve()),
+            "free_bytes": disk.free,
+            "total_bytes": disk.total,
+        },
+        "gpu_idle": _nvidia_smi_snapshot(include_dynamic=True),
+    }
+    minimum_disk = configuration.get("minimum_free_disk_gib")
+    if minimum_disk is not None and disk.free < float(minimum_disk) * 1024**3:
+        raise RuntimeError(
+            f"rental preflight requires at least {minimum_disk} GiB free at "
+            f"{output_dir}; found {disk.free / 1024**3:.2f} GiB"
+        )
+    if not bool(configuration.get("require_a100")):
+        return result
+
+    snapshot = result["gpu_idle"]
+    if not isinstance(snapshot, dict) or snapshot.get("status") != "ok":
+        raise RuntimeError("rental preflight could not query nvidia-smi")
+    gpus = snapshot.get("gpus", [])
+    if not isinstance(gpus, list) or len(gpus) != 1:
+        raise RuntimeError("rental preflight requires exactly one visible GPU")
+    gpu = gpus[0]
+    if "A100" not in str(gpu.get("name", "")).upper():
+        raise RuntimeError("rental preflight requires an NVIDIA A100")
+    if str(gpu.get("mig_mode_current", "")).lower() != "disabled":
+        raise RuntimeError("rental preflight requires MIG mode disabled")
+    minimum_memory = configuration.get("minimum_gpu_memory_mib")
+    if minimum_memory is not None and int(gpu["memory_total_mib"]) < int(
+        minimum_memory
+    ):
+        raise RuntimeError(
+            f"rental preflight requires at least {minimum_memory} MiB GPU memory"
+        )
+    max_memory = configuration.get("max_idle_gpu_memory_mib")
+    if max_memory is not None and int(gpu["memory_used_mib"]) > int(max_memory):
+        raise RuntimeError(
+            f"idle GPU memory {gpu['memory_used_mib']} MiB exceeds {max_memory} MiB"
+        )
+    max_utilization = configuration.get("max_idle_gpu_utilization_percent")
+    if max_utilization is not None and int(gpu["utilization_percent"]) > int(
+        max_utilization
+    ):
+        raise RuntimeError(
+            "idle GPU utilization "
+            f"{gpu['utilization_percent']}% exceeds {max_utilization}%"
+        )
+    return result
+
+
+def _validate_required_a100(runtime_environment: dict[str, object]) -> None:
+    if (
+        runtime_environment.get("backend") != "gpu"
+        or runtime_environment.get("device_count") != 1
+        or not runtime_environment.get("competition_aligned_a100")
+    ):
+        raise RuntimeError("this study requires exactly one JAX-visible NVIDIA A100")
+
+
 def run_preflight(output_path: Path) -> int:
     atomic_json(output_path, environment_fingerprint())
     return 0
 
 
+def _pid_is_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _recover_stale_study_lock(output_dir: Path, lock_path: Path) -> None:
+    try:
+        record = json.loads(lock_path.read_text(encoding="utf-8"))
+        pid = int(record["pid"])
+        hostname = str(record["hostname"])
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+        raise RuntimeError("study lock is malformed; refusing recovery") from error
+    if hostname != platform.node():
+        raise RuntimeError("study lock belongs to a different host; refusing recovery")
+    if _pid_is_alive(pid):
+        raise RuntimeError(f"study lock owner process {pid} is still alive")
+    recovery_dir = output_dir / "recovery"
+    recovery_dir.mkdir(parents=True, exist_ok=True)
+    digest = hashlib.sha256(lock_path.read_bytes()).hexdigest()[:12]
+    recovered = recovery_dir / f"stale-study-lock-{digest}.json"
+    if recovered.exists():
+        raise RuntimeError(f"stale lock recovery artifact already exists: {recovered}")
+    os.replace(lock_path, recovered)
+
+
 @contextmanager
-def _study_lock(output_dir: Path):
+def _study_lock(output_dir: Path, *, recover_stale: bool = False):
     """Prevent concurrent writers from mutating the same study directory."""
     output_dir.mkdir(parents=True, exist_ok=True)
     lock_path = output_dir / ".study.lock"
     try:
         descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError as error:
-        raise RuntimeError(f"study is already locked: {lock_path}") from error
+        if not recover_stale:
+            raise RuntimeError(f"study is already locked: {lock_path}") from error
+        _recover_stale_study_lock(output_dir, lock_path)
+        try:
+            descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError as retry_error:
+            raise RuntimeError(
+                f"study was relocked during recovery: {lock_path}"
+            ) from retry_error
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(
                 json.dumps(
-                    {"pid": os.getpid(), "created_utc": datetime.now(UTC).isoformat()}
+                    {
+                        "pid": os.getpid(),
+                        "hostname": platform.node(),
+                        "created_utc": datetime.now(UTC).isoformat(),
+                    }
                 )
                 + "\n"
             )
@@ -299,9 +579,7 @@ def execute_run(
     )
 
     loss_history = [_host_list(value) for value in objective.loss_history]
-    feasible_history = [
-        _host_list(value) for value in objective.is_feasible_history
-    ]
+    feasible_history = [_host_list(value) for value in objective.is_feasible_history]
     sensitivity_history = [
         _host_list(value) for value in objective.sensitivity_loss_history
     ]
@@ -337,9 +615,7 @@ def execute_run(
     with temporary_history.open("wb") as handle:
         np.savez_compressed(
             handle,
-            call_index=np.asarray(
-                [row["call_index"] for row in rows], dtype=np.int32
-            ),
+            call_index=np.asarray([row["call_index"] for row in rows], dtype=np.int32),
             candidate_index=np.asarray(
                 [row["candidate_index"] for row in rows], dtype=np.int16
             ),
@@ -350,10 +626,7 @@ def execute_run(
                 [row["time_seconds"] for row in rows], dtype=np.float64
             ),
             loss=np.asarray(
-                [
-                    float("nan") if row["loss"] is None else row["loss"]
-                    for row in rows
-                ],
+                [float("nan") if row["loss"] is None else row["loss"] for row in rows],
                 dtype=np.float64,
             ),
             sensitivity_loss=np.asarray(
@@ -524,9 +797,7 @@ def _rows_from_history_arrays(arrays) -> list[dict[str, object]]:
             {
                 "call_index": int(arrays["call_index"][index]),
                 "candidate_index": int(arrays["candidate_index"][index]),
-                "eval_count_after_call": int(
-                    arrays["eval_count_after_call"][index]
-                ),
+                "eval_count_after_call": int(arrays["eval_count_after_call"][index]),
                 "time_seconds": float(arrays["time_seconds"][index]),
                 "loss": (
                     None
@@ -626,9 +897,11 @@ def validate_completed_record(
 
     problem = record.get("problem", {})
     topology_string = str(problem.get("topology_string", ""))
-    if not topology_string or problem.get("topology_sha256") != hashlib.sha256(
-        topology_string.encode()
-    ).hexdigest():
+    if (
+        not topology_string
+        or problem.get("topology_sha256")
+        != hashlib.sha256(topology_string.encode()).hexdigest()
+    ):
         raise RuntimeError("resume topology identity evidence is invalid")
 
     objective_configuration = record.get("objective_configuration", {})
@@ -645,9 +918,10 @@ def validate_completed_record(
     if algorithm_kwargs.get("random_seed") != expected_config["optimizer_seed"]:
         raise RuntimeError("resume algorithm seed mismatch")
     if expected_config["arm"] != "adam":
-        if algorithm_kwargs.get("population_size") != expected_config[
-            "population_size"
-        ]:
+        if (
+            algorithm_kwargs.get("population_size")
+            != expected_config["population_size"]
+        ):
             raise RuntimeError("resume algorithm population mismatch")
         if algorithm_kwargs.get("evaluation_chunk_size") != expected_config.get(
             "evaluation_chunk_size"
@@ -667,9 +941,11 @@ def validate_completed_record(
     if not isinstance(process, dict):
         raise RuntimeError("resume worker-process evidence is missing")
     wall_seconds = process.get("full_wall_seconds")
-    if not isinstance(wall_seconds, (int, float)) or not math.isfinite(
-        wall_seconds
-    ) or wall_seconds < 0:
+    if (
+        not isinstance(wall_seconds, (int, float))
+        or not math.isfinite(wall_seconds)
+        or wall_seconds < 0
+    ):
         raise RuntimeError("resume worker wall time is invalid")
     if process.get("returncode") != 0 or process.get("timed_out") is not False:
         raise RuntimeError("resume complete record has invalid worker exit status")
@@ -699,6 +975,8 @@ def run_worker(config_path: Path, output_path: Path, history_path: Path) -> int:
     }
     try:
         runtime_environment = environment_fingerprint()
+        if config.get("jax_compilation_cache_policy") == "disabled":
+            _validate_cache_disabled_runtime(runtime_environment)
         result = {
             **base,
             **execute_run(config, history_path, runtime_environment),
@@ -735,23 +1013,41 @@ def run_worker(config_path: Path, output_path: Path, history_path: Path) -> int:
         return 1
 
 
-def orchestrate(plan: dict[str, object], output_dir: Path, resume: bool) -> int:
+def orchestrate(
+    plan: dict[str, object],
+    output_dir: Path,
+    resume: bool,
+    subprocess_environment: dict[str, str] | None = None,
+    recover_stale_lock: bool = False,
+) -> int:
     manifest_path = output_dir / "manifest.json"
     if manifest_path.exists() and not resume:
         raise FileExistsError(
             f"study already exists at {output_dir}; pass --resume to continue it"
         )
-    with _study_lock(output_dir):
-        return _orchestrate_locked(plan, output_dir, resume)
+    with _study_lock(output_dir, recover_stale=recover_stale_lock):
+        return _orchestrate_locked(
+            plan,
+            output_dir,
+            resume,
+            subprocess_environment=subprocess_environment,
+        )
 
 
 def _orchestrate_locked(
-    plan: dict[str, object], output_dir: Path, resume: bool
+    plan: dict[str, object],
+    output_dir: Path,
+    resume: bool,
+    subprocess_environment: dict[str, str] | None = None,
 ) -> int:
+    session_started = time.perf_counter()
+    session_started_utc = datetime.now(UTC).isoformat()
     manifest_path = output_dir / "manifest.json"
     if not manifest_path.exists():
         unexpected = [
-            path for path in output_dir.iterdir() if path.name != ".study.lock"
+            path
+            for path in output_dir.iterdir()
+            if path.name not in {".study.lock", "recovery"}
         ]
         if unexpected:
             raise RuntimeError(
@@ -762,13 +1058,46 @@ def _orchestrate_locked(
     if dirty:
         raise RuntimeError("refusing to run an accelerator study from a dirty tree")
 
-    runtime_environment = _preflight_environment(output_dir)
     common = plan["configuration"]
+    child_environment = (
+        cache_disabled_jax_environment()
+        if subprocess_environment is None
+        else subprocess_environment
+    )
+    _validate_cache_disabled_environment(child_environment)
+    inherited_jax_environment = _jax_runtime_environment_policy()
+    effective_jax_environment = _jax_runtime_environment_policy(child_environment)
+    rental_preflight = _rental_preflight(output_dir, common)
+    preflight_stem = "preflight"
+    if manifest_path.exists():
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+        preflight_stem = f"preflight-resume-{timestamp}-{os.getpid()}"
+    atomic_json(
+        output_dir / f"{preflight_stem}.host-environment.json",
+        {
+            "captured_utc": datetime.now(UTC).isoformat(),
+            "inherited_cache_environment": {
+                name: value
+                for name, value in sorted(os.environ.items())
+                if "CACHE" in name.upper() and name.startswith(("CUDA_", "JAX_"))
+            },
+            "inherited_environment": inherited_jax_environment,
+            "effective_environment": effective_jax_environment,
+        },
+    )
+    runtime_environment = _preflight_environment(
+        output_dir,
+        subprocess_environment=child_environment,
+        artifact_stem=preflight_stem,
+    )
+    _validate_cache_disabled_runtime(runtime_environment)
     if runtime_environment["backend"] == "cpu" and not common["allow_cpu"]:
         raise RuntimeError(
             "UIFO evaluation requires an accelerator; pass --allow-cpu only "
             "for an explicitly non-representative mechanics run"
         )
+    if bool(common.get("require_a100")):
+        _validate_required_a100(runtime_environment)
 
     prior_path = ROOT / "submission" / "semantic_prior.json"
     manifest = {
@@ -778,6 +1107,13 @@ def _orchestrate_locked(
         "semantic_prior_canonical_sha256": canonical_text_sha256(prior_path),
         "upstream_reference": UPSTREAM_REFERENCE,
         "environment": runtime_environment,
+        "rental_preflight": rental_preflight,
+        "runtime_policy": {
+            "jax_compilation_cache": {
+                "policy": "disabled",
+                "effective_environment": effective_jax_environment,
+            }
+        },
     }
     if manifest_path.exists():
         _validate_resume_manifest(
@@ -793,10 +1129,20 @@ def _orchestrate_locked(
     for directory in (runs_dir, histories_dir, configs_dir, logs_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
-    expected_configs = {
-        run["run_id"]: _run_config(run, common) for run in plan["runs"]
-    }
+    expected_configs = {run["run_id"]: _run_config(run, common) for run in plan["runs"]}
+    if resume:
+        _recover_orphaned_provisional_results(
+            output_dir, expected_configs, runtime_environment
+        )
     _rebuild_indexes(output_dir, expected_configs, runtime_environment)
+    atomic_json(
+        output_dir / "session.json",
+        {
+            "status": "running",
+            "started_utc": session_started_utc,
+            "max_session_wall_seconds": common.get("max_session_wall_seconds"),
+        },
+    )
 
     failures = 0
     try:
@@ -815,6 +1161,26 @@ def _orchestrate_locked(
 
             config_path = configs_dir / f"{run_id}.json"
             atomic_json(config_path, config)
+            configured_timeout = float(common["worker_timeout_seconds"])
+            session_limit = common.get("max_session_wall_seconds")
+            if session_limit is not None:
+                remaining = float(session_limit) - (
+                    time.perf_counter() - session_started
+                )
+                if remaining < configured_timeout:
+                    atomic_json(
+                        output_dir / "session.json",
+                        {
+                            "status": "wall_limit_reached",
+                            "started_utc": session_started_utc,
+                            "completed_utc": datetime.now(UTC).isoformat(),
+                            "elapsed_seconds": time.perf_counter() - session_started,
+                            "max_session_wall_seconds": session_limit,
+                            "next_run_id": run_id,
+                        },
+                    )
+                    _rebuild_indexes(output_dir, expected_configs, runtime_environment)
+                    return 2
             started = time.perf_counter()
             completed = None
             timed_out = None
@@ -835,7 +1201,8 @@ def _orchestrate_locked(
                     check=False,
                     capture_output=True,
                     text=True,
-                    timeout=float(common["worker_timeout_seconds"]),
+                    timeout=configured_timeout,
+                    env=child_environment,
                 )
             except subprocess.TimeoutExpired as error:
                 timed_out = error
@@ -862,7 +1229,7 @@ def _orchestrate_locked(
                     runtime_environment,
                     process_info,
                     "WorkerTimeout",
-                    f"worker exceeded {common['worker_timeout_seconds']} seconds",
+                    f"worker exceeded {configured_timeout} seconds",
                 )
                 atomic_json(output_path, record)
                 failures += 1
@@ -891,10 +1258,30 @@ def _orchestrate_locked(
             if failures:
                 break
     except KeyboardInterrupt:
+        atomic_json(
+            output_dir / "session.json",
+            {
+                "status": "interrupted",
+                "started_utc": session_started_utc,
+                "completed_utc": datetime.now(UTC).isoformat(),
+                "elapsed_seconds": time.perf_counter() - session_started,
+                "max_session_wall_seconds": common.get("max_session_wall_seconds"),
+            },
+        )
         _rebuild_indexes(output_dir, expected_configs, runtime_environment)
         raise
 
     _rebuild_indexes(output_dir, expected_configs, runtime_environment)
+    atomic_json(
+        output_dir / "session.json",
+        {
+            "status": ("error" if failures else "complete"),
+            "started_utc": session_started_utc,
+            "completed_utc": datetime.now(UTC).isoformat(),
+            "elapsed_seconds": time.perf_counter() - session_started,
+            "max_session_wall_seconds": common.get("max_session_wall_seconds"),
+        },
+    )
     return 1 if failures else 0
 
 
@@ -907,12 +1294,84 @@ def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, 
         "max_time_seconds": common["max_time_seconds"],
         "n_frequencies": common["n_frequencies"],
         "population_size": common["population_size"],
+        "require_a100": common.get("require_a100", False),
+        "jax_compilation_cache_policy": common.get(
+            "jax_compilation_cache_policy", "disabled"
+        ),
         "target_losses": common["target_losses"],
     }
 
 
-def _preflight_environment(output_dir: Path) -> dict[str, object]:
-    preflight_path = output_dir / "preflight.json"
+def _recover_orphaned_provisional_results(
+    output_dir: Path,
+    expected_configs: dict[str, dict[str, object]],
+    runtime_environment: dict[str, object],
+) -> None:
+    """Preserve worker-complete records that lost their parent process evidence."""
+    runs_dir = output_dir / "runs"
+    for output_path in sorted(runs_dir.glob("*.json")):
+        record = json.loads(output_path.read_text(encoding="utf-8"))
+        if record.get("status") != "complete" or "worker_process" in record:
+            continue
+        run_id = output_path.stem
+        expected_config = expected_configs.get(run_id)
+        if expected_config is None:
+            raise RuntimeError(
+                f"orphaned provisional record is outside the plan: {run_id}"
+            )
+        if record.get("run_id") != run_id:
+            raise RuntimeError(
+                f"orphaned provisional record filename/ID mismatch: {run_id}"
+            )
+        if strict_json(record.get("config")) != strict_json(expected_config):
+            raise RuntimeError(
+                f"orphaned provisional record configuration mismatch: {run_id}"
+            )
+        if strict_json(record.get("environment")) != strict_json(runtime_environment):
+            raise RuntimeError(
+                f"orphaned provisional record environment mismatch: {run_id}"
+            )
+
+        digest = sha256(output_path)[:12]
+        recovery_dir = output_dir / "recovery" / "orphaned-workers" / run_id
+        recovery_dir.mkdir(parents=True, exist_ok=True)
+        recovered_record = recovery_dir / f"{digest}.json"
+        if recovered_record.exists():
+            raise RuntimeError(
+                f"orphaned provisional recovery artifact exists: {recovered_record}"
+            )
+        history_path = output_dir / "histories" / f"{run_id}.npz"
+        recovered_history = recovery_dir / f"{digest}.npz"
+        if history_path.exists() and recovered_history.exists():
+            raise RuntimeError(
+                "orphaned provisional history recovery artifact exists: "
+                f"{recovered_history}"
+            )
+        log_moves = []
+        for stream in ("stdout", "stderr"):
+            source = output_dir / "logs" / f"{run_id}.{stream}.log"
+            destination = recovery_dir / f"{digest}.{stream}.log"
+            if source.exists() and destination.exists():
+                raise RuntimeError(
+                    f"orphaned provisional log recovery artifact exists: {destination}"
+                )
+            if source.exists():
+                log_moves.append((source, destination))
+        os.replace(output_path, recovered_record)
+        if history_path.exists():
+            os.replace(history_path, recovered_history)
+        for source, destination in log_moves:
+            os.replace(source, destination)
+
+
+def _preflight_environment(
+    output_dir: Path,
+    subprocess_environment: dict[str, str] | None = None,
+    artifact_stem: str = "preflight",
+) -> dict[str, object]:
+    preflight_path = output_dir / f"{artifact_stem}.json"
+    stdout_path = output_dir / f"{artifact_stem}.stdout.log"
+    stderr_path = output_dir / f"{artifact_stem}.stderr.log"
     try:
         completed = subprocess.run(
             [
@@ -927,20 +1386,17 @@ def _preflight_environment(output_dir: Path) -> dict[str, object]:
             capture_output=True,
             text=True,
             timeout=120,
+            env=subprocess_environment,
         )
     except subprocess.TimeoutExpired as error:
-        atomic_text(
-            output_dir / "preflight.stdout.log", _process_text(error.stdout)
-        )
-        atomic_text(
-            output_dir / "preflight.stderr.log", _process_text(error.stderr)
-        )
+        atomic_text(stdout_path, _process_text(error.stdout))
+        atomic_text(stderr_path, _process_text(error.stderr))
         raise RuntimeError("runtime preflight exceeded 120 seconds") from error
-    atomic_text(output_dir / "preflight.stdout.log", completed.stdout)
-    atomic_text(output_dir / "preflight.stderr.log", completed.stderr)
+    atomic_text(stdout_path, completed.stdout)
+    atomic_text(stderr_path, completed.stderr)
     if completed.returncode != 0 or not preflight_path.is_file():
         raise RuntimeError(
-            "runtime preflight failed; inspect preflight.stderr.log "
+            f"runtime preflight failed; inspect {stderr_path.name} "
             f"(exit {completed.returncode})"
         )
     return json.loads(preflight_path.read_text(encoding="utf-8"))
@@ -1010,6 +1466,7 @@ def _validate_resume_manifest(existing: dict, current: dict) -> None:
         "semantic_prior_canonical_sha256",
         "upstream_reference",
         "environment",
+        "runtime_policy",
     ):
         if existing.get(key) != current.get(key):
             raise RuntimeError(f"resume manifest mismatch for {key}")
@@ -1112,7 +1569,9 @@ def parse_topology_panel(
     if not isinstance(topologies, list) or not all(
         isinstance(value, str) for value in topologies
     ):
-        raise ValueError("topology file must be a JSON list or {topologies: [...]} object")
+        raise ValueError(
+            "topology file must be a JSON list or {topologies: [...]} object"
+        )
     if require_archive_exclusion:
         raise ValueError(
             "archive exclusion must be computed from --official-dataset, not "
@@ -1213,15 +1672,22 @@ def main() -> None:
     parser.add_argument("--n-frequencies", type=int, default=50)
     parser.add_argument("--target-loss", action="append", type=float, default=[])
     parser.add_argument("--worker-timeout", type=float)
+    parser.add_argument("--max-session-wall", type=float)
+    parser.add_argument("--require-a100", action="store_true")
+    parser.add_argument("--minimum-gpu-memory-mib", type=int)
+    parser.add_argument("--max-idle-gpu-memory-mib", type=int)
+    parser.add_argument("--max-idle-gpu-utilization", type=int)
+    parser.add_argument("--minimum-free-disk-gib", type=float)
     parser.add_argument("--require-archive-exclusion", action="store_true")
     parser.add_argument("--official-dataset", type=Path)
-    parser.add_argument(
-        "--exclude-prior-panel", action="append", type=Path, default=[]
-    )
+    parser.add_argument("--exclude-prior-panel", action="append", type=Path, default=[])
     parser.add_argument("--allow-cpu", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--output", type=Path, default=Path("artifacts/generated/uifo-paired"))
+    parser.add_argument("--recover-stale-lock", action="store_true")
+    parser.add_argument(
+        "--output", type=Path, default=Path("artifacts/generated/uifo-paired")
+    )
     parser.add_argument("--worker-config", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--worker-output", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--history-output", type=Path, help=argparse.SUPPRESS)
@@ -1242,38 +1708,28 @@ def main() -> None:
         parser.error("one topology source is required")
     try:
         if args.topologies_file:
-            topologies, topology_panel = parse_topology_panel(
-                args.topologies_file
-            )
+            topologies, topology_panel = parse_topology_panel(args.topologies_file)
             if args.require_archive_exclusion and not args.official_dataset:
                 raise ValueError(
                     "--require-archive-exclusion requires --official-dataset"
                 )
             if args.exclude_prior_panel and not args.official_dataset:
-                raise ValueError(
-                    "--exclude-prior-panel requires --official-dataset"
-                )
+                raise ValueError("--exclude-prior-panel requires --official-dataset")
             if args.official_dataset:
-                topology_panel["archive_exclusion_audit"] = (
-                    audit_topology_exclusion(
-                        topologies,
-                        args.official_dataset,
-                        args.exclude_prior_panel,
-                    )
+                topology_panel["archive_exclusion_audit"] = audit_topology_exclusion(
+                    topologies,
+                    args.official_dataset,
+                    args.exclude_prior_panel,
                 )
                 topology_panel["archive_exclusion_verified"] = True
-                topology_panel["official_dataset_sha256"] = (
-                    OFFICIAL_DATASET_SHA256
-                )
+                topology_panel["official_dataset_sha256"] = OFFICIAL_DATASET_SHA256
         else:
             if (
                 args.require_archive_exclusion
                 or args.official_dataset
                 or args.exclude_prior_panel
             ):
-                raise ValueError(
-                    "archive-exclusion audit requires --topologies-file"
-                )
+                raise ValueError("archive-exclusion audit requires --topologies-file")
             topologies = None
             topology_panel = {
                 "source_kind": "topology_seeds",
@@ -1295,6 +1751,12 @@ def main() -> None:
             worker_timeout_seconds=args.worker_timeout,
             topology_panel=topology_panel,
             evaluation_chunk_size=args.evaluation_chunk_size,
+            require_a100=args.require_a100,
+            minimum_gpu_memory_mib=args.minimum_gpu_memory_mib,
+            max_idle_gpu_memory_mib=args.max_idle_gpu_memory_mib,
+            max_idle_gpu_utilization_percent=args.max_idle_gpu_utilization,
+            minimum_free_disk_gib=args.minimum_free_disk_gib,
+            max_session_wall_seconds=args.max_session_wall,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         parser.error(str(error))
@@ -1302,7 +1764,16 @@ def main() -> None:
         print(json.dumps(plan, indent=2, sort_keys=True))
         return
     output_dir = args.output / plan["plan_id"]
-    raise SystemExit(orchestrate(plan, output_dir, resume=args.resume))
+    if args.recover_stale_lock and not args.resume:
+        parser.error("--recover-stale-lock requires --resume")
+    raise SystemExit(
+        orchestrate(
+            plan,
+            output_dir,
+            resume=args.resume,
+            recover_stale_lock=args.recover_stale_lock,
+        )
+    )
 
 
 if __name__ == "__main__":
