@@ -427,6 +427,16 @@ def summarize_optimizer_telemetry(arrays: dict[str, object]) -> dict[str, object
         "restart_batches": int(
             len(np.unique(arrays["batch_index"][arrays["restart_triggered"]]))
         ),
+        "post_restart_evaluation_rows": int(
+            np.count_nonzero(arrays["evaluated_generation"] > 0)
+        ),
+        "post_restart_evaluation_batches": int(
+            len(
+                np.unique(
+                    arrays["batch_index"][arrays["evaluated_generation"] > 0]
+                )
+            )
+        ),
         "global_improvement_rows": int(
             np.count_nonzero(arrays["global_feasible_improvement"])
         ),

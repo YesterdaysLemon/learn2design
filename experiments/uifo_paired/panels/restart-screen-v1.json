@@ -1,0 +1,67 @@
+{
+  "format_version": 1,
+  "generation": {
+    "excluded_mechanics_topology": "FEECAACFB-LSLSLSLSHSLS",
+    "hash_input": "UTF8(selection_domain + NUL + topology)",
+    "method": "ascending SHA-256 rank of the development-v1 panel after excluding the mechanics-only topology",
+    "selection_domain": "L2D-PATIENCE-200-SCREEN-V1-2026-08-21",
+    "source_panel": "development-v1"
+  },
+  "members": [
+    {
+      "selection_sha256": "0091b9c6091054732c8aa95e4ebdf7a6c2feac97799a6ebe4cbabc7849ba7777",
+      "topology": "AHHGHADEG-LLDLSLSSLLLS",
+      "topology_seed": 2026081957
+    },
+    {
+      "selection_sha256": "1f7bcec1399d37143cca3f0bf124c7d12f9d6a0a013cd81e75113e3a15b02a6a",
+      "topology": "AFDFHGFDG-SSSLDSSSLSLS",
+      "topology_seed": 2026081976
+    },
+    {
+      "selection_sha256": "236281fb9a4012862e4c4462226ab89bd835f4a1c07f5501c6c38a47a54528dc",
+      "topology": "HHFBGBHCE-SSHSSLLSSSLL",
+      "topology_seed": 2026081905
+    },
+    {
+      "selection_sha256": "2b0f0f9a19b98332b3b7bd2f905033df34d5088155d9c3f42e9c0a308bb393f8",
+      "topology": "BGADCDGDF-SHSSSLLSSLLS",
+      "topology_seed": 2026081912
+    },
+    {
+      "selection_sha256": "3e530ee5bdc43fcc9faa0d00f5c907dd925772bf70e94b409b1e0ea95566106b",
+      "topology": "HBHCBBCBG-LDSLSLLSLLSL",
+      "topology_seed": 2026081908
+    },
+    {
+      "selection_sha256": "48e060e64bfc8dc26050c67cd766991c3f8a6b647e0dd1f2d89e7b8da2764368",
+      "topology": "DDHBGFADD-LDLSLSSSSLSS",
+      "topology_seed": 2026081944
+    },
+    {
+      "selection_sha256": "491cb54496adbb2e31f33a95a05ca359da0caceeec01d8fa39f78cc1faa42b11",
+      "topology": "AFAFHBGHF-HSLSLLLLLSSL",
+      "topology_seed": 2026081914
+    },
+    {
+      "selection_sha256": "530b6b5bb8d261ffd7238cc68ae55e090fb75e5c6ec96940d0ecfaca11061fad",
+      "topology": "EBFBHDGGG-SDLSLSLSLLSL",
+      "topology_seed": 2026081928
+    }
+  ],
+  "optimizer_seeds": [
+    19,
+    23
+  ],
+  "panel_id": "restart-screen-v1",
+  "topologies": [
+    "AHHGHADEG-LLDLSLSSLLLS",
+    "AFDFHGFDG-SSSLDSSSLSLS",
+    "HHFBGBHCE-SSHSSLLSSSLL",
+    "BGADCDGDF-SHSSSLLSSLLS",
+    "HBHCBBCBG-LDSLSLLSLLSL",
+    "DDHBGFADD-LDLSLSSSSLSS",
+    "AFAFHBGHF-HSLSLLLLLSSL",
+    "EBFBHDGGG-SDLSLSLSLLSL"
+  ]
+}

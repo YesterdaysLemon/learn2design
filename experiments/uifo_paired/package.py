@@ -9,6 +9,7 @@ from pathlib import Path
 
 from experiments.uifo_paired.runner import (
     _rebuild_indexes,
+    _recover_stale_study_lock,
     _run_config,
     _validate_cache_disabled_environment,
     _validate_cache_disabled_runtime,
@@ -19,11 +20,17 @@ from experiments.uifo_paired.runner import (
 
 
 def validate_complete_study(
-    study_dir: Path, *, allow_incomplete: bool = False
+    study_dir: Path,
+    *,
+    allow_incomplete: bool = False,
+    recover_stale_lock: bool = False,
 ) -> dict[str, object]:
     study_dir = study_dir.resolve()
-    if (study_dir / ".study.lock").exists():
-        raise RuntimeError("cannot package a study while its writer lock exists")
+    lock_path = study_dir / ".study.lock"
+    if lock_path.exists():
+        if not recover_stale_lock:
+            raise RuntimeError("cannot package a study while its writer lock exists")
+        _recover_stale_study_lock(study_dir, lock_path)
     manifest_path = study_dir / "manifest.json"
     if not manifest_path.is_file():
         raise RuntimeError(f"missing study manifest: {manifest_path}")
@@ -87,7 +94,11 @@ def validate_complete_study(
 
 
 def package_study(
-    study_dir: Path, output_path: Path, *, allow_incomplete: bool = False
+    study_dir: Path,
+    output_path: Path,
+    *,
+    allow_incomplete: bool = False,
+    recover_stale_lock: bool = False,
 ) -> dict[str, object]:
     study_dir = study_dir.resolve()
     output_path = output_path.resolve()
@@ -102,7 +113,9 @@ def package_study(
     if study_dir == output_path or study_dir in output_path.parents:
         raise ValueError("study package must be written outside the study directory")
     validation = validate_complete_study(
-        study_dir, allow_incomplete=allow_incomplete
+        study_dir,
+        allow_incomplete=allow_incomplete,
+        recover_stale_lock=recover_stale_lock,
     )
     manifest = validation["manifest"]
     assert isinstance(manifest, dict)

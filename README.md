@@ -21,10 +21,14 @@ The packaged candidate now defaults to no-prior initialization, matching the
 frozen action. The semantic-prior material remains available only for explicit
 historical experiment replay; the paired harness supplies that flag per arm.
 
-The recommended next evidence gate is a separately frozen, owner-approved
-no-prior-only submission-like evaluation on the existing disjoint panel at the
-official budget. It has not been launched. The optimizer still has no
-hidden-leaderboard or official-budget multi-topology performance claim.
+The next evidence gate is a separately frozen patience-200 restart mechanics
+diagnostic followed, only if mechanics pass, by an uninstrumented eight-topology
+patience-200 versus patience-600 development screen with fresh seeds. The
+current submission remains patience 600; the reserved submission-like panel is
+untouched. See
+[`research/2026-08-21-patience-200-screen-plan.md`](research/2026-08-21-patience-200-screen-plan.md).
+The optimizer still has no hidden-leaderboard or official-budget multi-topology
+performance claim.
 
 New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
 
