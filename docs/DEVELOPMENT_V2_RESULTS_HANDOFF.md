@@ -20,8 +20,8 @@ uv run --frozen --group integration --group analysis `
   --output $analysisOutput
 ```
 
-The validated generated bundle is under
-`learn2design-runpod-results/development-v2-analysis/`. Start with
+The final validated generated bundle is under
+`learn2design-runpod-results/development-v2-analysis-gatecheck/`. Start with
 `validation.json`, `three_way_comparison.json`, `analysis_report.md`, and
 `handoff.json`; normalized tables are under `normalized/`, and visually checked
 plots are under `figures/`.
@@ -29,7 +29,7 @@ plots are under `figures/`.
 ## Decision and next gate
 
 The frozen status/action is `failed` / `retain_no_prior_candidate`. Do not run
-`confirmation-v1`. First align the packaged submission with `no_prior` in a
-separate PR. The recommended later evidence gate is a separately frozen,
-owner-approved no-prior submission-like evaluation on the existing disjoint
-panel; this handoff does not launch it.
+`confirmation-v1`. The separate candidate-alignment change now makes the
+packaged submission default to `no_prior`. The recommended later evidence gate
+is a separately frozen, owner-approved no-prior submission-like evaluation on
+the existing disjoint panel; this handoff does not launch it.

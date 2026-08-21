@@ -18,11 +18,13 @@ from dfbench import Objective, OptimizationAlgorithm
 class BatchedRestartAdam(OptimizationAlgorithm):
     """A small population of Adam searches with deterministic restarts.
 
-    Population members use different learning rates, reserve one slot for an
-    official-archive semantic prior, and share only the best physically
-    feasible point. Stalled members alternate between fresh random starts and
-    perturbations around that point. All simulator access goes through the
-    public ``Objective`` API.
+    Population members use different learning rates and share only the best
+    physically feasible point. The packaged candidate defaults to seeded
+    random initialization after the feasibility anchor. The archived
+    development experiment can still opt into its official-archive semantic
+    prior explicitly. Stalled members alternate between fresh random starts
+    and perturbations around the shared point. All simulator access goes
+    through the public ``Objective`` API.
     """
 
     algorithm_str = "batched_restart_adam"
@@ -204,7 +206,7 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         safety_seconds: float = 2.0,
         batch_time_safety_factor: float = 1.5,
         batch_time_window: int = 8,
-        use_semantic_prior: bool = True,
+        use_semantic_prior: bool = False,
         evaluation_chunk_size: int | None = None,
         initial_population_callback=None,
         **kwargs,

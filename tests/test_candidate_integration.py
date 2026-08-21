@@ -124,6 +124,23 @@ def test_paired_harness_records_the_submission_defaults() -> None:
     assert set(BATCHED_SETTINGS) <= set(parameters)
     for name, value in BATCHED_SETTINGS.items():
         assert parameters[name].default == value
+    assert parameters["use_semantic_prior"].default is False
+
+
+@pytest.mark.integration
+def test_packaged_default_does_not_load_the_semantic_prior(monkeypatch) -> None:
+    objective = AnalyticObjective(n_params=5, max_evals=2)
+
+    def fail_if_loaded(*_args, **_kwargs):
+        raise AssertionError("the default candidate loaded the semantic prior")
+
+    monkeypatch.setattr(BatchedRestartAdam, "_semantic_prior", fail_if_loaded)
+    BatchedRestartAdam().optimize(
+        objective,
+        random_seed=7,
+        population_size=2,
+        safety_seconds=0.0,
+    )
 
 
 @pytest.mark.integration

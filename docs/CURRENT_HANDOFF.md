@@ -16,20 +16,17 @@ are the evidence record, not a competing task list.
 - The semantic prior failed the frozen policy: 7/0/9 topology wins/ties/losses,
   mean difference `+0.029737199613027163`, action
   `retain_no_prior_candidate`.
-- The packaged submission still needs a separate focused alignment change; the
-  results-evidence work deliberately does not change the algorithm.
+- The packaged submission now defaults to no-prior initialization, matching
+  the frozen `retain_no_prior_candidate` action. The historical harness still
+  selects each comparison arm explicitly.
 
 ## Next decision
 
-First, land the evidence workflow and aggregate report. Then use a separate PR
-to make the packaged submission default match `retain_no_prior_candidate`,
-rebuild the deterministic submission ZIP, and rerun contract/integration tests.
-
-Do not run `confirmation-v1`: development did not pass. After candidate
-alignment, the recommended next evidence gate is a separately frozen
-no-prior-only submission-like evaluation on the existing disjoint panel at the
-official budget. Do not start that paid, long-running work without a reviewed
-plan and explicit owner approval.
+Land the evidence workflow and the separate candidate-alignment change. Do not
+run `confirmation-v1`: development did not pass. The recommended next evidence
+gate is a separately frozen no-prior-only submission-like evaluation on the
+existing disjoint panel at the official budget. Do not start that paid,
+long-running work without a reviewed plan and explicit owner approval.
 
 ## What can contribute now
 
