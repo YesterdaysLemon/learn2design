@@ -15,7 +15,14 @@ np = pytest.importorskip("numpy")
 h5py = pytest.importorskip("h5py")
 
 from experiments.uifo_paired.metrics import summarize_rows
+from experiments.uifo_paired.optimizer_telemetry import (
+    OPTIMIZER_TELEMETRY_METADATA_SCHEMA,
+    OPTIMIZER_TELEMETRY_SCHEMA,
+    summarize_optimizer_telemetry,
+    validate_optimizer_telemetry,
+)
 from experiments.uifo_paired.runner import (
+    BATCHED_SETTINGS,
     HISTORY_SCHEMA,
     _metric_grids,
     _parameter_hashes,
@@ -151,10 +158,15 @@ def test_complete_record_is_recomputed_and_history_tampering_is_rejected(
             "max_time_seconds": None,
         },
         "algorithm": {
+            "module": "submission.submission",
+            "class": "BatchedRestartAdam",
+            "algorithm_str": "batched_restart_adam",
             "kwargs": {
+                **BATCHED_SETTINGS,
                 "random_seed": 7,
                 "population_size": 2,
                 "use_semantic_prior": False,
+                "evaluation_chunk_size": None,
             }
         },
         "metrics": summarize_rows(
@@ -186,6 +198,90 @@ def test_complete_record_is_recomputed_and_history_tampering_is_rejected(
         },
     }
     validate_completed_record(record, config, history_path, environment)
+
+    telemetry_dir = tmp_path / "optimizer-telemetry"
+    telemetry_dir.mkdir()
+    telemetry_path = telemetry_dir / "run.npz"
+    telemetry_values = {
+        "batch_index": [0, 0],
+        "member_index": [0, 1],
+        "eval_count_after_batch": [2, 2],
+        "time_seconds": [1.0, 1.0],
+        "evaluation_batch_seconds": [1.0, 1.0],
+        "finite_loss": [True, True],
+        "feasible": [False, True],
+        "observed_member_improved": [True, True],
+        "observed_member_best_loss": [2.0, 1.0],
+        "stalled_steps_before": [0, 0],
+        "stalled_steps_after": [0, 0],
+        "adam_age_before": [0, 0],
+        "adam_age_after": [1, 1],
+        "learning_rate": [0.03, 0.15],
+        "gradient_nonfinite_count": [0, 0],
+        "gradient_norm": [1.0, 1.0],
+        "gradient_clip_scale": [1.0, 1.0],
+        "global_feasible_improvement": [False, True],
+        "restart_triggered": [False, False],
+        "restart_kind": [-1, -1],
+        "restart_round": [-1, -1],
+        "restart_noise_scale": [np.nan, np.nan],
+        "evaluated_generation": [0, 0],
+        "next_generation": [0, 0],
+        "update_applied": [True, True],
+        "budget_progress_fraction": [1.0, 1.0],
+    }
+    telemetry_arrays = {
+        name: np.asarray(telemetry_values[name], dtype=dtype)
+        for name, dtype in OPTIMIZER_TELEMETRY_SCHEMA.items()
+    }
+    telemetry_arrays["callback_seconds"] = np.asarray(
+        [0.001], dtype=OPTIMIZER_TELEMETRY_METADATA_SCHEMA["callback_seconds"]
+    )
+    np.savez_compressed(telemetry_path, **telemetry_arrays)
+    validated_telemetry = validate_optimizer_telemetry(
+        telemetry_path,
+        expected_population_size=2,
+        expected_patience=BATCHED_SETTINGS["patience"],
+    )
+    telemetry_config = {**config, "optimizer_telemetry": "member-v1"}
+    telemetry_record = {
+        **record,
+        "config": telemetry_config,
+        "optimizer_telemetry": {
+            "format_version": 1,
+            "mode": "member-v1",
+            "path": "optimizer-telemetry/run.npz",
+            "rows": 2,
+            "schema": OPTIMIZER_TELEMETRY_SCHEMA,
+            "metadata_schema": OPTIMIZER_TELEMETRY_METADATA_SCHEMA,
+            "sha256": sha256(telemetry_path),
+            "summary": summarize_optimizer_telemetry(validated_telemetry),
+        },
+    }
+    validate_completed_record(
+        telemetry_record, telemetry_config, history_path, environment
+    )
+
+    telemetry_arrays["feasible"] = np.asarray([False, False], dtype=np.bool_)
+    telemetry_arrays["global_feasible_improvement"] = np.asarray(
+        [False, False], dtype=np.bool_
+    )
+    np.savez_compressed(telemetry_path, **telemetry_arrays)
+    tampered_telemetry = validate_optimizer_telemetry(
+        telemetry_path,
+        expected_population_size=2,
+        expected_patience=BATCHED_SETTINGS["patience"],
+    )
+    telemetry_record["optimizer_telemetry"]["sha256"] = sha256(telemetry_path)
+    telemetry_record["optimizer_telemetry"]["summary"] = (
+        summarize_optimizer_telemetry(tampered_telemetry)
+    )
+    with pytest.raises(RuntimeError, match="feasibility mismatch history"):
+        validate_completed_record(
+            telemetry_record, telemetry_config, history_path, environment
+        )
+
+    telemetry_path.unlink()
 
     with history_path.open("ab") as handle:
         handle.write(b"tamper")

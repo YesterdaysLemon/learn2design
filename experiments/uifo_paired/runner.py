@@ -22,6 +22,14 @@ from pathlib import Path
 
 from experiments.uifo_paired.analysis import summarize_records
 from experiments.uifo_paired.metrics import flatten_histories, summarize_rows
+from experiments.uifo_paired.optimizer_telemetry import (
+    OPTIMIZER_TELEMETRY_MODE,
+    OPTIMIZER_TELEMETRY_METADATA_SCHEMA,
+    OPTIMIZER_TELEMETRY_SCHEMA,
+    OptimizerTelemetryCapture,
+    summarize_optimizer_telemetry,
+    validate_optimizer_telemetry,
+)
 from experiments.uifo_paired.plan import VALID_ARMS, build_plan
 from experiments.uifo_paired.study_profiles import profile_names
 
@@ -484,6 +492,7 @@ def execute_run(
     config: dict[str, object],
     history_path: Path,
     runtime_environment: dict[str, object] | None = None,
+    optimizer_telemetry_path: Path | None = None,
 ) -> dict[str, object]:
     """Execute exactly one topology, seed, and arm in the worker process."""
     import jax
@@ -531,9 +540,19 @@ def execute_run(
     )
     capture = _FirstEvaluationCapture()
     capture.install(objective)
+    telemetry_mode = config.get("optimizer_telemetry")
+    if telemetry_mode not in (None, OPTIMIZER_TELEMETRY_MODE):
+        raise RuntimeError("unsupported optimizer telemetry mode")
+    if (telemetry_mode is None) != (optimizer_telemetry_path is None):
+        raise RuntimeError("optimizer telemetry configuration/path mismatch")
+    telemetry_capture = (
+        OptimizerTelemetryCapture() if telemetry_mode is not None else None
+    )
 
     arm = str(config["arm"])
     optimizer_seed = int(config["optimizer_seed"])
+    if arm == "adam" and telemetry_capture is not None:
+        raise RuntimeError("optimizer telemetry is unsupported for the Adam arm")
     started = time.perf_counter()
     if arm == "adam":
         SingleStartAdam().optimize(objective, random_seed=optimizer_seed)
@@ -558,6 +577,7 @@ def execute_run(
             use_semantic_prior=arm == "semantic_prior",
             evaluation_chunk_size=config.get("evaluation_chunk_size"),
             initial_population_callback=capture.capture_population,
+            optimizer_telemetry_callback=telemetry_capture,
             **BATCHED_SETTINGS,
         )
         algorithm_settings = {
@@ -654,9 +674,27 @@ def execute_run(
     os.replace(temporary_history, history_path)
     validate_history_artifact(history_path, expected_rows=len(rows))
 
+    telemetry_record = None
+    if telemetry_capture is not None:
+        assert optimizer_telemetry_path is not None
+        telemetry_summary = telemetry_capture.write(optimizer_telemetry_path)
+        telemetry_record = {
+            "format_version": 1,
+            "mode": telemetry_mode,
+            "path": (
+                f"{optimizer_telemetry_path.parent.name}/"
+                f"{optimizer_telemetry_path.name}"
+            ),
+            "rows": telemetry_capture.rows,
+            "schema": OPTIMIZER_TELEMETRY_SCHEMA,
+            "metadata_schema": OPTIMIZER_TELEMETRY_METADATA_SCHEMA,
+            "sha256": sha256(optimizer_telemetry_path),
+            "summary": telemetry_summary,
+        }
+
     problem_spec = objective.problem_spec
     topology_string = str(problem.topology_string)
-    return {
+    result = {
         "status": "complete",
         "completed_utc": datetime.now(UTC).isoformat(),
         "config": config,
@@ -704,6 +742,9 @@ def execute_run(
             "sha256": sha256(history_path),
         },
     }
+    if telemetry_record is not None:
+        result["optimizer_telemetry"] = telemetry_record
+    return result
 
 
 def _host_list(value):
@@ -821,6 +862,75 @@ def _rows_from_history_arrays(arrays) -> list[dict[str, object]]:
     return rows
 
 
+def _validate_optimizer_telemetry_against_history(
+    telemetry_arrays: dict[str, object],
+    history_arrays: dict[str, object],
+    *,
+    minimum_improvement: float,
+) -> None:
+    """Bind optimizer observations to the authenticated candidate history."""
+    import numpy as np
+
+    losses = np.asarray(history_arrays["loss"])
+    feasible = np.asarray(history_arrays["is_feasible"])
+    finite = np.isfinite(losses)
+    if len(telemetry_arrays["batch_index"]) != len(losses):
+        raise RuntimeError("optimizer telemetry/history row count mismatch")
+    if not np.array_equal(telemetry_arrays["finite_loss"], finite):
+        raise RuntimeError("optimizer telemetry finite flags mismatch history")
+    if not np.array_equal(telemetry_arrays["feasible"], feasible):
+        raise RuntimeError("optimizer telemetry feasibility mismatch history")
+
+    expected_improved = np.zeros(len(losses), dtype=bool)
+    expected_best = np.full(len(losses), np.inf, dtype=np.float64)
+    member_best: dict[tuple[int, int], float] = {}
+    for row_index in range(len(losses)):
+        key = (
+            int(telemetry_arrays["member_index"][row_index]),
+            int(telemetry_arrays["evaluated_generation"][row_index]),
+        )
+        previous_best = member_best.get(key, math.inf)
+        improved = bool(
+            finite[row_index]
+            and losses[row_index] < previous_best - minimum_improvement
+        )
+        observed_best = float(losses[row_index]) if improved else previous_best
+        member_best[key] = observed_best
+        expected_improved[row_index] = improved
+        expected_best[row_index] = observed_best
+    if not np.array_equal(
+        telemetry_arrays["observed_member_improved"], expected_improved
+    ):
+        raise RuntimeError("optimizer telemetry member improvements mismatch history")
+    if not np.array_equal(
+        telemetry_arrays["observed_member_best_loss"], expected_best
+    ):
+        raise RuntimeError("optimizer telemetry member bests mismatch history")
+
+    expected_global_source = np.zeros(len(losses), dtype=bool)
+    global_best = math.inf
+    batch = np.asarray(telemetry_arrays["batch_index"])
+    for batch_index in np.unique(batch):
+        row_indices = np.flatnonzero(batch == batch_index)
+        feasible_losses = np.where(
+            finite[row_indices] & feasible[row_indices],
+            losses[row_indices],
+            np.inf,
+        )
+        source_offset = int(np.argmin(feasible_losses))
+        batch_best = float(feasible_losses[source_offset])
+        if batch_best < global_best:
+            expected_global_source[row_indices[source_offset]] = True
+            global_best = batch_best
+    if not np.array_equal(
+        telemetry_arrays["global_feasible_improvement"],
+        expected_global_source,
+    ):
+        raise RuntimeError(
+            "optimizer telemetry global improvement source mismatch history"
+        )
+
+
 def _metric_grids(config: dict[str, object]) -> tuple[list[float], list[int]]:
     times = [
         value
@@ -864,6 +974,50 @@ def validate_completed_record(
     )
     if strict_json(history.get("schema")) != strict_json(HISTORY_SCHEMA):
         raise RuntimeError("resume history schema metadata mismatch")
+
+    study_dir = history_path.parent.parent
+    telemetry_mode = expected_config.get("optimizer_telemetry")
+    telemetry_path = (
+        study_dir / "optimizer-telemetry" / f"{expected_config['run_id']}.npz"
+    )
+    telemetry = record.get("optimizer_telemetry")
+    telemetry_arrays = None
+    if telemetry_mode is None:
+        if telemetry is not None or telemetry_path.exists():
+            raise RuntimeError("resume record has unsolicited optimizer telemetry")
+    else:
+        if telemetry_mode != OPTIMIZER_TELEMETRY_MODE or not isinstance(
+            telemetry, dict
+        ):
+            raise RuntimeError("resume optimizer telemetry metadata is missing")
+        expected_telemetry_relative = (
+            f"optimizer-telemetry/{expected_config['run_id']}.npz"
+        )
+        if (
+            telemetry.get("format_version") != 1
+            or telemetry.get("mode") != telemetry_mode
+            or telemetry.get("path") != expected_telemetry_relative
+            or strict_json(telemetry.get("schema"))
+            != strict_json(OPTIMIZER_TELEMETRY_SCHEMA)
+            or strict_json(telemetry.get("metadata_schema"))
+            != strict_json(OPTIMIZER_TELEMETRY_METADATA_SCHEMA)
+        ):
+            raise RuntimeError("resume optimizer telemetry reference mismatch")
+        telemetry_arrays = validate_optimizer_telemetry(
+            telemetry_path,
+            expected_sha256=str(telemetry.get("sha256")),
+            expected_rows=int(telemetry.get("rows")),
+            expected_population_size=int(expected_config["population_size"]),
+            expected_patience=int(record["algorithm"]["kwargs"]["patience"]),
+        )
+        recorded_summary = telemetry.get("summary")
+        if not isinstance(recorded_summary, dict):
+            raise RuntimeError("resume optimizer telemetry summary is missing")
+        recomputed_telemetry_summary = summarize_optimizer_telemetry(
+            telemetry_arrays
+        )
+        if strict_json(recorded_summary) != strict_json(recomputed_telemetry_summary):
+            raise RuntimeError("resume optimizer telemetry summary mismatch")
 
     time_grid, eval_grid = _metric_grids(expected_config)
     recomputed = summarize_rows(
@@ -916,21 +1070,41 @@ def validate_completed_record(
 
     algorithm = record.get("algorithm", {})
     algorithm_kwargs = algorithm.get("kwargs", {})
-    if algorithm_kwargs.get("random_seed") != expected_config["optimizer_seed"]:
-        raise RuntimeError("resume algorithm seed mismatch")
-    if expected_config["arm"] != "adam":
-        if (
-            algorithm_kwargs.get("population_size")
-            != expected_config["population_size"]
-        ):
-            raise RuntimeError("resume algorithm population mismatch")
-        if algorithm_kwargs.get("evaluation_chunk_size") != expected_config.get(
-            "evaluation_chunk_size"
-        ):
-            raise RuntimeError("resume algorithm evaluation chunk mismatch")
+    if expected_config["arm"] == "adam":
+        expected_algorithm = {
+            "module": "experiments.uifo_paired.baselines",
+            "class": "SingleStartAdam",
+            "algorithm_str": "paired_single_start_adam",
+            "kwargs": {
+                "learning_rate": 0.1,
+                "patience": None,
+                "random_seed": expected_config["optimizer_seed"],
+            },
+        }
+    else:
         expected_prior = expected_config["arm"] == "semantic_prior"
-        if algorithm_kwargs.get("use_semantic_prior") is not expected_prior:
-            raise RuntimeError("resume algorithm prior flag mismatch")
+        expected_algorithm = {
+            "module": "submission.submission",
+            "class": "BatchedRestartAdam",
+            "algorithm_str": "batched_restart_adam",
+            "kwargs": {
+                **BATCHED_SETTINGS,
+                "population_size": expected_config["population_size"],
+                "random_seed": expected_config["optimizer_seed"],
+                "use_semantic_prior": expected_prior,
+                "evaluation_chunk_size": expected_config.get(
+                    "evaluation_chunk_size"
+                ),
+            },
+        }
+    if strict_json(algorithm) != strict_json(expected_algorithm):
+        raise RuntimeError("resume algorithm configuration mismatch")
+    if telemetry_arrays is not None:
+        _validate_optimizer_telemetry_against_history(
+            telemetry_arrays,
+            arrays,
+            minimum_improvement=float(algorithm_kwargs["minimum_improvement"]),
+        )
 
     accounting = record.get("objective_accounting", {})
     if int(accounting.get("log_call_count", -1)) != int(recomputed["logged_calls"]):
@@ -954,7 +1128,6 @@ def validate_completed_record(
         wall_seconds <= 4.5 * 60 * 60
     ):
         raise RuntimeError("resume worker runtime-limit evidence is inconsistent")
-    study_dir = history_path.parent.parent
     for stream in ("stdout", "stderr"):
         stream_record = process.get(stream, {})
         expected_stream_path = f"logs/{expected_config['run_id']}.{stream}.log"
@@ -967,7 +1140,12 @@ def validate_completed_record(
             raise RuntimeError(f"resume worker {stream} evidence mismatch")
 
 
-def run_worker(config_path: Path, output_path: Path, history_path: Path) -> int:
+def run_worker(
+    config_path: Path,
+    output_path: Path,
+    history_path: Path,
+    optimizer_telemetry_path: Path | None = None,
+) -> int:
     config = json.loads(config_path.read_text(encoding="utf-8"))
     base = {
         "format_version": 1,
@@ -980,7 +1158,12 @@ def run_worker(config_path: Path, output_path: Path, history_path: Path) -> int:
             _validate_cache_disabled_runtime(runtime_environment)
         result = {
             **base,
-            **execute_run(config, history_path, runtime_environment),
+            **execute_run(
+                config,
+                history_path,
+                runtime_environment,
+                optimizer_telemetry_path=optimizer_telemetry_path,
+            ),
         }
         atomic_json(output_path, result)
         return 0
@@ -1129,6 +1312,9 @@ def _orchestrate_locked(
     logs_dir = output_dir / "logs"
     for directory in (runs_dir, histories_dir, configs_dir, logs_dir):
         directory.mkdir(parents=True, exist_ok=True)
+    telemetry_dir = output_dir / "optimizer-telemetry"
+    if common.get("optimizer_telemetry") is not None:
+        telemetry_dir.mkdir(parents=True, exist_ok=True)
 
     expected_configs = {run["run_id"]: _run_config(run, common) for run in plan["runs"]}
     if resume:
@@ -1152,6 +1338,11 @@ def _orchestrate_locked(
             config = expected_configs[run_id]
             output_path = runs_dir / f"{run_id}.json"
             history_path = histories_dir / f"{run_id}.npz"
+            optimizer_telemetry_path = (
+                telemetry_dir / f"{run_id}.npz"
+                if config.get("optimizer_telemetry") is not None
+                else None
+            )
             if resume and output_path.exists():
                 existing = json.loads(output_path.read_text(encoding="utf-8"))
                 if existing.get("status") == "complete":
@@ -1186,18 +1377,26 @@ def _orchestrate_locked(
             completed = None
             timed_out = None
             try:
+                worker_command = [
+                    sys.executable,
+                    "-m",
+                    "experiments.uifo_paired.runner",
+                    "--worker-config",
+                    str(config_path),
+                    "--worker-output",
+                    str(output_path),
+                    "--history-output",
+                    str(history_path),
+                ]
+                if optimizer_telemetry_path is not None:
+                    worker_command.extend(
+                        [
+                            "--optimizer-telemetry-output",
+                            str(optimizer_telemetry_path),
+                        ]
+                    )
                 completed = subprocess.run(
-                    [
-                        sys.executable,
-                        "-m",
-                        "experiments.uifo_paired.runner",
-                        "--worker-config",
-                        str(config_path),
-                        "--worker-output",
-                        str(output_path),
-                        "--history-output",
-                        str(history_path),
-                    ],
+                    worker_command,
                     cwd=ROOT,
                     check=False,
                     capture_output=True,
@@ -1309,6 +1508,8 @@ def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, 
     for key in ("max_worker_failures", "study_profile", "decision_policy"):
         if key in common:
             config[key] = common[key]
+    if "optimizer_telemetry" in common:
+        config["optimizer_telemetry"] = common["optimizer_telemetry"]
     return config
 
 
@@ -1357,6 +1558,13 @@ def _recover_orphaned_provisional_results(
                 "orphaned provisional history recovery artifact exists: "
                 f"{recovered_history}"
             )
+        telemetry_path = output_dir / "optimizer-telemetry" / f"{run_id}.npz"
+        recovered_telemetry = recovery_dir / f"{digest}.optimizer-telemetry.npz"
+        if telemetry_path.exists() and recovered_telemetry.exists():
+            raise RuntimeError(
+                "orphaned provisional optimizer telemetry recovery artifact exists: "
+                f"{recovered_telemetry}"
+            )
         log_moves = []
         for stream in ("stdout", "stderr"):
             source = output_dir / "logs" / f"{run_id}.{stream}.log"
@@ -1370,6 +1578,8 @@ def _recover_orphaned_provisional_results(
         os.replace(output_path, recovered_record)
         if history_path.exists():
             os.replace(history_path, recovered_history)
+        if telemetry_path.exists():
+            os.replace(telemetry_path, recovered_telemetry)
         for source, destination in log_moves:
             os.replace(source, destination)
 
@@ -1686,6 +1896,9 @@ def main() -> None:
     parser.add_argument("--max-evals", type=int)
     parser.add_argument("--population-size", type=int, default=8)
     parser.add_argument("--evaluation-chunk-size", type=int)
+    parser.add_argument(
+        "--optimizer-telemetry", choices=[OPTIMIZER_TELEMETRY_MODE]
+    )
     parser.add_argument("--n-frequencies", type=int, default=50)
     parser.add_argument("--target-loss", action="append", type=float, default=[])
     parser.add_argument("--worker-timeout", type=float)
@@ -1710,6 +1923,9 @@ def main() -> None:
     parser.add_argument("--worker-config", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--worker-output", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--history-output", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--optimizer-telemetry-output", type=Path, help=argparse.SUPPRESS
+    )
     parser.add_argument("--preflight-output", type=Path, help=argparse.SUPPRESS)
     args = parser.parse_args()
 
@@ -1720,7 +1936,12 @@ def main() -> None:
         if not args.worker_output or not args.history_output:
             parser.error("worker mode requires output and history paths")
         raise SystemExit(
-            run_worker(args.worker_config, args.worker_output, args.history_output)
+            run_worker(
+                args.worker_config,
+                args.worker_output,
+                args.history_output,
+                args.optimizer_telemetry_output,
+            )
         )
 
     if not args.topology_seeds and not args.topologies_file:
@@ -1778,6 +1999,7 @@ def main() -> None:
             max_session_wall_seconds=args.max_session_wall,
             max_worker_failures=args.max_worker_failures,
             study_profile=args.study_profile,
+            optimizer_telemetry=args.optimizer_telemetry,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         parser.error(str(error))

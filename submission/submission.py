@@ -209,6 +209,7 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         use_semantic_prior: bool = False,
         evaluation_chunk_size: int | None = None,
         initial_population_callback=None,
+        optimizer_telemetry_callback=None,
         **kwargs,
     ) -> None:
         del kwargs
@@ -268,6 +269,11 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         restart_round = 0
         completed_batches = 0
         recent_batch_seconds = []
+        member_generations = (
+            jnp.zeros((population_size,), dtype=jnp.int32)
+            if optimizer_telemetry_callback is not None
+            else None
+        )
 
         # dfbench 0.3.3's public warmup helper discards asynchronous outputs,
         # so it cannot provide a guaranteed device barrier. Count compilation
@@ -314,15 +320,99 @@ class BatchedRestartAdam(OptimizationAlgorithm):
             )
             feasible_index = int(jnp.argmin(feasible_losses))
             feasible_loss = float(feasible_losses[feasible_index])
-            if feasible_loss < global_feasible_loss:
+            global_feasible_improved = feasible_loss < global_feasible_loss
+            if global_feasible_improved:
                 global_feasible_loss = feasible_loss
                 global_feasible_params = params[feasible_index]
 
             # An evaluation-limited partial tail has now consumed the remaining
             # budget. Objective logged it, and no further update can be used.
             if active_members < population_size:
+                if optimizer_telemetry_callback is not None:
+                    assert member_generations is not None
+                    partial_improved = finite_loss & (
+                        losses
+                        < member_best_loss[:active_members] - minimum_improvement
+                    )
+                    observed_member_best_loss = jnp.where(
+                        partial_improved,
+                        losses,
+                        member_best_loss[:active_members],
+                    )
+                    sanitized = jnp.nan_to_num(
+                        grads, nan=0.0, posinf=0.0, neginf=0.0
+                    )
+                    gradient_norms = jnp.linalg.norm(sanitized, axis=1)
+                    clip_scales = jnp.minimum(
+                        1.0, gradient_clip_norm / (gradient_norms + 1e-12)
+                    )
+                    member_ids = jnp.arange(active_members, dtype=jnp.int16)
+                    optimizer_telemetry_callback(
+                        {
+                            "batch_index": jnp.full(
+                                (active_members,), completed_batches - 1,
+                                dtype=jnp.int32,
+                            ),
+                            "member_index": member_ids,
+                            "eval_count_after_batch": jnp.full(
+                                (active_members,), int(obj.eval_count),
+                                dtype=jnp.int32,
+                            ),
+                            "time_seconds": jnp.full(
+                                (active_members,), float(obj.time_elapsed)
+                            ),
+                            "evaluation_batch_seconds": jnp.full(
+                                (active_members,), batch_seconds
+                            ),
+                            "finite_loss": finite_loss,
+                            "feasible": jnp.asarray(
+                                aux["is_feasible"], dtype=bool
+                            ),
+                            "observed_member_improved": partial_improved,
+                            "observed_member_best_loss": observed_member_best_loss,
+                            "stalled_steps_before": stalled_steps[:active_members],
+                            "stalled_steps_after": stalled_steps[:active_members],
+                            "adam_age_before": member_steps[:active_members],
+                            "adam_age_after": member_steps[:active_members],
+                            "learning_rate": learning_rates[:active_members, 0],
+                            "gradient_nonfinite_count": jnp.sum(
+                                ~jnp.isfinite(grads), axis=1, dtype=jnp.int32
+                            ),
+                            "gradient_norm": gradient_norms,
+                            "gradient_clip_scale": clip_scales,
+                            "global_feasible_improvement": (
+                                member_ids == feasible_index
+                            ) & global_feasible_improved,
+                            "restart_triggered": jnp.zeros(
+                                (active_members,), dtype=bool
+                            ),
+                            "restart_kind": jnp.full(
+                                (active_members,), -1, dtype=jnp.int8
+                            ),
+                            "restart_round": jnp.full(
+                                (active_members,), -1, dtype=jnp.int32
+                            ),
+                            "restart_noise_scale": jnp.full(
+                                (active_members,), jnp.nan
+                            ),
+                            "evaluated_generation": member_generations[
+                                :active_members
+                            ],
+                            "next_generation": member_generations[:active_members],
+                            "update_applied": jnp.zeros(
+                                (active_members,), dtype=bool
+                            ),
+                            "budget_progress_fraction": jnp.full(
+                                (active_members,),
+                                float(obj.budget_progress_fraction),
+                            ),
+                        }
+                    )
                 break
 
+            stalled_steps_before = (
+                stalled_steps if optimizer_telemetry_callback is not None else None
+            )
             improved = finite_loss & (
                 losses < member_best_loss - minimum_improvement
             )
@@ -331,12 +421,29 @@ class BatchedRestartAdam(OptimizationAlgorithm):
 
             # Sanitize exceptional derivatives, then clip each population member
             # independently before applying an explicit Adam update.
-            grads = jnp.nan_to_num(grads, nan=0.0, posinf=0.0, neginf=0.0)
-            grad_norms = jnp.linalg.norm(grads, axis=1, keepdims=True)
-            grads = grads * jnp.minimum(
-                1.0, gradient_clip_norm / (grad_norms + 1e-12)
-            )
+            if optimizer_telemetry_callback is None:
+                grads = jnp.nan_to_num(grads, nan=0.0, posinf=0.0, neginf=0.0)
+                grad_norms = jnp.linalg.norm(grads, axis=1, keepdims=True)
+                grads = grads * jnp.minimum(
+                    1.0, gradient_clip_norm / (grad_norms + 1e-12)
+                )
+                gradient_nonfinite_count = None
+                gradient_norms = None
+                gradient_clip_scales = None
+            else:
+                gradient_nonfinite_count = jnp.sum(
+                    ~jnp.isfinite(grads), axis=1, dtype=jnp.int32
+                )
+                grads = jnp.nan_to_num(grads, nan=0.0, posinf=0.0, neginf=0.0)
+                gradient_norms = jnp.linalg.norm(grads, axis=1)
+                gradient_clip_scales = jnp.minimum(
+                    1.0, gradient_clip_norm / (gradient_norms + 1e-12)
+                )
+                grads = grads * gradient_clip_scales[:, None]
 
+            member_steps_before = (
+                member_steps if optimizer_telemetry_callback is not None else None
+            )
             params, first_moment, second_moment, member_steps = self._adam_step(
                 params,
                 grads,
@@ -349,7 +456,28 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                 epsilon,
             )
 
+            member_best_loss_for_event = (
+                member_best_loss
+                if optimizer_telemetry_callback is not None
+                else None
+            )
+            stalled_steps_for_event = (
+                stalled_steps if optimizer_telemetry_callback is not None else None
+            )
             restart_mask = stalled_steps >= patience
+            restart_kind = (
+                jnp.full((population_size,), -1, dtype=jnp.int8)
+                if optimizer_telemetry_callback is not None
+                else None
+            )
+            restart_scales = (
+                jnp.full((population_size,), jnp.nan)
+                if optimizer_telemetry_callback is not None
+                else None
+            )
+            restart_round_for_event = (
+                -1 if optimizer_telemetry_callback is not None else None
+            )
             if bool(jnp.any(restart_mask)):
                 fresh_params = obj.random_params_unbounded(population_size)
                 if global_feasible_loss < float("inf"):
@@ -368,9 +496,25 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                     restart_params = jnp.where(
                         exploit_mask[:, None], exploit_params, fresh_params
                     )
+                    if restart_kind is not None and restart_scales is not None:
+                        restart_kind = jnp.where(
+                            restart_mask,
+                            jnp.where(exploit_mask, 1, 0),
+                            restart_kind,
+                        ).astype(jnp.int8)
+                        restart_scales = jnp.where(
+                            restart_mask & exploit_mask,
+                            scale,
+                            restart_scales,
+                        )
                 else:
                     restart_params = fresh_params
+                    if restart_kind is not None:
+                        restart_kind = jnp.where(
+                            restart_mask, 0, restart_kind
+                        ).astype(jnp.int8)
 
+                restart_round_for_event = restart_round
                 params = jnp.where(restart_mask[:, None], restart_params, params)
                 first_moment = jnp.where(
                     restart_mask[:, None], jnp.zeros_like(first_moment), first_moment
@@ -383,4 +527,74 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                     restart_mask, jnp.inf, member_best_loss
                 )
                 stalled_steps = jnp.where(restart_mask, 0, stalled_steps)
+                if member_generations is not None:
+                    member_generations = member_generations + restart_mask.astype(
+                        jnp.int32
+                    )
                 restart_round += 1
+
+            if optimizer_telemetry_callback is not None:
+                assert member_generations is not None
+                assert gradient_nonfinite_count is not None
+                assert gradient_norms is not None
+                assert gradient_clip_scales is not None
+                assert member_steps_before is not None
+                assert member_best_loss_for_event is not None
+                assert stalled_steps_before is not None
+                assert stalled_steps_for_event is not None
+                assert restart_round_for_event is not None
+                assert restart_kind is not None
+                assert restart_scales is not None
+                member_ids = jnp.arange(population_size, dtype=jnp.int16)
+                optimizer_telemetry_callback(
+                    {
+                        "batch_index": jnp.full(
+                            (population_size,), completed_batches - 1,
+                            dtype=jnp.int32,
+                        ),
+                        "member_index": member_ids,
+                        "eval_count_after_batch": jnp.full(
+                            (population_size,), int(obj.eval_count),
+                            dtype=jnp.int32,
+                        ),
+                        "time_seconds": jnp.full(
+                            (population_size,), float(obj.time_elapsed)
+                        ),
+                        "evaluation_batch_seconds": jnp.full(
+                            (population_size,), batch_seconds
+                        ),
+                        "finite_loss": finite_loss,
+                        "feasible": jnp.asarray(aux["is_feasible"], dtype=bool),
+                        "observed_member_improved": improved,
+                        "observed_member_best_loss": member_best_loss_for_event,
+                        "stalled_steps_before": stalled_steps_before,
+                        "stalled_steps_after": stalled_steps_for_event,
+                        "adam_age_before": member_steps_before,
+                        "adam_age_after": member_steps,
+                        "learning_rate": learning_rates[:, 0],
+                        "gradient_nonfinite_count": gradient_nonfinite_count,
+                        "gradient_norm": gradient_norms,
+                        "gradient_clip_scale": gradient_clip_scales,
+                        "global_feasible_improvement": (
+                            member_ids == feasible_index
+                        ) & global_feasible_improved,
+                        "restart_triggered": restart_mask,
+                        "restart_kind": restart_kind,
+                        "restart_round": jnp.where(
+                            restart_mask,
+                            restart_round_for_event,
+                            jnp.full((population_size,), -1, dtype=jnp.int32),
+                        ),
+                        "restart_noise_scale": restart_scales,
+                        "evaluated_generation": member_generations
+                        - restart_mask.astype(jnp.int32),
+                        "next_generation": member_generations,
+                        "update_applied": jnp.ones(
+                            (population_size,), dtype=bool
+                        ),
+                        "budget_progress_fraction": jnp.full(
+                            (population_size,),
+                            float(obj.budget_progress_fraction),
+                        ),
+                    }
+                )
