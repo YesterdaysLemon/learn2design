@@ -6,11 +6,26 @@ The competition asks for an algorithm—not one fixed detector. On each hidden t
 
 ## Current status
 
-**Accelerator-gated candidate stage.** The repository now contains a deterministic submission candidate, a frozen-topology paired UIFO harness, and audited development/confirmation panels. An offline topology-conditioned neural initializer failed its control gate; the smaller semantic archive prior remains only a live-test candidate. A clean RTX 4060 diagnostic found no gross candidate-specific latency tail, but the 8 GB device cannot run the required full-population UIFO comparison. The optimizer has not yet earned a leaderboard or multi-topology performance claim.
+**Validated no-prior candidate stage.** The frozen `development-v2` A100 screen
+completed all 64 runs and failed the predeclared semantic-prior promotion rule.
+Production replay, an independent history-based reference calculation, and the
+archived summary agree at the topology level: 7 semantic-prior wins, 0 ties, 9
+losses; mean difference `+0.029737199613027163`; frozen action
+`retain_no_prior_candidate`. Do not run `confirmation-v1`.
 
-The next decisive experiment is the predeclared two-arm `development-v2` screen on one otherwise idle A100 80 GB accelerator. It compares `semantic_prior` with its exact `no_prior` ablation; organizer-style Adam is no longer part of the paid primary panel. The canonical paid-machine command, deployment ladder, recovery procedure, and artifact evacuation checklist live in [`docs/A100_RENTAL_RUNBOOK.md`](docs/A100_RENTAL_RUNBOOK.md).
+The source results remain private and outside Git. The aggregate evidence,
+outcome-blind integrity workflow, exploratory limitations, and next-gate
+recommendation are in
+[`research/2026-08-21-development-v2-a100-results.md`](research/2026-08-21-development-v2-a100-results.md).
+This evidence change does not modify the submission algorithm; a separate
+candidate-alignment PR must make the packaged default match the frozen no-prior
+action and rerun packaging/contract checks.
 
-This plan contains 64 serial runs and 10 hours 40 minutes of scored Objective time. Its arm order is exactly balanced across the 32 paired topology-seed comparisons. Persistent JAX compilation caching is forcibly disabled because compilation occurs inside the scored clock; cross-process cache reuse would bias later arms. The semantic prior is promoted only if it passes the machine-bound development rule and then the frozen disjoint confirmation rule in `research/2026-08-19-accelerator-evaluation-plan.md`; otherwise the no-prior arm remains the honest candidate.
+After candidate alignment, the recommended next evidence gate is a separately
+frozen, owner-approved no-prior-only submission-like evaluation on the existing
+disjoint panel at the official budget. It has not been launched. The optimizer
+still has no hidden-leaderboard or official-budget multi-topology performance
+claim.
 
 New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
 
