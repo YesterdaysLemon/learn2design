@@ -17,15 +17,14 @@ The source results remain private and outside Git. The aggregate evidence,
 outcome-blind integrity workflow, exploratory limitations, and next-gate
 recommendation are in
 [`research/2026-08-21-development-v2-a100-results.md`](research/2026-08-21-development-v2-a100-results.md).
-This evidence change does not modify the submission algorithm; a separate
-candidate-alignment PR must make the packaged default match the frozen no-prior
-action and rerun packaging/contract checks.
+The packaged candidate now defaults to no-prior initialization, matching the
+frozen action. The semantic-prior material remains available only for explicit
+historical experiment replay; the paired harness supplies that flag per arm.
 
-After candidate alignment, the recommended next evidence gate is a separately
-frozen, owner-approved no-prior-only submission-like evaluation on the existing
-disjoint panel at the official budget. It has not been launched. The optimizer
-still has no hidden-leaderboard or official-budget multi-topology performance
-claim.
+The recommended next evidence gate is a separately frozen, owner-approved
+no-prior-only submission-like evaluation on the existing disjoint panel at the
+official budget. It has not been launched. The optimizer still has no
+hidden-leaderboard or official-budget multi-topology performance claim.
 
 New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
 

@@ -36,6 +36,28 @@ def test_exactly_one_algorithm_subclass_and_no_forbidden_import() -> None:
     assert "differometor" not in imported_roots
 
 
+def test_packaged_candidate_defaults_to_no_semantic_prior() -> None:
+    tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    algorithm = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "BatchedRestartAdam"
+    )
+    optimize = next(
+        node
+        for node in algorithm.body
+        if isinstance(node, ast.FunctionDef) and node.name == "optimize"
+    )
+    positional = optimize.args.posonlyargs + optimize.args.args
+    names = [argument.arg for argument in positional]
+    defaults = dict(
+        zip(names[-len(optimize.args.defaults) :], optimize.args.defaults, strict=True)
+    )
+
+    assert isinstance(defaults["use_semantic_prior"], ast.Constant)
+    assert defaults["use_semantic_prior"].value is False
+
+
 def test_semantic_prior_has_pinned_provenance_and_support() -> None:
     prior = json.loads(PRIOR.read_text(encoding="utf-8"))
 
