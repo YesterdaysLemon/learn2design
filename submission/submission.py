@@ -365,6 +365,11 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                                 (active_members,), batch_seconds
                             ),
                             "finite_loss": finite_loss,
+                            "loss_float_bits": jnp.full(
+                                (active_members,),
+                                int(losses.dtype.itemsize * 8),
+                                dtype=jnp.int16,
+                            ),
                             "feasible": jnp.asarray(
                                 aux["is_feasible"], dtype=bool
                             ),
@@ -564,6 +569,11 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                             (population_size,), batch_seconds
                         ),
                         "finite_loss": finite_loss,
+                        "loss_float_bits": jnp.full(
+                            (population_size,),
+                            int(losses.dtype.itemsize * 8),
+                            dtype=jnp.int16,
+                        ),
                         "feasible": jnp.asarray(aux["is_feasible"], dtype=bool),
                         "observed_member_improved": improved,
                         "observed_member_best_loss": member_best_loss_for_event,

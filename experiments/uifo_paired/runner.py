@@ -874,6 +874,12 @@ def _validate_optimizer_telemetry_against_history(
     losses = np.asarray(history_arrays["loss"])
     feasible = np.asarray(history_arrays["is_feasible"])
     finite = np.isfinite(losses)
+    loss_float_bits = np.unique(telemetry_arrays["loss_float_bits"])
+    if len(loss_float_bits) != 1 or int(loss_float_bits[0]) not in (32, 64):
+        raise RuntimeError("optimizer telemetry loss precision is invalid")
+    runtime_float = np.float32 if int(loss_float_bits[0]) == 32 else np.float64
+    runtime_losses = losses.astype(runtime_float)
+    runtime_improvement = runtime_float(minimum_improvement)
     if len(telemetry_arrays["batch_index"]) != len(losses):
         raise RuntimeError("optimizer telemetry/history row count mismatch")
     if not np.array_equal(telemetry_arrays["finite_loss"], finite):
@@ -883,21 +889,24 @@ def _validate_optimizer_telemetry_against_history(
 
     expected_improved = np.zeros(len(losses), dtype=bool)
     expected_best = np.full(len(losses), np.inf, dtype=np.float64)
-    member_best: dict[tuple[int, int], float] = {}
+    member_best: dict[tuple[int, int], object] = {}
     for row_index in range(len(losses)):
         key = (
             int(telemetry_arrays["member_index"][row_index]),
             int(telemetry_arrays["evaluated_generation"][row_index]),
         )
-        previous_best = member_best.get(key, math.inf)
+        previous_best = member_best.get(key, runtime_float(np.inf))
         improved = bool(
             finite[row_index]
-            and losses[row_index] < previous_best - minimum_improvement
+            and runtime_losses[row_index]
+            < runtime_float(previous_best - runtime_improvement)
         )
-        observed_best = float(losses[row_index]) if improved else previous_best
+        observed_best = (
+            runtime_losses[row_index] if improved else previous_best
+        )
         member_best[key] = observed_best
         expected_improved[row_index] = improved
-        expected_best[row_index] = observed_best
+        expected_best[row_index] = float(observed_best)
     if not np.array_equal(
         telemetry_arrays["observed_member_improved"], expected_improved
     ):

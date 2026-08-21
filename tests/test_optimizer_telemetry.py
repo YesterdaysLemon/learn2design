@@ -15,6 +15,9 @@ from experiments.uifo_paired.optimizer_telemetry import (
     summarize_optimizer_telemetry,
     validate_optimizer_telemetry,
 )
+from experiments.uifo_paired.runner import (
+    _validate_optimizer_telemetry_against_history,
+)
 
 
 def _valid_arrays() -> dict[str, np.ndarray]:
@@ -25,6 +28,7 @@ def _valid_arrays() -> dict[str, np.ndarray]:
         "time_seconds": [0.1, 0.1],
         "evaluation_batch_seconds": [0.1, 0.1],
         "finite_loss": [True, True],
+        "loss_float_bits": [64, 64],
         "feasible": [False, False],
         "observed_member_improved": [True, True],
         "observed_member_best_loss": [1.0, 2.0],
@@ -184,6 +188,35 @@ def test_optimizer_telemetry_allows_only_safely_clipped_norm_overflow(
     _write(path, arrays)
     with pytest.raises(RuntimeError, match="overflowing norm was not clipped"):
         validate_optimizer_telemetry(path)
+
+
+def test_history_replay_uses_bound_runtime_loss_precision() -> None:
+    boundary_loss = np.float32(0.9999999)
+    telemetry = {
+        "batch_index": np.asarray([0, 1], dtype=np.int32),
+        "member_index": np.asarray([0, 0], dtype=np.int16),
+        "evaluated_generation": np.asarray([0, 0], dtype=np.int32),
+        "loss_float_bits": np.asarray([32, 32], dtype=np.int16),
+        "finite_loss": np.asarray([True, True]),
+        "feasible": np.asarray([False, False]),
+        "observed_member_improved": np.asarray([True, False]),
+        "observed_member_best_loss": np.asarray([1.0, 1.0]),
+        "global_feasible_improvement": np.asarray([False, False]),
+    }
+    history = {
+        "loss": np.asarray([1.0, float(boundary_loss)], dtype=np.float64),
+        "is_feasible": np.asarray([False, False]),
+    }
+
+    _validate_optimizer_telemetry_against_history(
+        telemetry, history, minimum_improvement=1e-7
+    )
+
+    telemetry["loss_float_bits"] = np.asarray([64, 64], dtype=np.int16)
+    with pytest.raises(RuntimeError, match="member improvements mismatch"):
+        _validate_optimizer_telemetry_against_history(
+            telemetry, history, minimum_improvement=1e-7
+        )
 
 
 def test_optimizer_telemetry_rejects_invalid_callback_duration(

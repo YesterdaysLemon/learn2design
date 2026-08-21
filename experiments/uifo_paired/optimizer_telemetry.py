@@ -18,6 +18,7 @@ OPTIMIZER_TELEMETRY_SCHEMA = {
     "time_seconds": "float64",
     "evaluation_batch_seconds": "float64",
     "finite_loss": "bool",
+    "loss_float_bits": "int16",
     "feasible": "bool",
     "observed_member_improved": "bool",
     "observed_member_best_loss": "float64",
@@ -221,6 +222,7 @@ def validate_optimizer_telemetry(
         "eval_count_after_batch",
         "time_seconds",
         "evaluation_batch_seconds",
+        "loss_float_bits",
         "stalled_steps_before",
         "stalled_steps_after",
         "adam_age_before",
@@ -249,6 +251,9 @@ def validate_optimizer_telemetry(
     observed_best = arrays["observed_member_best_loss"]
     if np.any(np.isnan(observed_best)) or np.any(np.isneginf(observed_best)):
         raise RuntimeError("optimizer telemetry observed member best is invalid")
+    loss_float_bits = np.unique(arrays["loss_float_bits"])
+    if len(loss_float_bits) != 1 or int(loss_float_bits[0]) not in (32, 64):
+        raise RuntimeError("optimizer telemetry loss precision is invalid")
     if np.any(arrays["budget_progress_fraction"] > 1):
         raise RuntimeError("optimizer telemetry budget progress is invalid")
     if np.any(arrays["observed_member_improved"] & ~arrays["finite_loss"]):

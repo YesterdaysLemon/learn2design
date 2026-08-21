@@ -209,6 +209,7 @@ def test_complete_record_is_recomputed_and_history_tampering_is_rejected(
         "time_seconds": [1.0, 1.0],
         "evaluation_batch_seconds": [1.0, 1.0],
         "finite_loss": [True, True],
+        "loss_float_bits": [64, 64],
         "feasible": [False, True],
         "observed_member_improved": [True, True],
         "observed_member_best_loss": [2.0, 1.0],
