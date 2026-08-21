@@ -17,6 +17,11 @@ integration = [
 accelerator = [
   "jax[cuda12]==0.9.0.1; sys_platform == 'linux'",
 ]
+analysis = [
+  "markdown==3.8.2",
+  "matplotlib==3.10.5",
+  "scipy==1.16.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

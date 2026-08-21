@@ -94,4 +94,25 @@ After a clean completion, `tools/package_uifo_study.py` revalidates every run, h
 
 Equal-evaluation studies are useful for diagnosing initialization and restarts, but competition-performance claims require equal wall-clock budgets on size-3 UIFO problems. Treat topology identity as the statistical unit; optimizer seeds are repeated measurements.
 
+## Validate a packaged development result
+
+`tools/analyze_uifo_results.py` authenticates the external ZIP and sidecars,
+streams every member without extraction, recomputes run metrics from pickle-free
+NPZ histories, performs both the production and independent topology-level
+replays, and opens the archived summary only after those replays agree. It then
+writes normalized tables and explicitly post-hoc analysis outside Git:
+
+```powershell
+$resultsRoot = (Resolve-Path ..\learn2design-runpod-results).Path
+uv run --frozen --group integration --group analysis `
+  python tools/analyze_uifo_results.py `
+  (Join-Path $resultsRoot 'development-v2.zip') `
+  --plan (Join-Path $resultsRoot 'development-v2-plan.json') `
+  --output (Join-Path $resultsRoot 'development-v2-analysis-replay')
+```
+
+The command refuses output under the repository and refuses to overwrite an
+existing output directory. Keep source and generated artifacts private; only
+aggregate research conclusions belong in Git.
+
 The first WSL2 deployment smoke is recorded in `research/2026-08-19-rtx4060-deployment-smoke.md`: scalar UIFO works, while the batched candidate OOMs at population 2 on the 8 GB RTX 4060. A later scalar-chunk attempt is recorded in `research/2026-08-19-low-memory-diagnostic-smoke.md`; one arm completed, but an unrelated CUDA workload contaminated the attempted pair. The clean follow-up in `research/2026-08-19-idle-candidate-probe.md` completed all six workers and did not reproduce a semantic-only latency tail. Use larger-memory hardware for competition-aligned paired studies, and require an otherwise idle device for any local diagnostic comparison.

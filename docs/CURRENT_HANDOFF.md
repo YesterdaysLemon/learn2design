@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-20
+Updated: 2026-08-21
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -9,31 +9,36 @@ are the evidence record, not a competing task list.
 
 - The submission candidate is deterministic and packages successfully.
 - The topology-conditioned neural initializer failed its offline control gate.
-- The semantic archive prior is only a live-test candidate.
-- No competition-aligned multi-topology A100 result exists yet.
+- The frozen `development-v2` A100 screen completed 64/64 runs and validated at
+  all 16 topology inference units.
+- Production replay, an independent history-based calculation, and the archived
+  summary agree.
+- The semantic prior failed the frozen policy: 7/0/9 topology wins/ties/losses,
+  mean difference `+0.029737199613027163`, action
+  `retain_no_prior_candidate`.
+- The packaged submission still needs a separate focused alignment change; the
+  results-evidence work deliberately does not change the algorithm.
 
 ## Next decision
 
-Run the frozen two-arm `development-v2` screen on one idle A100 80 GB GPU.
-The causal comparison is `semantic_prior` versus `no_prior`; `adam` was removed
-from the paid primary panel after independent experiment-design review. Follow
-[`A100_RENTAL_RUNBOOK.md`](A100_RENTAL_RUNBOOK.md) without changing the study
-profile, panel, seeds, budgets, thresholds, cache policy, decision rule, or run
-order after observing results.
+First, land the evidence workflow and aggregate report. Then use a separate PR
+to make the packaged submission default match `retain_no_prior_candidate`,
+rebuild the deterministic submission ZIP, and rerun contract/integration tests.
 
-Do not start paid compute without explicit owner approval. The current harness
-is serial and has no validated multi-GPU shard/merge path.
+Do not run `confirmation-v1`: development did not pass. After candidate
+alignment, the recommended next evidence gate is a separately frozen
+no-prior-only submission-like evaluation on the existing disjoint panel at the
+official budget. Do not start that paid, long-running work without a reviewed
+plan and explicit owner approval.
 
 ## What can contribute now
 
-Without an A100: improve correctness tests, artifact integrity, rule audits, or
-documentation without changing the frozen algorithmic comparison. With an
-approved A100: execute and preserve the runbook's deployment ladder, study, and
-checksummed artifact package.
+The exact private-artifact reproduction command and generated-bundle layout are
+in [`DEVELOPMENT_V2_RESULTS_HANDOFF.md`](DEVELOPMENT_V2_RESULTS_HANDOFF.md). The
+durable aggregate result and exploratory evidence boundaries are in
+[`2026-08-21-development-v2-a100-results.md`](../research/2026-08-21-development-v2-a100-results.md).
 
-After the development result, apply the machine-readable promotion rule in
-[`2026-08-19-accelerator-evaluation-plan.md`](../research/2026-08-19-accelerator-evaluation-plan.md):
-either test the surviving prior comparison on the disjoint confirmation panel
-or retain the no-prior candidate. Do not claim an order-of-magnitude gain unless
-the censor-aware topology-level time-and-evaluation threshold rule reports
-`order_of_magnitude_claim_ready=true`.
+Useful unpaid work now includes ingestion hardening, candidate packaging
+correctness, contract checks, and review of the next run plan. Do not claim an
+order-of-magnitude gain: every frozen target has
+`order_of_magnitude_claim_ready=false`.
