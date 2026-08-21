@@ -40,6 +40,17 @@ uv run --group integration python tools/run_uifo_paired.py \
   --resume
 ```
 
+For a bounded optimizer-mechanics study, `--optimizer-telemetry member-v1`
+adds a separate pickle-free `optimizer-telemetry/<run_id>.npz` artifact. It
+records scalar per-member observations, restart state, gradient norms and
+clipping scales without parameters, candidates, gradients, device IDs, or
+topology strings. The run record binds its schema, SHA-256, row count, and
+callback overhead; resume and packaging revalidate it against the authenticated
+candidate history. Telemetry adds host transfers inside the Objective clock, so
+use it symmetrically for diagnostics and disable it for performance scoring.
+The frozen `development-v2` and `confirmation-v1` profiles explicitly prohibit
+telemetry and retain their historical plan IDs.
+
 For an unaudited smoke panel, pass a JSON list through `--topologies-file`. A named panel can use the object form:
 
 ```json

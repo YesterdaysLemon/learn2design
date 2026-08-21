@@ -9,9 +9,14 @@ import pytest
 jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
 pytest.importorskip("dfbench")
+np = pytest.importorskip("numpy")
 
 from submission.submission import BatchedRestartAdam
 from experiments.uifo_paired.candidate_probe import construct_candidates, host_pytree
+from experiments.uifo_paired.optimizer_telemetry import (
+    OptimizerTelemetryCapture,
+    validate_optimizer_telemetry,
+)
 from experiments.uifo_paired.runner import BATCHED_SETTINGS, _parameter_hashes
 
 
@@ -300,6 +305,136 @@ def test_candidate_logs_a_partial_final_population_without_budget_overshoot() ->
 
     assert objective.eval_count == 6
     assert [len(value) for value in objective.feasible_history] == [4, 2]
+
+
+@pytest.mark.integration
+def test_optimizer_telemetry_preserves_default_numerical_path_and_partial_tail(
+    tmp_path,
+) -> None:
+    class TracedObjective(AnalyticObjective):
+        def __init__(self) -> None:
+            super().__init__(n_params=5, max_evals=10)
+            self.inputs = []
+
+        @property
+        def time_elapsed(self) -> float:
+            return 0.0
+
+        def vmap_value_and_grad_aux(self, params):
+            self.inputs.append(np.asarray(jax.device_get(params)))
+            return super().vmap_value_and_grad_aux(params)
+
+    default = TracedObjective()
+    instrumented = TracedObjective()
+    capture = OptimizerTelemetryCapture()
+    common = {
+        "random_seed": 11,
+        "population_size": 4,
+        "patience": 10,
+        "safety_seconds": 0,
+    }
+
+    BatchedRestartAdam().optimize(default, **common)
+    BatchedRestartAdam().optimize(
+        instrumented, optimizer_telemetry_callback=capture, **common
+    )
+
+    assert len(default.inputs) == len(instrumented.inputs) == 3
+    for default_params, instrumented_params in zip(
+        default.inputs, instrumented.inputs, strict=True
+    ):
+        np.testing.assert_array_equal(default_params, instrumented_params)
+    assert default.best_feasible_loss == instrumented.best_feasible_loss
+
+    telemetry_path = tmp_path / "telemetry.npz"
+    summary = capture.write(telemetry_path)
+    arrays = validate_optimizer_telemetry(
+        telemetry_path,
+        expected_rows=10,
+        expected_population_size=4,
+        expected_patience=10,
+    )
+    assert summary["rows"] == 10
+    assert arrays["batch_index"].tolist() == [0] * 4 + [1] * 4 + [2] * 2
+    assert arrays["update_applied"].tolist() == [True] * 8 + [False] * 2
+    assert arrays["member_index"].tolist() == [0, 1, 2, 3] * 2 + [0, 1]
+
+
+@pytest.mark.integration
+def test_optimizer_telemetry_attributes_restart_mechanics(tmp_path) -> None:
+    class ConstantFeasibleObjective(AnalyticObjective):
+        def __init__(self) -> None:
+            super().__init__(n_params=1, max_evals=6)
+            self.optimization_pairs = [["component", "tuning"]]
+            self.inputs = []
+
+        @property
+        def time_elapsed(self) -> float:
+            return 0.0
+
+        def vmap_value_and_grad_aux(self, params):
+            if not self._started:
+                raise RuntimeError("evaluation before start_logging")
+            self.inputs.append(np.asarray(jax.device_get(params)))
+            member_count = int(params.shape[0])
+            self.eval_count += member_count
+            feasible = jnp.ones((member_count,), dtype=bool)
+            self.feasible_history.append(feasible)
+            self.best_feasible_loss = 1.0
+            if self.first_feasible_loss == math.inf:
+                self.first_feasible_loss = 1.0
+            return (
+                jnp.ones((member_count,)),
+                jnp.full_like(params, 4.0),
+                {"is_feasible": feasible},
+            )
+
+    default = ConstantFeasibleObjective()
+    instrumented = ConstantFeasibleObjective()
+    capture = OptimizerTelemetryCapture()
+    settings = {
+        "random_seed": 7,
+        "population_size": 2,
+        "patience": 1,
+        "safety_seconds": 0,
+    }
+    BatchedRestartAdam().optimize(default, **settings)
+    BatchedRestartAdam().optimize(
+        instrumented,
+        optimizer_telemetry_callback=capture,
+        **settings,
+    )
+    for default_params, instrumented_params in zip(
+        default.inputs, instrumented.inputs, strict=True
+    ):
+        np.testing.assert_array_equal(default_params, instrumented_params)
+    path = tmp_path / "restart-telemetry.npz"
+    capture.write(path)
+    arrays = validate_optimizer_telemetry(
+        path,
+        expected_rows=6,
+        expected_population_size=2,
+        expected_patience=1,
+    )
+
+    batch_zero = arrays["batch_index"] == 0
+    assert arrays["global_feasible_improvement"][batch_zero].tolist() == [
+        True,
+        False,
+    ]
+    assert arrays["gradient_norm"][batch_zero].tolist() == pytest.approx([4, 4])
+    assert arrays["gradient_clip_scale"][batch_zero].tolist() == pytest.approx(
+        [0.25, 0.25]
+    )
+
+    restarted = arrays["restart_triggered"]
+    assert arrays["batch_index"][restarted].tolist() == [1, 1]
+    assert arrays["restart_kind"][restarted].tolist() == [1, 0]
+    assert arrays["restart_round"][restarted].tolist() == [0, 0]
+    assert arrays["adam_age_before"][restarted].tolist() == [1, 1]
+    assert arrays["adam_age_after"][restarted].tolist() == [0, 0]
+    assert arrays["evaluated_generation"][restarted].tolist() == [0, 0]
+    assert arrays["next_generation"][restarted].tolist() == [1, 1]
 
 
 @pytest.mark.integration

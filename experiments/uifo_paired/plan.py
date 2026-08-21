@@ -8,6 +8,7 @@ import math
 import re
 from datetime import UTC, datetime
 
+from experiments.uifo_paired.optimizer_telemetry import OPTIMIZER_TELEMETRY_MODE
 from experiments.uifo_paired.study_profiles import bind_study_profile
 
 VALID_ARMS = ("adam", "no_prior", "semantic_prior")
@@ -37,6 +38,7 @@ def build_plan(
     max_session_wall_seconds: float | None = None,
     max_worker_failures: int = 1,
     study_profile: str | None = None,
+    optimizer_telemetry: str | None = None,
 ) -> dict[str, object]:
     """Build a stable plan with AB/BA-style arm-order rotation."""
     if bool(topology_seeds) == bool(topologies):
@@ -93,6 +95,12 @@ def build_plan(
         raise ValueError("max_session_wall_seconds must be finite and positive")
     if max_worker_failures < 1:
         raise ValueError("max_worker_failures must be positive")
+    if optimizer_telemetry not in (None, OPTIMIZER_TELEMETRY_MODE):
+        raise ValueError(
+            f"optimizer_telemetry must be {OPTIMIZER_TELEMETRY_MODE!r} or None"
+        )
+    if optimizer_telemetry is not None and "adam" in arms:
+        raise ValueError("optimizer telemetry is only supported for batched arms")
     if not require_a100 and any(
         value is not None
         for value in (
@@ -183,6 +191,8 @@ def build_plan(
         "worker_timeout_seconds": float(worker_timeout_seconds),
         "study_profile": study_profile,
     }
+    if optimizer_telemetry is not None:
+        configuration["optimizer_telemetry"] = optimizer_telemetry
     configuration["decision_policy"] = bind_study_profile(study_profile, configuration)
     primary_order = primary_pair_order_counts(runs)
     if study_profile:

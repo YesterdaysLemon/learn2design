@@ -149,6 +149,35 @@ def test_plan_is_deterministic_and_rotates_arm_order() -> None:
     assert len({run["run_id"] for run in first["runs"]}) == 4
 
 
+def test_optimizer_telemetry_is_opt_in_and_plan_hash_stable_when_omitted() -> None:
+    kwargs = {
+        "topology_seeds": [1001],
+        "topologies": None,
+        "optimizer_seeds": [7],
+        "arms": ["no_prior", "semantic_prior"],
+        "max_time_seconds": 60.0,
+        "max_evals": None,
+        "population_size": 8,
+        "n_frequencies": 50,
+    }
+    omitted = build_plan(**kwargs)
+    explicit_none = build_plan(**kwargs, optimizer_telemetry=None)
+    instrumented = build_plan(**kwargs, optimizer_telemetry="member-v1")
+
+    assert omitted["plan_id"] == explicit_none["plan_id"]
+    assert "optimizer_telemetry" not in omitted["configuration"]
+    assert instrumented["configuration"]["optimizer_telemetry"] == "member-v1"
+    assert instrumented["plan_id"] != omitted["plan_id"]
+
+    with pytest.raises(ValueError, match="must be 'member-v1'"):
+        build_plan(**kwargs, optimizer_telemetry="unknown")
+    with pytest.raises(ValueError, match="only supported for batched"):
+        build_plan(
+            **{**kwargs, "arms": ["adam", "no_prior"]},
+            optimizer_telemetry="member-v1",
+        )
+
+
 def test_rental_plan_binds_accelerator_and_cache_policy() -> None:
     plan = build_plan(
         topology_seeds=[1001],
@@ -230,6 +259,34 @@ def test_frozen_development_profile_is_two_arm_and_order_balanced() -> None:
     assert plan["configuration"]["decision_policy"]["policy_id"] == (
         "semantic-prior-development-v2"
     )
+
+    with pytest.raises(ValueError, match="requires optimizer_telemetry=None"):
+        build_plan(
+            topology_seeds=None,
+            topologies=panel["topologies"],
+            optimizer_seeds=[7, 11],
+            arms=["no_prior", "semantic_prior"],
+            max_time_seconds=600,
+            max_evals=None,
+            population_size=8,
+            n_frequencies=50,
+            target_losses=[4.0, 1.0, 0.5, 0.0],
+            worker_timeout_seconds=1_200,
+            topology_panel={
+                "panel_id": "development-v1",
+                "topology_count": 16,
+                "archive_exclusion_verified": True,
+            },
+            require_a100=True,
+            minimum_gpu_memory_mib=75_000,
+            max_idle_gpu_memory_mib=1_000,
+            max_idle_gpu_utilization_percent=5,
+            minimum_free_disk_gib=20,
+            max_session_wall_seconds=16 * 60 * 60,
+            max_worker_failures=2,
+            study_profile="development-v2",
+            optimizer_telemetry="member-v1",
+        )
 
     with pytest.raises(ValueError, match="requires arms"):
         build_plan(
@@ -661,8 +718,10 @@ def test_orphaned_worker_result_is_preserved_before_rerun(tmp_path: Path) -> Non
     output = tmp_path / "study"
     runs = output / "runs"
     histories = output / "histories"
+    telemetry = output / "optimizer-telemetry"
     runs.mkdir(parents=True)
     histories.mkdir()
+    telemetry.mkdir()
     config = {"run_id": "run", "arm": "no_prior"}
     environment = {"backend": "gpu"}
     atomic_json(
@@ -676,14 +735,16 @@ def test_orphaned_worker_result_is_preserved_before_rerun(tmp_path: Path) -> Non
         },
     )
     (histories / "run.npz").write_bytes(b"provisional")
+    (telemetry / "run.npz").write_bytes(b"telemetry")
 
     _recover_orphaned_provisional_results(output, {"run": config}, environment)
 
     assert not (runs / "run.json").exists()
     assert not (histories / "run.npz").exists()
+    assert not (telemetry / "run.npz").exists()
     recovery = output / "recovery" / "orphaned-workers" / "run"
     assert len(list(recovery.glob("*.json"))) == 1
-    assert len(list(recovery.glob("*.npz"))) == 1
+    assert len(list(recovery.glob("*.npz"))) == 2
 
 
 def test_completed_study_packages_deterministically(
@@ -694,6 +755,8 @@ def test_completed_study_packages_deterministically(
     runs_dir.mkdir(parents=True)
     histories_dir = study / "histories"
     histories_dir.mkdir()
+    telemetry_dir = study / "optimizer-telemetry"
+    telemetry_dir.mkdir()
     run = {
         "planned_run_index": 0,
         "run_id": "pair__adam",
@@ -772,6 +835,7 @@ def test_completed_study_packages_deterministically(
         },
     )
     (histories_dir / "pair__adam.npz").write_bytes(b"compressed-history")
+    (telemetry_dir / "diagnostic.npz").write_bytes(b"compressed-telemetry")
     monkeypatch.setattr(
         "experiments.uifo_paired.runner.validate_completed_record",
         lambda *args, **kwargs: None,
@@ -790,6 +854,10 @@ def test_completed_study_packages_deterministically(
         assert json.loads(archive.read("package-state.json"))["study_complete"]
         assert (
             archive.getinfo("histories/pair__adam.npz").compress_type
+            == zipfile.ZIP_STORED
+        )
+        assert (
+            archive.getinfo("optimizer-telemetry/diagnostic.npz").compress_type
             == zipfile.ZIP_STORED
         )
         assert "runs.jsonl" in archive.namelist()
