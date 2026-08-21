@@ -883,6 +883,24 @@ def test_completed_study_packages_deterministically(
         {"run_id": "missing__adam", "status": "missing"}
     ]
 
+    atomic_json(
+        study / ".study.lock",
+        {
+            "pid": 2_000_000_000,
+            "hostname": platform.node(),
+            "created_utc": "2026-08-21T00:00:00+00:00",
+        },
+    )
+    recovered_partial = package_study(
+        study,
+        tmp_path / "recovered-partial.zip",
+        allow_incomplete=True,
+        recover_stale_lock=True,
+    )
+    assert recovered_partial["study_complete"] is False
+    assert not (study / ".study.lock").exists()
+    assert len(list((study / "recovery").glob("stale-study-lock-*.json"))) == 1
+
 
 def test_lightweight_index_rebuild_skips_revalidating_old_histories(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

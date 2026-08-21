@@ -80,6 +80,8 @@ def test_optimizer_telemetry_validates_and_summarizes(tmp_path: Path) -> None:
         "batches": 1,
         "restart_rows": 0,
         "restart_batches": 0,
+        "post_restart_evaluation_rows": 0,
+        "post_restart_evaluation_batches": 0,
         "global_improvement_rows": 0,
         "clipped_gradient_rows": 0,
         "nonfinite_gradient_values": 0,

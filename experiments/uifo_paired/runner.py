@@ -30,7 +30,12 @@ from experiments.uifo_paired.optimizer_telemetry import (
     summarize_optimizer_telemetry,
     validate_optimizer_telemetry,
 )
+from experiments.uifo_paired.optimizer_settings import (
+    BATCHED_SETTINGS,
+    validate_batched_settings,
+)
 from experiments.uifo_paired.plan import VALID_ARMS, build_plan
+from experiments.uifo_paired.restart_analysis import summarize_restart_records
 from experiments.uifo_paired.study_profiles import profile_names
 
 ROOT = Path(__file__).parents[2]
@@ -51,20 +56,6 @@ HISTORY_SCHEMA = {
 }
 TIME_GRID = [1, 2, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 7200, 14400]
 EVAL_GRID = [1, 8, 32, 128, 512, 2048, 8192, 32768, 131072]
-BATCHED_SETTINGS = {
-    "learning_rate_low": 0.03,
-    "learning_rate_high": 0.15,
-    "patience": 600,
-    "minimum_improvement": 1e-7,
-    "beta1": 0.9,
-    "beta2": 0.999,
-    "epsilon": 1e-8,
-    "gradient_clip_norm": 1.0,
-    "restart_noise_scale": 0.35,
-    "safety_seconds": 2.0,
-    "batch_time_safety_factor": 1.5,
-    "batch_time_window": 8,
-}
 JAX_RUNTIME_ENVIRONMENT_KEYS = (
     "CUDA_CACHE_DISABLE",
     "CUDA_CACHE_MAXSIZE",
@@ -568,6 +559,9 @@ def execute_run(
         }
     else:
         algorithm = BatchedRestartAdam()
+        optimizer_settings = validate_batched_settings(
+            config.get("optimizer_settings", BATCHED_SETTINGS)
+        )
         if arm == "semantic_prior" and algorithm._semantic_prior(objective) is None:
             raise RuntimeError("semantic-prior arm could not load a valid prior")
         algorithm.optimize(
@@ -578,14 +572,14 @@ def execute_run(
             evaluation_chunk_size=config.get("evaluation_chunk_size"),
             initial_population_callback=capture.capture_population,
             optimizer_telemetry_callback=telemetry_capture,
-            **BATCHED_SETTINGS,
+            **optimizer_settings,
         )
         algorithm_settings = {
             "module": "submission.submission",
             "class": "BatchedRestartAdam",
             "algorithm_str": "batched_restart_adam",
             "kwargs": {
-                **BATCHED_SETTINGS,
+                **optimizer_settings,
                 "population_size": int(config["population_size"]),
                 "random_seed": optimizer_seed,
                 "use_semantic_prior": arm == "semantic_prior",
@@ -1067,6 +1061,13 @@ def validate_completed_record(
         != hashlib.sha256(topology_string.encode()).hexdigest()
     ):
         raise RuntimeError("resume topology identity evidence is invalid")
+    configured_topology = expected_config.get("topology")
+    if (
+        isinstance(configured_topology, dict)
+        and configured_topology.get("kind") == "string"
+        and topology_string != configured_topology.get("value")
+    ):
+        raise RuntimeError("resume topology string differs from explicit plan")
 
     objective_configuration = record.get("objective_configuration", {})
     if objective_configuration.get("max_evals") != expected_config["max_evals"]:
@@ -1092,12 +1093,15 @@ def validate_completed_record(
         }
     else:
         expected_prior = expected_config["arm"] == "semantic_prior"
+        expected_optimizer_settings = validate_batched_settings(
+            expected_config.get("optimizer_settings", BATCHED_SETTINGS)
+        )
         expected_algorithm = {
             "module": "submission.submission",
             "class": "BatchedRestartAdam",
             "algorithm_str": "batched_restart_adam",
             "kwargs": {
-                **BATCHED_SETTINGS,
+                **expected_optimizer_settings,
                 "population_size": expected_config["population_size"],
                 "random_seed": expected_config["optimizer_seed"],
                 "use_semantic_prior": expected_prior,
@@ -1213,6 +1217,12 @@ def orchestrate(
     subprocess_environment: dict[str, str] | None = None,
     recover_stale_lock: bool = False,
 ) -> int:
+    study_profile = plan.get("configuration", {}).get("study_profile")
+    if resume and study_profile in {"restart-mechanics-v1", "restart-screen-v1"}:
+        raise RuntimeError(
+            "restart study profiles are non-resumable; preserve and package the "
+            "terminal partial attempt"
+        )
     manifest_path = output_dir / "manifest.json"
     if manifest_path.exists() and not resume:
         raise FileExistsError(
@@ -1252,6 +1262,13 @@ def _orchestrate_locked(
         raise RuntimeError("refusing to run an accelerator study from a dirty tree")
 
     common = plan["configuration"]
+    _validate_mechanics_revision(common, revision)
+    _require_provider_time(
+        common,
+        float(common.get("max_session_wall_seconds") or 0)
+        + float(common.get("provider_evacuation_reserve_seconds") or 0),
+        "start the study",
+    )
     child_environment = (
         cache_disabled_jax_environment()
         if subprocess_environment is None
@@ -1382,6 +1399,29 @@ def _orchestrate_locked(
                     )
                     _rebuild_indexes(output_dir, expected_configs, runtime_environment)
                     return 2
+            provider_reserve = float(
+                common.get("provider_evacuation_reserve_seconds") or 0
+            )
+            try:
+                _require_provider_time(
+                    common,
+                    configured_timeout + provider_reserve,
+                    f"start worker {run_id}",
+                )
+            except RuntimeError:
+                atomic_json(
+                    output_dir / "session.json",
+                    {
+                        "status": "provider_deadline_guard",
+                        "started_utc": session_started_utc,
+                        "completed_utc": datetime.now(UTC).isoformat(),
+                        "elapsed_seconds": time.perf_counter() - session_started,
+                        "provider_stop_utc": common.get("provider_stop_utc"),
+                        "next_run_id": run_id,
+                    },
+                )
+                _rebuild_indexes(output_dir, expected_configs, runtime_environment)
+                return 2
             started = time.perf_counter()
             completed = None
             timed_out = None
@@ -1514,11 +1554,26 @@ def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, 
         ),
         "target_losses": common["target_losses"],
     }
-    for key in ("max_worker_failures", "study_profile", "decision_policy"):
+    for key in (
+        "max_worker_failures",
+        "study_profile",
+        "decision_policy",
+        "mechanics_evidence",
+        "provider_stop_utc",
+        "provider_deadline_maximum_horizon_seconds",
+        "provider_evacuation_reserve_seconds",
+    ):
         if key in common:
             config[key] = common[key]
     if "optimizer_telemetry" in common:
         config["optimizer_telemetry"] = common["optimizer_telemetry"]
+    if "arm_optimizer_settings" in common:
+        settings = common["arm_optimizer_settings"]
+        if not isinstance(settings, dict) or run["arm"] not in settings:
+            raise RuntimeError("plan is missing optimizer settings for an arm")
+        config["optimizer_settings"] = validate_batched_settings(
+            settings[run["arm"]]
+        )
     return config
 
 
@@ -1701,6 +1756,48 @@ def _validate_resume_manifest(existing: dict, current: dict) -> None:
             raise RuntimeError(f"resume manifest mismatch for {key}")
 
 
+def _require_provider_time(
+    configuration: dict[str, object], required_seconds: float, action: str
+) -> None:
+    deadline_text = configuration.get("provider_stop_utc")
+    if deadline_text is None:
+        return
+    if not isinstance(deadline_text, str):
+        raise RuntimeError("provider stop deadline is invalid")
+    try:
+        deadline = datetime.fromisoformat(deadline_text.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise RuntimeError("provider stop deadline is invalid") from error
+    remaining = (deadline.astimezone(UTC) - datetime.now(UTC)).total_seconds()
+    maximum_horizon = configuration.get(
+        "provider_deadline_maximum_horizon_seconds"
+    )
+    if maximum_horizon is not None and remaining > float(maximum_horizon) + 60.0:
+        raise RuntimeError(
+            "provider stop deadline exceeds the frozen eight-hour horizon"
+        )
+    if remaining < required_seconds:
+        raise RuntimeError(
+            f"insufficient provider time to {action}: {remaining:.1f}s remains; "
+            f"{required_seconds:.1f}s is required"
+        )
+
+
+def _validate_mechanics_revision(
+    configuration: dict[str, object], revision: str
+) -> None:
+    evidence = configuration.get("mechanics_evidence")
+    if evidence is None:
+        return
+    if (
+        not isinstance(evidence, dict)
+        or evidence.get("project_revision") != revision
+    ):
+        raise RuntimeError(
+            "restart screen revision differs from passed mechanics evidence"
+        )
+
+
 def _rebuild_indexes(
     output_dir: Path,
     expected_configs: dict[str, dict[str, object]] | None = None,
@@ -1743,13 +1840,26 @@ def _rebuild_indexes(
     temporary.write_text(jsonl, encoding="utf-8")
     os.replace(temporary, output_dir / "runs.jsonl")
 
-    atomic_json(
-        output_dir / "summary.json",
-        summarize_records(
+    restart_profiles = {"restart-mechanics-v1", "restart-screen-v1"}
+    use_restart_summary = bool(expected_configs) and {
+        str(config.get("study_profile")) for config in expected_configs.values()
+    } <= restart_profiles
+    summary = (
+        summarize_restart_records(
             records,
             expected_configs,
             compute_bootstrap=validate_complete_records,
-        ),
+        )
+        if use_restart_summary
+        else summarize_records(
+            records,
+            expected_configs,
+            compute_bootstrap=validate_complete_records,
+        )
+    )
+    atomic_json(
+        output_dir / "summary.json",
+        summary,
     )
 
 
@@ -1757,6 +1867,7 @@ def _validate_resolved_topology_identities(
     records: list[dict[str, object]],
 ) -> None:
     by_hash: dict[str, str] = {}
+    by_configuration: dict[str, str] = {}
     for record in records:
         if record.get("status") != "complete":
             continue
@@ -1768,6 +1879,11 @@ def _validate_resolved_topology_identities(
         if previous != configured:
             raise RuntimeError(
                 "distinct planned topologies resolved to the same topology identity"
+            )
+        previous_hash = by_configuration.setdefault(configured, topology_hash)
+        if previous_hash != topology_hash:
+            raise RuntimeError(
+                "one planned topology resolved to multiple topology identities"
             )
 
 
@@ -1889,6 +2005,25 @@ def audit_topology_exclusion(
     }
 
 
+def parse_arm_patience(values: list[str]) -> dict[str, int] | None:
+    if not values:
+        return None
+    result = {}
+    for value in values:
+        arm, separator, raw_patience = value.partition("=")
+        if not separator or not arm or not raw_patience:
+            raise ValueError("--arm-patience must use ARM=INTEGER")
+        if arm in result:
+            raise ValueError(f"duplicate --arm-patience for {arm!r}")
+        try:
+            result[arm] = int(raw_patience)
+        except ValueError as error:
+            raise ValueError(
+                f"invalid --arm-patience integer for {arm!r}"
+            ) from error
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group()
@@ -1905,6 +2040,12 @@ def main() -> None:
     parser.add_argument("--max-evals", type=int)
     parser.add_argument("--population-size", type=int, default=8)
     parser.add_argument("--evaluation-chunk-size", type=int)
+    parser.add_argument("--arm-patience", action="append", default=[])
+    parser.add_argument(
+        "--pair-order-policy",
+        choices=["rotate_pairs", "alternate_topology_and_seed"],
+        default="rotate_pairs",
+    )
     parser.add_argument(
         "--optimizer-telemetry", choices=[OPTIMIZER_TELEMETRY_MODE]
     )
@@ -1913,6 +2054,10 @@ def main() -> None:
     parser.add_argument("--worker-timeout", type=float)
     parser.add_argument("--max-session-wall", type=float)
     parser.add_argument("--max-worker-failures", type=int, default=1)
+    parser.add_argument("--provider-stop-utc")
+    parser.add_argument("--provider-evacuation-reserve", type=float)
+    parser.add_argument("--mechanics-study-dir", type=Path)
+    parser.add_argument("--mechanics-package", type=Path)
     parser.add_argument("--study-profile", choices=profile_names())
     parser.add_argument("--require-a100", action="store_true")
     parser.add_argument("--minimum-gpu-memory-mib", type=int)
@@ -1956,6 +2101,19 @@ def main() -> None:
     if not args.topology_seeds and not args.topologies_file:
         parser.error("one topology source is required")
     try:
+        if bool(args.mechanics_study_dir) != bool(args.mechanics_package):
+            raise ValueError(
+                "--mechanics-study-dir and --mechanics-package are required together"
+            )
+        mechanics_evidence = None
+        if args.mechanics_study_dir:
+            from experiments.uifo_paired.restart_evidence import (
+                validate_mechanics_predecessor,
+            )
+
+            mechanics_evidence = validate_mechanics_predecessor(
+                args.mechanics_study_dir, args.mechanics_package
+            )
         if args.topologies_file:
             topologies, topology_panel = parse_topology_panel(args.topologies_file)
             if args.require_archive_exclusion and not args.official_dataset:
@@ -2009,8 +2167,15 @@ def main() -> None:
             max_worker_failures=args.max_worker_failures,
             study_profile=args.study_profile,
             optimizer_telemetry=args.optimizer_telemetry,
+            arm_patience=parse_arm_patience(args.arm_patience),
+            pair_order_policy=args.pair_order_policy,
+            mechanics_evidence=mechanics_evidence,
+            provider_stop_utc=args.provider_stop_utc,
+            provider_evacuation_reserve_seconds=(
+                args.provider_evacuation_reserve
+            ),
         )
-    except (OSError, ValueError, json.JSONDecodeError) as error:
+    except (OSError, TypeError, ValueError, RuntimeError, json.JSONDecodeError) as error:
         parser.error(str(error))
     if args.dry_run:
         print(json.dumps(plan, indent=2, sort_keys=True))

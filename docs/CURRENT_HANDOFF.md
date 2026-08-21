@@ -19,14 +19,20 @@ are the evidence record, not a competing task list.
 - The packaged submission now defaults to no-prior initialization, matching
   the frozen `retain_no_prior_candidate` action. The historical harness still
   selects each comparison arm explicitly.
+- Authenticated no-prior trajectories show that the configured patience of 600
+  never triggers inside the 600-second screen. Patience 200 is now frozen as a
+  post-hoc mechanism candidate; it has no performance claim yet.
 
 ## Next decision
 
-Land the evidence workflow and the separate candidate-alignment change. Do not
-run `confirmation-v1`: development did not pass. The recommended next evidence
-gate is a separately frozen no-prior-only submission-like evaluation on the
-existing disjoint panel at the official budget. Do not start that paid,
-long-running work without a reviewed plan and explicit owner approval.
+Do not run `confirmation-v1`. The next gate is the two-stage bounded restart
+study in [`PATIENCE_200_SCREEN_RUNBOOK.md`](PATIENCE_200_SCREEN_RUNBOOK.md): one
+loss-blind, instrumented mechanics run, followed only on a mechanics pass by an
+uninstrumented eight-topology patience-200 versus patience-600 screen using
+fresh seeds 19/23. The user approved a cost-bounded Runpod run, but price,
+visible balance, provider stop, and local artifact-evacuation gates still apply.
+Even a screen pass authorizes only planning on the untouched submission-like
+panel; it does not directly change the packaged candidate.
 
 ## What can contribute now
 
@@ -36,6 +42,6 @@ durable aggregate result and exploratory evidence boundaries are in
 [`2026-08-21-development-v2-a100-results.md`](../research/2026-08-21-development-v2-a100-results.md).
 
 Useful unpaid work now includes ingestion hardening, candidate packaging
-correctness, contract checks, and review of the next run plan. Do not claim an
+correctness, contract checks, and review of the frozen restart plan. Do not claim an
 order-of-magnitude gain: every frozen target has
 `order_of_magnitude_claim_ready=false`.

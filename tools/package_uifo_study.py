@@ -22,9 +22,22 @@ def main() -> None:
         action="store_true",
         help="package a stopped partial study for recovery; never marks it complete",
     )
+    parser.add_argument(
+        "--recover-stale-lock",
+        action="store_true",
+        help=(
+            "prove the prior writer is dead and preserve its lock before "
+            "packaging a terminal incomplete attempt"
+        ),
+    )
     args = parser.parse_args()
+    if args.recover_stale_lock and not args.allow_incomplete:
+        parser.error("--recover-stale-lock requires --allow-incomplete")
     result = package_study(
-        args.study_dir, args.output, allow_incomplete=args.allow_incomplete
+        args.study_dir,
+        args.output,
+        allow_incomplete=args.allow_incomplete,
+        recover_stale_lock=args.recover_stale_lock,
     )
     print(json.dumps(result, indent=2, sort_keys=True))
 

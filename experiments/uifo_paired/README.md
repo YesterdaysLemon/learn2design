@@ -51,6 +51,13 @@ use it symmetrically for diagnostics and disable it for performance scoring.
 The frozen `development-v2` and `confirmation-v1` profiles explicitly prohibit
 telemetry and retain their historical plan IDs.
 
+The bounded restart follow-up uses two additional exact profiles. First,
+`restart-mechanics-v1` instruments one outcome-selected patience-200 run and
+excludes its loss from inference. Only a passing mechanics summary permits the
+uninstrumented `restart-screen-v1` comparison: patience 600 versus 200 on eight
+mechanically selected development topologies with fresh paired seeds 19/23.
+See [`PATIENCE_200_SCREEN_RUNBOOK.md`](../../docs/PATIENCE_200_SCREEN_RUNBOOK.md).
+
 For an unaudited smoke panel, pass a JSON list through `--topologies-file`. A named panel can use the object form:
 
 ```json

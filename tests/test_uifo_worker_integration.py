@@ -199,6 +199,16 @@ def test_complete_record_is_recomputed_and_history_tampering_is_rejected(
     }
     validate_completed_record(record, config, history_path, environment)
 
+    explicit_config = {
+        **config,
+        "topology": {"kind": "string", "value": "planned-topology"},
+    }
+    explicit_record = {**record, "config": explicit_config}
+    with pytest.raises(RuntimeError, match="differs from explicit plan"):
+        validate_completed_record(
+            explicit_record, explicit_config, history_path, environment
+        )
+
     telemetry_dir = tmp_path / "optimizer-telemetry"
     telemetry_dir.mkdir()
     telemetry_path = telemetry_dir / "run.npz"

@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "generation": {
+    "method": "outcome-selected mechanics-only case from the authenticated development-v2 trajectories",
+    "source_panel": "development-v1",
+    "selection_reason": "earliest retrospectively predicted patience-200 trigger",
+    "performance_inference_allowed": false
+  },
+  "members": [
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 4,
+      "readout": "H",
+      "squeezer_bin": "middle",
+      "squeezer_count": 6,
+      "topology": "FEECAACFB-LSLSLSLSHSLS",
+      "topology_seed": 2026081916
+    }
+  ],
+  "optimizer_seed": 11,
+  "panel_id": "restart-mechanics-v1",
+  "predicted_first_trigger_seconds": 400.3757300376892,
+  "topologies": [
+    "FEECAACFB-LSLSLSLSHSLS"
+  ]
+}

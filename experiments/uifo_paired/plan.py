@@ -8,10 +8,12 @@ import math
 import re
 from datetime import UTC, datetime
 
+from experiments.uifo_paired.optimizer_settings import settings_with_patience
 from experiments.uifo_paired.optimizer_telemetry import OPTIMIZER_TELEMETRY_MODE
 from experiments.uifo_paired.study_profiles import bind_study_profile
 
-VALID_ARMS = ("adam", "no_prior", "semantic_prior")
+RESTART_SCREEN_ARMS = ("no_prior_p600", "no_prior_p200")
+VALID_ARMS = ("adam", "no_prior", "semantic_prior", *RESTART_SCREEN_ARMS)
 TOPOLOGY_PATTERN = re.compile(r"^[A-H]{9}-[LSDH]{12}$")
 
 
@@ -39,6 +41,11 @@ def build_plan(
     max_worker_failures: int = 1,
     study_profile: str | None = None,
     optimizer_telemetry: str | None = None,
+    arm_patience: dict[str, int] | None = None,
+    pair_order_policy: str = "rotate_pairs",
+    mechanics_evidence: dict[str, object] | None = None,
+    provider_stop_utc: str | None = None,
+    provider_evacuation_reserve_seconds: float | None = None,
 ) -> dict[str, object]:
     """Build a stable plan with AB/BA-style arm-order rotation."""
     if bool(topology_seeds) == bool(topologies):
@@ -101,6 +108,58 @@ def build_plan(
         )
     if optimizer_telemetry is not None and "adam" in arms:
         raise ValueError("optimizer telemetry is only supported for batched arms")
+    if pair_order_policy not in ("rotate_pairs", "alternate_topology_and_seed"):
+        raise ValueError("unknown pair_order_policy")
+    if pair_order_policy == "alternate_topology_and_seed" and len(arms) != 2:
+        raise ValueError(
+            "alternate_topology_and_seed requires exactly two comparison arms"
+        )
+    if mechanics_evidence is not None and study_profile != "restart-screen-v1":
+        raise ValueError(
+            "mechanics_evidence is only valid for restart-screen-v1"
+        )
+    if (provider_stop_utc is None) != (
+        provider_evacuation_reserve_seconds is None
+    ):
+        raise ValueError(
+            "provider stop time and evacuation reserve must be supplied together"
+        )
+    normalized_provider_stop = None
+    if provider_stop_utc is not None:
+        if not isinstance(provider_stop_utc, str):
+            raise ValueError("provider_stop_utc must be an ISO-8601 string")
+        try:
+            parsed_stop = datetime.fromisoformat(provider_stop_utc.replace("Z", "+00:00"))
+        except ValueError as error:
+            raise ValueError("provider_stop_utc is not valid ISO-8601") from error
+        if parsed_stop.utcoffset() != UTC.utcoffset(None):
+            raise ValueError("provider_stop_utc must be expressed in UTC")
+        normalized_provider_stop = parsed_stop.astimezone(UTC).isoformat().replace(
+            "+00:00", "Z"
+        )
+        reserve = provider_evacuation_reserve_seconds
+        if (
+            isinstance(reserve, bool)
+            or not isinstance(reserve, (int, float))
+            or not math.isfinite(float(reserve))
+            or float(reserve) <= 0
+        ):
+            raise ValueError(
+                "provider evacuation reserve must be finite and positive"
+            )
+    restart_arms = set(arms) & set(RESTART_SCREEN_ARMS)
+    if restart_arms:
+        if restart_arms != set(arms):
+            raise ValueError("restart-screen arms cannot be mixed with other arms")
+        if not isinstance(arm_patience, dict) or set(arm_patience) != set(arms):
+            raise ValueError("restart-screen arms require exact per-arm patience")
+        arm_optimizer_settings = {
+            arm: settings_with_patience(arm_patience[arm]) for arm in arms
+        }
+    else:
+        if arm_patience is not None:
+            raise ValueError("arm_patience is only valid for restart-screen arms")
+        arm_optimizer_settings = None
     if not require_a100 and any(
         value is not None
         for value in (
@@ -149,9 +208,13 @@ def build_plan(
 
     runs = []
     pair_index = 0
-    for topology_spec in topology_specs:
-        for optimizer_seed in optimizer_seeds:
-            offset = pair_index % len(arms)
+    for topology_index, topology_spec in enumerate(topology_specs):
+        for seed_index, optimizer_seed in enumerate(optimizer_seeds):
+            offset = (
+                pair_index % len(arms)
+                if pair_order_policy == "rotate_pairs"
+                else (topology_index + seed_index) % len(arms)
+            )
             ordered_arms = arms[offset:] + arms[:offset]
             pair_id = _pair_id(topology_spec, optimizer_seed)
             for order, arm in enumerate(ordered_arms):
@@ -193,9 +256,23 @@ def build_plan(
     }
     if optimizer_telemetry is not None:
         configuration["optimizer_telemetry"] = optimizer_telemetry
+    if arm_optimizer_settings is not None:
+        configuration["arm_optimizer_settings"] = arm_optimizer_settings
+    if pair_order_policy != "rotate_pairs":
+        configuration["pair_order_policy"] = pair_order_policy
+    if mechanics_evidence is not None:
+        configuration["mechanics_evidence"] = dict(mechanics_evidence)
+    if normalized_provider_stop is not None:
+        configuration["provider_stop_utc"] = normalized_provider_stop
+        configuration["provider_evacuation_reserve_seconds"] = float(
+            provider_evacuation_reserve_seconds
+        )
+        configuration["provider_deadline_maximum_horizon_seconds"] = float(
+            8 * 60 * 60
+        )
     configuration["decision_policy"] = bind_study_profile(study_profile, configuration)
     primary_order = primary_pair_order_counts(runs)
-    if study_profile:
+    if study_profile and len(arms) > 1:
         expected_pairs = len(topology_specs) * len(optimizer_seeds)
         if (
             primary_order["complete_primary_pairs"] != expected_pairs
@@ -207,7 +284,11 @@ def build_plan(
             )
     core = {
         "configuration": configuration,
-        "run_order_policy": "rotate arms once per topology-seed pair",
+        "run_order_policy": (
+            "rotate arms once per topology-seed pair"
+            if pair_order_policy == "rotate_pairs"
+            else "alternate arm order by topology and optimizer-seed index"
+        ),
         "primary_pair_order": primary_order,
         "runs": runs,
     }
@@ -233,10 +314,19 @@ def _pair_id(topology_spec: dict[str, object], optimizer_seed: int) -> str:
 
 def primary_pair_order_counts(runs: list[dict[str, object]]) -> dict[str, int]:
     """Count the pairwise order of the causal arms, ignoring optional arms."""
+    run_arms = {str(run["arm"]) for run in runs}
+    if set(RESTART_SCREEN_ARMS) <= run_arms:
+        comparison_arms = RESTART_SCREEN_ARMS
+        first_key = "no_prior_p600_first"
+        second_key = "no_prior_p200_first"
+    else:
+        comparison_arms = ("no_prior", "semantic_prior")
+        first_key = "no_prior_first"
+        second_key = "semantic_prior_first"
     by_pair: dict[str, list[dict[str, object]]] = {}
     for run in runs:
         arm = str(run["arm"])
-        if arm not in {"no_prior", "semantic_prior"}:
+        if arm not in set(comparison_arms):
             continue
         by_pair.setdefault(str(run["pair_id"]), []).append(run)
 
@@ -248,16 +338,16 @@ def primary_pair_order_counts(runs: list[dict[str, object]]) -> dict[str, int]:
             str(run["arm"]): int(run["run_order_within_pair"])
             for run in pair_runs
         }
-        if set(positions) != {"no_prior", "semantic_prior"}:
+        if set(positions) != set(comparison_arms):
             continue
         complete_pairs += 1
-        if positions["no_prior"] < positions["semantic_prior"]:
+        if positions[comparison_arms[0]] < positions[comparison_arms[1]]:
             control_first += 1
         else:
             treatment_first += 1
     return {
         "complete_primary_pairs": complete_pairs,
-        "no_prior_first": control_first,
-        "semantic_prior_first": treatment_first,
+        first_key: control_first,
+        second_key: treatment_first,
         "absolute_imbalance": abs(control_first - treatment_first),
     }
