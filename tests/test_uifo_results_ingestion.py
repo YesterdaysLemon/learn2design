@@ -10,8 +10,10 @@ import zipfile
 from dataclasses import replace
 from pathlib import Path
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy", reason="UIFO result fixtures require NumPy")
+pytestmark = pytest.mark.integration
 
 from experiments.uifo_paired.metrics import summarize_rows
 from experiments.uifo_paired.plan import build_plan
