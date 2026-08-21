@@ -4,12 +4,12 @@ import inspect
 import json
 import math
 
-import numpy as np
 import pytest
 
 jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
 pytest.importorskip("dfbench")
+np = pytest.importorskip("numpy")
 
 from submission.submission import BatchedRestartAdam
 from experiments.uifo_paired.candidate_probe import construct_candidates, host_pytree

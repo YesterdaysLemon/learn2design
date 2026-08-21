@@ -5,8 +5,9 @@ import warnings
 import zipfile
 from pathlib import Path
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy")
 
 from experiments.uifo_paired.optimizer_telemetry import (
     OPTIMIZER_TELEMETRY_METADATA_SCHEMA,
