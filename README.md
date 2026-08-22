@@ -6,12 +6,14 @@ The competition asks for an algorithm—not one fixed detector. On each hidden t
 
 ## Current status
 
-**Validated no-prior candidate stage.** The frozen `development-v2` A100 screen
-completed all 64 runs and failed the predeclared semantic-prior promotion rule.
-Production replay, an independent history-based reference calculation, and the
-archived summary agree at the topology level: 7 semantic-prior wins, 0 ties, 9
-losses; mean difference `+0.029737199613027163`; frozen action
-`retain_no_prior_candidate`. Do not run `confirmation-v1`.
+**Validated patience-600/no-prior candidate stage.** The frozen
+`development-v2` A100 screen retained no-prior initialization. The subsequent
+bounded restart mechanics gate passed, but the eight-topology patience-200
+screen failed its predeclared promotion rule: 4 p200 wins, 0 ties, 4 losses;
+mean p200-minus-p600 difference `-0.016933403182594786`; median difference
+`+0.05236019711778772`; frozen action `retain_patience_600`. Production replay,
+an independent history-based reference calculation, and the archived summary
+agree. Do not run `confirmation-v1`.
 
 The source results remain private and outside Git. The aggregate evidence,
 outcome-blind integrity workflow, exploratory limitations, and next-gate
@@ -21,12 +23,12 @@ The packaged candidate now defaults to no-prior initialization, matching the
 frozen action. The semantic-prior material remains available only for explicit
 historical experiment replay; the paired harness supplies that flag per arm.
 
-The next evidence gate is a separately frozen patience-200 restart mechanics
-diagnostic followed, only if mechanics pass, by an uninstrumented eight-topology
-patience-200 versus patience-600 development screen with fresh seeds. The
-current submission remains patience 600; the reserved submission-like panel is
-untouched. See
-[`research/2026-08-21-patience-200-screen-plan.md`](research/2026-08-21-patience-200-screen-plan.md).
+The current submission remains patience 600 and the reserved submission-like
+panel is untouched. The recommended next gate is a separately frozen,
+no-prior-only submission-like evaluation on that disjoint panel, with an
+official-style budget and hard cost/stop envelope. It has not been launched.
+See the aggregate evidence and limitations in
+[`research/2026-08-21-patience-200-a100-results.md`](research/2026-08-21-patience-200-a100-results.md).
 The optimizer still has no hidden-leaderboard or official-budget multi-topology
 performance claim.
 
@@ -37,8 +39,8 @@ New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HAND
 Requires Python 3.11–3.13. The contract tests are intentionally light and do not run the expensive physics simulator.
 
 ```bash
-python -m pip install pytest
-pytest
+python -m pip install "pytest>=8.4,<9"
+pytest -m "not integration"
 python tools/build_submission.py
 ```
 

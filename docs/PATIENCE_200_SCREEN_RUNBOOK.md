@@ -1,5 +1,11 @@
 # Patience-200 bounded A100 runbook
 
+> Completed and validated on 2026-08-21. The mechanics gate passed; the screen
+> failed its frozen policy with action `retain_patience_600`. This file is now
+> the execution record, not the next-action authority. See
+> [`CURRENT_HANDOFF.md`](CURRENT_HANDOFF.md) and the
+> [aggregate result](../research/2026-08-21-patience-200-a100-results.md).
+
 This runbook executes the two frozen `restart-mechanics-v1` and
 `restart-screen-v1` profiles. Read
 [`2026-08-21-patience-200-screen-plan.md`](../research/2026-08-21-patience-200-screen-plan.md)
