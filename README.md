@@ -24,9 +24,10 @@ frozen action. The semantic-prior material remains available only for explicit
 historical experiment replay; the paired harness supplies that flag per arm.
 
 The current submission remains patience 600 and the reserved submission-like
-panel is untouched. The recommended next gate is a separately frozen,
-no-prior-only submission-like evaluation on that disjoint panel, with an
-official-style budget and hard cost/stop envelope. It has not been launched.
+panel is untouched. The proposed next gate is now frozen as the cost-bounded
+`submission-like-screen-v1` profile: no-prior only, ten topologies, two fresh
+seeds, and 1,200 seconds per run under a hard $16 / 10-hour ceiling. This is not
+an official-budget performance claim. It has not been launched.
 See the aggregate evidence and limitations in
 [`research/2026-08-21-patience-200-a100-results.md`](research/2026-08-21-patience-200-a100-results.md).
 The optimizer still has no hidden-leaderboard or official-budget multi-topology

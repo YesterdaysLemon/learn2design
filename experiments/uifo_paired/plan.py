@@ -43,9 +43,12 @@ def build_plan(
     optimizer_telemetry: str | None = None,
     arm_patience: dict[str, int] | None = None,
     pair_order_policy: str = "rotate_pairs",
+    seed_order_policy: str = "listed",
     mechanics_evidence: dict[str, object] | None = None,
+    candidate_package_evidence: dict[str, object] | None = None,
     provider_stop_utc: str | None = None,
     provider_evacuation_reserve_seconds: float | None = None,
+    provider_deadline_maximum_horizon_seconds: float = 8 * 60 * 60,
 ) -> dict[str, object]:
     """Build a stable plan with AB/BA-style arm-order rotation."""
     if bool(topology_seeds) == bool(topologies):
@@ -114,9 +117,20 @@ def build_plan(
         raise ValueError(
             "alternate_topology_and_seed requires exactly two comparison arms"
         )
+    if seed_order_policy not in ("listed", "mirrored_sweeps"):
+        raise ValueError("unknown seed_order_policy")
+    if seed_order_policy == "mirrored_sweeps" and len(optimizer_seeds) != 2:
+        raise ValueError("mirrored_sweeps requires exactly two optimizer seeds")
     if mechanics_evidence is not None and study_profile != "restart-screen-v1":
         raise ValueError(
             "mechanics_evidence is only valid for restart-screen-v1"
+        )
+    if (
+        candidate_package_evidence is not None
+        and study_profile != "submission-like-screen-v1"
+    ):
+        raise ValueError(
+            "candidate_package_evidence is only valid for submission-like-screen-v1"
         )
     if (provider_stop_utc is None) != (
         provider_evacuation_reserve_seconds is None
@@ -146,6 +160,19 @@ def build_plan(
         ):
             raise ValueError(
                 "provider evacuation reserve must be finite and positive"
+            )
+        if (
+            isinstance(provider_deadline_maximum_horizon_seconds, bool)
+            or not isinstance(
+                provider_deadline_maximum_horizon_seconds, (int, float)
+            )
+            or not math.isfinite(
+                float(provider_deadline_maximum_horizon_seconds)
+            )
+            or float(provider_deadline_maximum_horizon_seconds) <= 0
+        ):
+            raise ValueError(
+                "provider deadline maximum horizon must be finite and positive"
             )
     restart_arms = set(arms) & set(RESTART_SCREEN_ARMS)
     if restart_arms:
@@ -208,28 +235,43 @@ def build_plan(
 
     runs = []
     pair_index = 0
-    for topology_index, topology_spec in enumerate(topology_specs):
+    if seed_order_policy == "mirrored_sweeps":
+        plan_blocks = []
         for seed_index, optimizer_seed in enumerate(optimizer_seeds):
-            offset = (
-                pair_index % len(arms)
-                if pair_order_policy == "rotate_pairs"
-                else (topology_index + seed_index) % len(arms)
+            indexed_topologies = list(enumerate(topology_specs))
+            if seed_index:
+                indexed_topologies.reverse()
+            plan_blocks.extend(
+                (topology_index, topology_spec, seed_index, optimizer_seed)
+                for topology_index, topology_spec in indexed_topologies
             )
-            ordered_arms = arms[offset:] + arms[:offset]
-            pair_id = _pair_id(topology_spec, optimizer_seed)
-            for order, arm in enumerate(ordered_arms):
-                runs.append(
-                    {
-                        "planned_run_index": len(runs),
-                        "run_id": f"{pair_id}__{arm}",
-                        "pair_id": pair_id,
-                        "run_order_within_pair": order,
-                        "topology": topology_spec,
-                        "optimizer_seed": int(optimizer_seed),
-                        "arm": arm,
-                    }
-                )
-            pair_index += 1
+    else:
+        plan_blocks = [
+            (topology_index, topology_spec, seed_index, optimizer_seed)
+            for topology_index, topology_spec in enumerate(topology_specs)
+            for seed_index, optimizer_seed in enumerate(optimizer_seeds)
+        ]
+    for topology_index, topology_spec, seed_index, optimizer_seed in plan_blocks:
+        offset = (
+            pair_index % len(arms)
+            if pair_order_policy == "rotate_pairs"
+            else (topology_index + seed_index) % len(arms)
+        )
+        ordered_arms = arms[offset:] + arms[:offset]
+        pair_id = _pair_id(topology_spec, optimizer_seed)
+        for order, arm in enumerate(ordered_arms):
+            runs.append(
+                {
+                    "planned_run_index": len(runs),
+                    "run_id": f"{pair_id}__{arm}",
+                    "pair_id": pair_id,
+                    "run_order_within_pair": order,
+                    "topology": topology_spec,
+                    "optimizer_seed": int(optimizer_seed),
+                    "arm": arm,
+                }
+            )
+        pair_index += 1
 
     configuration = {
         "allow_cpu": bool(allow_cpu),
@@ -260,16 +302,33 @@ def build_plan(
         configuration["arm_optimizer_settings"] = arm_optimizer_settings
     if pair_order_policy != "rotate_pairs":
         configuration["pair_order_policy"] = pair_order_policy
+    if seed_order_policy != "listed":
+        configuration["seed_order_policy"] = seed_order_policy
     if mechanics_evidence is not None:
         configuration["mechanics_evidence"] = dict(mechanics_evidence)
+    if candidate_package_evidence is not None:
+        configuration["candidate_package_evidence"] = dict(
+            candidate_package_evidence
+        )
     if normalized_provider_stop is not None:
         configuration["provider_stop_utc"] = normalized_provider_stop
         configuration["provider_evacuation_reserve_seconds"] = float(
             provider_evacuation_reserve_seconds
         )
         configuration["provider_deadline_maximum_horizon_seconds"] = float(
-            8 * 60 * 60
+            provider_deadline_maximum_horizon_seconds
         )
+    if study_profile == "submission-like-screen-v1":
+        configuration["execution_mode"] = "serial"
+        configuration["resource_budget"] = {
+            "currency": "USD",
+            "gpu_count": 1,
+            "maximum_gpu_hourly_price": 1.60,
+            "maximum_provider_charge": 16.00,
+            "maximum_provider_hours": 10.0,
+            "planned_runs": 20,
+            "scored_objective_seconds": 24_000,
+        }
     configuration["decision_policy"] = bind_study_profile(study_profile, configuration)
     primary_order = primary_pair_order_counts(runs)
     if study_profile and len(arms) > 1:
@@ -292,6 +351,8 @@ def build_plan(
         "primary_pair_order": primary_order,
         "runs": runs,
     }
+    if seed_order_policy != "listed":
+        core["optimizer_seed_order_policy"] = seed_order_policy
     plan_id = hashlib.sha256(
         json.dumps(core, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()[:16]

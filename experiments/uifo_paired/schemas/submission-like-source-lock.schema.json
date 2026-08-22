@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "files": {
+      "additionalProperties": {
+        "additionalProperties": false,
+        "properties": {
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "size_bytes": {
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sha256",
+          "size_bytes"
+        ],
+        "type": "object"
+      },
+      "minProperties": 5,
+      "maxProperties": 5,
+      "propertyNames": {
+        "pattern": "^[^/\\\\]+$"
+      },
+      "type": "object"
+    },
+    "format_version": {
+      "const": 1
+    },
+    "plan_id": {
+      "pattern": "^[0-9a-f]{16}$",
+      "type": "string"
+    },
+    "project_revision": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "study_profile": {
+      "const": "submission-like-screen-v1"
+    }
+  },
+  "required": [
+    "format_version",
+    "study_profile",
+    "plan_id",
+    "project_revision",
+    "files"
+  ],
+  "title": "Learn2Design submission-like source lock",
+  "type": "object"
+}
