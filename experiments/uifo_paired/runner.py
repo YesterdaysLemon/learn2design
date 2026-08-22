@@ -949,6 +949,39 @@ def _metric_grids(config: dict[str, object]) -> tuple[list[float], list[int]]:
     return times, evals
 
 
+def _expected_algorithm_record(
+    expected_config: dict[str, object],
+) -> dict[str, object]:
+    """Build the exact recorded algorithm contract for one planned run."""
+    if expected_config["arm"] == "adam":
+        return {
+            "module": "experiments.uifo_paired.baselines",
+            "class": "SingleStartAdam",
+            "algorithm_str": "paired_single_start_adam",
+            "kwargs": {
+                "learning_rate": 0.1,
+                "patience": None,
+                "random_seed": expected_config["optimizer_seed"],
+            },
+        }
+    expected_prior = expected_config["arm"] == "semantic_prior"
+    expected_optimizer_settings = validate_batched_settings(
+        expected_config.get("optimizer_settings", BATCHED_SETTINGS)
+    )
+    return {
+        "module": "submission.submission",
+        "class": "BatchedRestartAdam",
+        "algorithm_str": "batched_restart_adam",
+        "kwargs": {
+            **expected_optimizer_settings,
+            "population_size": expected_config["population_size"],
+            "random_seed": expected_config["optimizer_seed"],
+            "use_semantic_prior": expected_prior,
+            "evaluation_chunk_size": expected_config.get("evaluation_chunk_size"),
+        },
+    }
+
+
 def validate_completed_record(
     record: dict[str, object],
     expected_config: dict[str, object],
@@ -1080,36 +1113,7 @@ def validate_completed_record(
 
     algorithm = record.get("algorithm", {})
     algorithm_kwargs = algorithm.get("kwargs", {})
-    if expected_config["arm"] == "adam":
-        expected_algorithm = {
-            "module": "experiments.uifo_paired.baselines",
-            "class": "SingleStartAdam",
-            "algorithm_str": "paired_single_start_adam",
-            "kwargs": {
-                "learning_rate": 0.1,
-                "patience": None,
-                "random_seed": expected_config["optimizer_seed"],
-            },
-        }
-    else:
-        expected_prior = expected_config["arm"] == "semantic_prior"
-        expected_optimizer_settings = validate_batched_settings(
-            expected_config.get("optimizer_settings", BATCHED_SETTINGS)
-        )
-        expected_algorithm = {
-            "module": "submission.submission",
-            "class": "BatchedRestartAdam",
-            "algorithm_str": "batched_restart_adam",
-            "kwargs": {
-                **expected_optimizer_settings,
-                "population_size": expected_config["population_size"],
-                "random_seed": expected_config["optimizer_seed"],
-                "use_semantic_prior": expected_prior,
-                "evaluation_chunk_size": expected_config.get(
-                    "evaluation_chunk_size"
-                ),
-            },
-        }
+    expected_algorithm = _expected_algorithm_record(expected_config)
     if strict_json(algorithm) != strict_json(expected_algorithm):
         raise RuntimeError("resume algorithm configuration mismatch")
     if telemetry_arrays is not None:

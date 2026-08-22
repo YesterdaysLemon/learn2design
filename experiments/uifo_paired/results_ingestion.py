@@ -24,6 +24,7 @@ from experiments.uifo_paired.plan import primary_pair_order_counts
 from experiments.uifo_paired.runner import (
     HISTORY_SCHEMA,
     JAX_RUNTIME_ENVIRONMENT_KEYS,
+    _expected_algorithm_record,
     _initial_population_roles,
     _metric_grids,
     _parameter_hashes,
@@ -51,6 +52,8 @@ FIXED_MEMBERS = {
     "session.json",
     "summary.json",
 }
+HISTORY_MAX_NPY_HEADER_BYTES = 10_000
+HISTORY_MAX_ARRAY_ELEMENTS = 32 * 1024 * 1024
 
 
 class StudyValidationError(RuntimeError):
@@ -156,6 +159,8 @@ def _require_mapping(value: object, label: str) -> dict[str, object]:
 def verify_external_sources(
     sources: SourcePaths,
     expected: ExpectedSources = DEVELOPMENT_V2_SOURCES,
+    *,
+    expected_run_count: int = 64,
 ) -> tuple[dict[str, str], dict[str, object], dict[str, object]]:
     paths = {
         "archive": sources.archive,
@@ -213,10 +218,15 @@ def verify_external_sources(
         raise StudyValidationError("package manifest project revision mismatch")
     if package_manifest.get("study_complete") is not True:
         raise StudyValidationError("package manifest does not describe a complete study")
-    if package_manifest.get("planned_runs") != 64 or package_manifest.get(
+    if package_manifest.get("incomplete_runs") != []:
+        raise StudyValidationError("package manifest lists incomplete runs")
+    if package_manifest.get("planned_runs") != expected_run_count or package_manifest.get(
         "completed_runs"
-    ) != 64:
-        raise StudyValidationError("package manifest run counts are not 64/64")
+    ) != expected_run_count:
+        raise StudyValidationError(
+            "package manifest run counts are not "
+            f"{expected_run_count}/{expected_run_count}"
+        )
     if archive_meta.get("sha256") != hashes["archive"]:
         raise StudyValidationError("package manifest archive digest mismatch")
     if archive_meta.get("size_bytes") != sources.archive.stat().st_size:
@@ -416,8 +426,11 @@ def _validate_plan_contract(
     return expected_configs
 
 
-def _validate_environment(manifest: dict[str, object]) -> None:
-    if manifest.get("project_revision") != DEVELOPMENT_V2_SOURCES.project_revision:
+def _validate_environment(
+    manifest: dict[str, object],
+    expected_project_revision: str = DEVELOPMENT_V2_SOURCES.project_revision,
+) -> None:
+    if manifest.get("project_revision") != expected_project_revision:
         raise StudyValidationError("study project revision mismatch")
     if manifest.get("working_tree_dirty") is not False:
         raise StudyValidationError("study manifest does not prove a clean worktree")
@@ -473,15 +486,131 @@ def _validate_environment(manifest: dict[str, object]) -> None:
         raise StudyValidationError("A100 physical memory evidence is insufficient")
 
 
+def _validate_history_npy_header(
+    handle: BinaryIO,
+    *,
+    info: zipfile.ZipInfo,
+    label: str,
+) -> None:
+    """Reject unsafe NPY declarations before NumPy may allocate their arrays."""
+    import numpy as np
+
+    field = info.filename.removesuffix(".npy")
+    try:
+        version = np.lib.format.read_magic(handle)
+        if version == (1, 0):
+            shape, _fortran_order, dtype = np.lib.format.read_array_header_1_0(
+                handle, max_header_size=HISTORY_MAX_NPY_HEADER_BYTES
+            )
+        elif version == (2, 0):
+            shape, _fortran_order, dtype = np.lib.format.read_array_header_2_0(
+                handle, max_header_size=HISTORY_MAX_NPY_HEADER_BYTES
+            )
+        else:
+            raise StudyValidationError(
+                f"invalid pickle-free NPZ history {label}: unsupported NPY "
+                f"version {version!r} in {info.filename}"
+            )
+    except StudyValidationError:
+        raise
+    except (EOFError, OSError, ValueError) as error:
+        raise StudyValidationError(
+            f"invalid pickle-free NPZ history {label}: malformed NPY header in "
+            f"{info.filename}: {error}"
+        ) from error
+
+    dtype = np.dtype(dtype)
+    if dtype.hasobject:
+        raise StudyValidationError(
+            f"invalid pickle-free NPZ history {label}: object dtype in "
+            f"{info.filename}"
+        )
+    if not isinstance(shape, tuple) or any(
+        isinstance(dimension, bool)
+        or not isinstance(dimension, int)
+        or dimension < 0
+        for dimension in shape
+    ):
+        raise StudyValidationError(
+            f"invalid pickle-free NPZ history {label}: unsafe declared shape in "
+            f"{info.filename}"
+        )
+
+    expected_dtype = HISTORY_SCHEMA[field]["dtype"]
+    if field == "initial_params_unbounded":
+        if dtype not in {np.dtype("float32"), np.dtype("float64")} or len(shape) not in {
+            1,
+            2,
+        }:
+            raise StudyValidationError(
+                f"history field has invalid declared shape/dtype: "
+                f"{label}:{field}"
+            )
+    elif dtype != np.dtype(str(expected_dtype)) or len(shape) != 1:
+        raise StudyValidationError(
+            f"history field has invalid declared shape/dtype: {label}:{field}"
+        )
+
+    element_count = 1
+    for dimension in shape:
+        if dimension > HISTORY_MAX_ARRAY_ELEMENTS or (
+            dimension and element_count > HISTORY_MAX_ARRAY_ELEMENTS // dimension
+        ):
+            raise StudyValidationError(
+                f"invalid pickle-free NPZ history {label}: declared shape exceeds "
+                f"safety limits in {info.filename}"
+            )
+        element_count *= dimension
+    expected_payload_bytes = element_count * dtype.itemsize
+    header_bytes = handle.tell()
+    if (
+        expected_payload_bytes > 32 * 1024 * 1024
+        or header_bytes > info.file_size
+        or info.file_size - header_bytes != expected_payload_bytes
+    ):
+        raise StudyValidationError(
+            f"invalid pickle-free NPZ history {label}: NPY payload-size mismatch "
+            f"in {info.filename}"
+        )
+
+
 def _load_history_arrays(payload: bytes, label: str) -> dict[str, object]:
     import numpy as np
 
     try:
         with zipfile.ZipFile(io.BytesIO(payload), "r") as nested:
-            names = nested.namelist()
+            infos = nested.infolist()
+            names = [info.filename for info in infos]
             expected_names = {f"{name}.npy" for name in HISTORY_SCHEMA}
             if len(names) != len(set(names)) or set(names) != expected_names:
                 raise StudyValidationError(f"history schema mismatch in {label}")
+            total_uncompressed = 0
+            for info in infos:
+                _validate_member_name(info.filename)
+                _validate_member_type(info)
+                if info.flag_bits & 0x1:
+                    raise StudyValidationError(f"encrypted history member in {label}")
+                if info.compress_type not in {
+                    zipfile.ZIP_STORED,
+                    zipfile.ZIP_DEFLATED,
+                }:
+                    raise StudyValidationError(
+                        f"unexpected history compression method in {label}"
+                    )
+                if info.file_size > 32 * 1024 * 1024:
+                    raise StudyValidationError(f"history member too large in {label}")
+                total_uncompressed += info.file_size
+                if total_uncompressed > 64 * 1024 * 1024:
+                    raise StudyValidationError(f"history archive too large in {label}")
+                if info.file_size:
+                    if info.compress_size == 0 or (
+                        info.file_size / info.compress_size > 250.0
+                    ):
+                        raise StudyValidationError(
+                            f"suspicious history compression ratio in {label}"
+                        )
+                with nested.open(info, "r") as handle:
+                    _validate_history_npy_header(handle, info=info, label=label)
             if nested.testzip() is not None:
                 raise StudyValidationError(f"history CRC failure in {label}")
         with np.load(io.BytesIO(payload), allow_pickle=False) as archive:
@@ -549,15 +678,30 @@ def _validate_record(
     )
     if strict_json(record.get("metrics")) != strict_json(recomputed_metrics):
         raise StudyValidationError(f"run metrics do not match history: {run_id}")
-    if record.get("initial_parameter_hashes") != _parameter_hashes(
-        arrays["initial_params_unbounded"]
-    ):
-        raise StudyValidationError(f"initial parameter hashes mismatch: {run_id}")
     expected_roles = _initial_population_roles(
         str(expected_config["arm"]), int(expected_config["population_size"])
     )
-    if record.get("initial_population_roles") != expected_roles:
+    recorded_roles = record.get("initial_population_roles")
+    recorded_hashes = record.get("initial_parameter_hashes")
+    if not isinstance(recorded_roles, list) or not isinstance(recorded_hashes, list):
+        raise StudyValidationError(f"initial population evidence is missing: {run_id}")
+    if len(recorded_roles) != len(expected_roles) or len(recorded_hashes) != len(
+        expected_roles
+    ):
+        raise StudyValidationError(f"initial population evidence has wrong size: {run_id}")
+    if recorded_roles != expected_roles:
         raise StudyValidationError(f"initial population hierarchy mismatch: {run_id}")
+    if any(
+        not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None
+        for digest in recorded_hashes
+    ):
+        raise StudyValidationError(f"initial parameter hash is invalid: {run_id}")
+    initial_params = arrays["initial_params_unbounded"]
+    observed_members = 1 if initial_params.ndim == 1 else int(initial_params.shape[0])
+    if observed_members != len(expected_roles):
+        raise StudyValidationError(f"initial parameter population has wrong size: {run_id}")
+    if recorded_hashes != _parameter_hashes(initial_params):
+        raise StudyValidationError(f"initial parameter hashes mismatch: {run_id}")
 
     problem = _require_mapping(record.get("problem"), f"problem {run_id}")
     topology = str(problem.get("topology_string", ""))
@@ -565,21 +709,43 @@ def _validate_record(
         topology.encode()
     ).hexdigest():
         raise StudyValidationError(f"topology identity/hash mismatch: {run_id}")
+    configured_topology = expected_config.get("topology")
+    if (
+        isinstance(configured_topology, dict)
+        and configured_topology.get("kind") == "string"
+        and topology != configured_topology.get("value")
+    ):
+        raise StudyValidationError(
+            f"resolved topology differs from explicit plan: {run_id}"
+        )
     objective = _require_mapping(
         record.get("objective_configuration"), f"Objective configuration {run_id}"
     )
-    if objective.get("max_time_seconds") != 600.0 or objective.get("max_evals") is not None:
+    if (
+        objective.get("max_time_seconds") != expected_config["max_time_seconds"]
+        or objective.get("max_evals") != expected_config["max_evals"]
+    ):
         raise StudyValidationError(f"Objective budget mismatch: {run_id}")
     algorithm = _require_mapping(record.get("algorithm"), f"algorithm {run_id}")
-    kwargs = _require_mapping(algorithm.get("kwargs"), f"algorithm kwargs {run_id}")
-    if kwargs.get("random_seed") != expected_config["optimizer_seed"]:
-        raise StudyValidationError(f"optimizer seed mismatch: {run_id}")
-    if kwargs.get("population_size") != 8 or kwargs.get("evaluation_chunk_size") is not None:
-        raise StudyValidationError(f"population/full-vmap mismatch: {run_id}")
-    if kwargs.get("use_semantic_prior") is not (
-        expected_config["arm"] == "semantic_prior"
+    if strict_json(algorithm) != strict_json(_expected_algorithm_record(expected_config)):
+        raise StudyValidationError(f"algorithm configuration mismatch: {run_id}")
+    telemetry_mode = expected_config.get("optimizer_telemetry")
+    if telemetry_mode is None and record.get("optimizer_telemetry") is not None:
+        raise StudyValidationError(f"unsolicited optimizer telemetry: {run_id}")
+    if telemetry_mode is not None:
+        raise StudyValidationError(
+            f"external telemetry validation is not supported by this archive path: {run_id}"
+        )
+
+    accounting = _require_mapping(
+        record.get("objective_accounting"), f"Objective accounting {run_id}"
+    )
+    expected_eval_count = max(int(row["eval_count_after_call"]) for row in rows)
+    if (
+        accounting.get("log_call_count") != recomputed_metrics["logged_calls"]
+        or accounting.get("eval_count") != expected_eval_count
     ):
-        raise StudyValidationError(f"arm prior flag mismatch: {run_id}")
+        raise StudyValidationError(f"Objective accounting mismatch: {run_id}")
 
     process = _require_mapping(record.get("worker_process"), f"worker process {run_id}")
     if process.get("returncode") != 0 or process.get("timed_out") is not False:

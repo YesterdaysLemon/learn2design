@@ -133,4 +133,24 @@ The command refuses output under the repository and refuses to overwrite an
 existing output directory. Keep source and generated artifacts private; only
 aggregate research conclusions belong in Git.
 
+For a sealed `restart-screen-v1` package, use the restart-specific workflow.
+It validates the exact 32-run/16-pair/8-topology contract, recomputes production
+and independent history-only results while `summary.json` remains sealed, and
+opens that summary only after both replays agree:
+
+```powershell
+$bundle = (Resolve-Path ..\learn2design-runpod-results\patience-200-20260821\provider-evacuation-811ade1).Path
+$output = Join-Path (Split-Path $bundle) 'restart-screen-v1-analysis'
+uv run --frozen --group dev --group integration --group analysis `
+  python tools/analyze_restart_screen.py `
+  (Join-Path $bundle 'restart-screen-v1.zip') `
+  --checksum (Join-Path $bundle 'restart-screen-v1.zip.sha256') `
+  --package-manifest (Join-Path $bundle 'restart-screen-v1.zip.manifest.json') `
+  --plan (Join-Path $bundle 'restart-screen-v1-plan.json') `
+  --output $output
+```
+
+The generated normalized tables, report, and figures remain outside Git. The
+tool refuses any output inside a Git checkout or an existing directory.
+
 The first WSL2 deployment smoke is recorded in `research/2026-08-19-rtx4060-deployment-smoke.md`: scalar UIFO works, while the batched candidate OOMs at population 2 on the 8 GB RTX 4060. A later scalar-chunk attempt is recorded in `research/2026-08-19-low-memory-diagnostic-smoke.md`; one arm completed, but an unrelated CUDA workload contaminated the attempted pair. The clean follow-up in `research/2026-08-19-idle-candidate-probe.md` completed all six workers and did not reproduce a semantic-only latency tail. Use larger-memory hardware for competition-aligned paired studies, and require an otherwise idle device for any local diagnostic comparison.
