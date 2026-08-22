@@ -555,6 +555,9 @@ def test_restart_archive_rejects_incomplete_external_package_manifest(
 def test_restart_analysis_cli_workflow_writes_private_outputs_only_after_match(
     tmp_path: Path,
 ) -> None:
+    pytest.importorskip("markdown", reason="restart rendered-report dependency")
+    pytest.importorskip("scipy", reason="restart post-hoc analysis dependency")
+    pytest.importorskip("matplotlib", reason="restart plot dependency")
     sources, expected = _restart_fixture(tmp_path / "source")
     sealed = validate_restart_screen_archive(sources, expected)
     production = summarize_restart_records(sealed.records, sealed.configs)
