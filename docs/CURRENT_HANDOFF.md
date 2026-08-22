@@ -20,19 +20,26 @@ are the evidence record, not a competing task list.
   the frozen `retain_no_prior_candidate` action. The historical harness still
   selects each comparison arm explicitly.
 - Authenticated no-prior trajectories show that the configured patience of 600
-  never triggers inside the 600-second screen. Patience 200 is now frozen as a
-  post-hoc mechanism candidate; it has no performance claim yet.
+  never triggers inside the 600-second development screen.
+- The loss-blind restart mechanics predecessor passed and the complete
+  `restart-screen-v1` evidence validated at 32 runs, 16 seed pairs, and 8
+  topology inference units.
+- Production replay, the independent history-only evaluator, and the archived
+  restart summary agree: p200 wins/ties/losses 4/0/4, mean difference
+  `-0.016933403182594786`, median `+0.05236019711778772`, frozen action
+  `retain_patience_600`.
+- The paid Pod is terminated. Private artifacts are not in Git: this host holds
+  the only verified off-provider copy, while a provider durable-volume copy is
+  still retained for provenance.
 
 ## Next decision
 
-Do not run `confirmation-v1`. The next gate is the two-stage bounded restart
-study in [`PATIENCE_200_SCREEN_RUNBOOK.md`](PATIENCE_200_SCREEN_RUNBOOK.md): one
-loss-blind, instrumented mechanics run, followed only on a mechanics pass by an
-uninstrumented eight-topology patience-200 versus patience-600 screen using
-fresh seeds 19/23. The user approved a cost-bounded Runpod run, but price,
-visible balance, provider stop, and local artifact-evacuation gates still apply.
-Even a screen pass authorizes only planning on the untouched submission-like
-panel; it does not directly change the packaged candidate.
+Do not run `confirmation-v1` and do not tune patience further on this development
+panel. Retain the packaged patience-600/no-prior candidate. The recommended next
+gate is a separately frozen, no-prior-only submission-like evaluation on the
+existing disjoint panel, with the candidate, official-style budget, outputs,
+and hard cost/stop envelope fixed before launch. This is a recommendation only;
+no GPU experiment has been launched from the result.
 
 ## What can contribute now
 
@@ -42,6 +49,8 @@ durable aggregate result and exploratory evidence boundaries are in
 [`2026-08-21-development-v2-a100-results.md`](../research/2026-08-21-development-v2-a100-results.md).
 
 Useful unpaid work now includes ingestion hardening, candidate packaging
-correctness, contract checks, and review of the frozen restart plan. Do not claim an
-order-of-magnitude gain: every frozen target has
-`order_of_magnitude_claim_ready=false`.
+correctness, contract checks, and review/freeze of the next gate. The validated
+restart result and exact private reproduction command are in
+[`2026-08-21-patience-200-a100-results.md`](../research/2026-08-21-patience-200-a100-results.md).
+Do not claim an order-of-magnitude gain: no restart target supplied a complete
+eight-topology comparison.
