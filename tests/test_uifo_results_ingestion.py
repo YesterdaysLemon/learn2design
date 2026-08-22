@@ -31,6 +31,10 @@ from experiments.uifo_paired.results_ingestion import (
     sha256_path,
     validate_study_archive,
 )
+from experiments.uifo_paired.restart_results_ingestion import (
+    validate_restart_screen_archive,
+)
+from experiments.uifo_paired.restart_analysis import summarize_restart_records
 from experiments.uifo_paired.reference_analysis import reference_replay
 from experiments.uifo_paired.posthoc_analysis import (
     exact_mean_sign_flip_test,
@@ -42,6 +46,7 @@ from experiments.uifo_paired.results_workflow import (
 from experiments.uifo_paired.analysis import summarize_records
 from experiments.uifo_paired.runner import (
     HISTORY_SCHEMA,
+    _expected_algorithm_record,
     JAX_RUNTIME_ENVIRONMENT_KEYS,
     _initial_population_roles,
     _metric_grids,
@@ -50,6 +55,7 @@ from experiments.uifo_paired.runner import (
     _run_config,
     strict_json,
 )
+from tools.analyze_restart_screen import run_analysis
 
 
 ROOT = Path(__file__).parents[1]
@@ -87,6 +93,59 @@ def _development_plan() -> dict[str, object]:
         max_session_wall_seconds=57_600.0,
         max_worker_failures=2,
         study_profile="development-v2",
+    )
+
+
+def _restart_plan(revision: str) -> dict[str, object]:
+    panel_path = ROOT / "experiments/uifo_paired/panels/restart-screen-v1.json"
+    panel = json.loads(panel_path.read_text(encoding="utf-8"))
+    return build_plan(
+        topology_seeds=None,
+        topologies=list(panel["topologies"]),
+        optimizer_seeds=[19, 23],
+        arms=["no_prior_p600", "no_prior_p200"],
+        max_time_seconds=600.0,
+        max_evals=None,
+        population_size=8,
+        n_frequencies=50,
+        target_losses=[4.0, 1.0, 0.5, 0.0],
+        allow_cpu=False,
+        worker_timeout_seconds=1_200.0,
+        topology_panel={
+            "source_kind": "json_topology_panel",
+            "source_name": panel_path.name,
+            "source_sha256": hashlib.sha256(panel_path.read_bytes()).hexdigest(),
+            "archive_exclusion_verified": True,
+            "official_dataset_sha256": "test-only",
+            "panel_id": "restart-screen-v1",
+            "topology_count": 8,
+        },
+        evaluation_chunk_size=None,
+        require_a100=True,
+        minimum_gpu_memory_mib=75_000,
+        max_idle_gpu_memory_mib=1_000,
+        max_idle_gpu_utilization_percent=5,
+        minimum_free_disk_gib=20.0,
+        max_session_wall_seconds=23_400.0,
+        max_worker_failures=1,
+        study_profile="restart-screen-v1",
+        arm_patience={"no_prior_p600": 600, "no_prior_p200": 200},
+        pair_order_policy="alternate_topology_and_seed",
+        mechanics_evidence={
+            "format_version": 1,
+            "study_profile": "restart-mechanics-v1",
+            "plan_id": "1" * 16,
+            "project_revision": revision,
+            "package_sha256": "3" * 64,
+            "package_manifest_sha256": "4" * 64,
+            "record_sha256": "5" * 64,
+            "history_sha256": "6" * 64,
+            "optimizer_telemetry_sha256": "7" * 64,
+            "decision_status": "passed",
+            "decision_action": "run_restart_screen_v1",
+        },
+        provider_stop_utc="2099-01-01T00:00:00Z",
+        provider_evacuation_reserve_seconds=1_800.0,
     )
 
 
@@ -160,13 +219,20 @@ def _json_bytes(payload: object) -> bytes:
     return (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode()
 
 
-def _fixture_files(tmp_path: Path) -> tuple[SourcePaths, ExpectedSources]:
-    plan = _development_plan()
+def _fixture_files(
+    tmp_path: Path,
+    *,
+    plan: dict[str, object] | None = None,
+    revision: str = "dbd557b713ab657ac971957369d89eb67649d09f",
+    archive_name: str = "development-v2.zip",
+) -> tuple[SourcePaths, ExpectedSources]:
+    plan = plan or _development_plan()
+    run_count = len(plan["runs"])
     environment = _environment()
     configuration = plan["configuration"]
     manifest = {
         **plan,
-        "project_revision": "dbd557b713ab657ac971957369d89eb67649d09f",
+        "project_revision": revision,
         "working_tree_dirty": False,
         "semantic_prior_canonical_sha256": "prior",
         "upstream_reference": "upstream",
@@ -197,8 +263,8 @@ def _fixture_files(tmp_path: Path) -> tuple[SourcePaths, ExpectedSources]:
             {
                 "format_version": 1,
                 "study_complete": True,
-                "planned_runs": 64,
-                "completed_runs": 64,
+                "planned_runs": run_count,
+                "completed_runs": run_count,
                 "incomplete_runs": [],
             }
         ),
@@ -208,7 +274,9 @@ def _fixture_files(tmp_path: Path) -> tuple[SourcePaths, ExpectedSources]:
                 "started_utc": "2026-08-20T00:00:00+00:00",
                 "completed_utc": "2026-08-20T12:00:00+00:00",
                 "elapsed_seconds": 43_200.0,
-                "max_session_wall_seconds": 57_600.0,
+                "max_session_wall_seconds": configuration[
+                    "max_session_wall_seconds"
+                ],
             }
         ),
         "summary.json": b'{"outcome":"deliberately unopened"}\n',
@@ -255,17 +323,7 @@ def _fixture_files(tmp_path: Path) -> tuple[SourcePaths, ExpectedSources]:
                 "max_time_seconds": 600.0,
                 "save": ["batched_loss", "batched_is_feasible"],
             },
-            "algorithm": {
-                "module": "submission.submission",
-                "class": "BatchedRestartAdam",
-                "algorithm_str": "batched_restart_adam",
-                "kwargs": {
-                    "random_seed": config["optimizer_seed"],
-                    "population_size": 8,
-                    "evaluation_chunk_size": None,
-                    "use_semantic_prior": config["arm"] == "semantic_prior",
-                },
-            },
+            "algorithm": _expected_algorithm_record(config),
             "objective_accounting": {"log_call_count": 1, "eval_count": 8},
             "initial_population_roles": _initial_population_roles(
                 str(config["arm"]), 8
@@ -305,11 +363,11 @@ def _fixture_files(tmp_path: Path) -> tuple[SourcePaths, ExpectedSources]:
         for record in records
     )
 
-    archive_path = tmp_path / "development-v2.zip"
+    archive_path = tmp_path / archive_name
     archive_path.write_bytes(_zip_bytes(members))
-    plan_path = tmp_path / "development-v2-plan.json"
+    plan_path = tmp_path / f"{archive_path.stem}-plan.json"
     plan_path.write_bytes(_json_bytes(plan))
-    checksum_path = tmp_path / "development-v2.zip.sha256"
+    checksum_path = tmp_path / f"{archive_path.name}.sha256"
     checksum_path.write_text(
         f"{sha256_path(archive_path)}  {archive_path.name}\n", encoding="utf-8"
     )
@@ -318,8 +376,8 @@ def _fixture_files(tmp_path: Path) -> tuple[SourcePaths, ExpectedSources]:
         "study_plan_id": plan["plan_id"],
         "study_project_revision": manifest["project_revision"],
         "study_complete": True,
-        "planned_runs": 64,
-        "completed_runs": 64,
+        "planned_runs": run_count,
+        "completed_runs": run_count,
         "incomplete_runs": [],
         "archive": {
             "path": "/workspace/results/development-v2.zip",
@@ -328,7 +386,7 @@ def _fixture_files(tmp_path: Path) -> tuple[SourcePaths, ExpectedSources]:
             "files": len(members),
         },
     }
-    package_manifest_path = tmp_path / "development-v2.zip.manifest.json"
+    package_manifest_path = tmp_path / f"{archive_path.name}.manifest.json"
     package_manifest_path.write_bytes(_json_bytes(package_manifest))
     sources = SourcePaths(
         archive=archive_path,
@@ -386,6 +444,142 @@ def test_synthetic_archive_validates_without_opening_summary(tmp_path: Path) -> 
     assert study.integrity["records"] == 64
     assert study.integrity["topologies"] == 16
     assert len(study.history_rows) == 64
+
+
+def _restart_fixture(tmp_path: Path) -> tuple[SourcePaths, ExpectedSources]:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    revision = "8" * 40
+    return _fixture_files(
+        tmp_path,
+        plan=_restart_plan(revision),
+        revision=revision,
+        archive_name="restart-screen-v1.zip",
+    )
+
+
+def test_restart_archive_validates_169_members_without_opening_summary(
+    tmp_path: Path,
+) -> None:
+    sources, expected = _restart_fixture(tmp_path)
+    study = validate_restart_screen_archive(sources, expected)
+    assert len(study.archive_members) == 169
+    assert study.integrity["summary_content_opened"] is False
+    assert study.integrity["records"] == 32
+    assert study.integrity["optimizer_seed_pairs"] == 16
+    assert study.integrity["topologies"] == 8
+
+
+def test_restart_archive_rejects_missing_or_unsolicited_member(tmp_path: Path) -> None:
+    sources, expected = _restart_fixture(tmp_path)
+    members = _read_members(sources.archive)
+    members.pop(next(name for name in members if name.startswith("histories/")))
+    expected = _refresh_sources(sources, expected, members)
+    with pytest.raises(StudyValidationError, match="exactly 169 members"):
+        validate_restart_screen_archive(sources, expected)
+
+    sources, expected = _restart_fixture(tmp_path / "extra")
+    members = _read_members(sources.archive)
+    members["optimizer-telemetry/stray.npz"] = b"private-stray"
+    expected = _refresh_sources(sources, expected, members)
+    with pytest.raises(StudyValidationError, match="exactly 169 members"):
+        validate_restart_screen_archive(sources, expected)
+
+
+def test_restart_archive_rejects_wrong_patience_and_topology_binding(
+    tmp_path: Path,
+) -> None:
+    sources, expected = _restart_fixture(tmp_path)
+    members = _read_members(sources.archive)
+    run_name = next(name for name in members if name.startswith("runs/"))
+    record = json.loads(members[run_name])
+    record["algorithm"]["kwargs"]["patience"] = 999
+    members[run_name] = _json_bytes(record)
+    expected = _refresh_sources(sources, expected, members)
+    with pytest.raises(StudyValidationError, match="algorithm configuration mismatch"):
+        validate_restart_screen_archive(sources, expected)
+
+    sources, expected = _restart_fixture(tmp_path / "topology")
+    members = _read_members(sources.archive)
+    run_name = next(name for name in members if name.startswith("runs/"))
+    record = json.loads(members[run_name])
+    replacement = "AAAAAAAAA-LSSSSSSSSSSS"
+    record["problem"]["topology_string"] = replacement
+    record["problem"]["topology_sha256"] = hashlib.sha256(
+        replacement.encode()
+    ).hexdigest()
+    members[run_name] = _json_bytes(record)
+    expected = _refresh_sources(sources, expected, members)
+    with pytest.raises(StudyValidationError, match="differs from explicit plan"):
+        validate_restart_screen_archive(sources, expected)
+
+
+def test_restart_archive_rejects_incomplete_session_and_duplicate_record_id(
+    tmp_path: Path,
+) -> None:
+    sources, expected = _restart_fixture(tmp_path)
+    members = _read_members(sources.archive)
+    session = json.loads(members["session.json"])
+    session["status"] = "error"
+    members["session.json"] = _json_bytes(session)
+    expected = _refresh_sources(sources, expected, members)
+    with pytest.raises(StudyValidationError, match="session did not complete"):
+        validate_restart_screen_archive(sources, expected)
+
+    sources, expected = _restart_fixture(tmp_path / "duplicate")
+    members = _read_members(sources.archive)
+    run_names = sorted(name for name in members if name.startswith("runs/"))
+    first = json.loads(members[run_names[0]])
+    second = json.loads(members[run_names[1]])
+    second["run_id"] = first["run_id"]
+    members[run_names[1]] = _json_bytes(second)
+    expected = _refresh_sources(sources, expected, members)
+    with pytest.raises(StudyValidationError, match="duplicate run record ID"):
+        validate_restart_screen_archive(sources, expected)
+
+
+def test_restart_archive_rejects_incomplete_external_package_manifest(
+    tmp_path: Path,
+) -> None:
+    sources, expected = _restart_fixture(tmp_path)
+    manifest = json.loads(sources.package_manifest.read_text(encoding="utf-8"))
+    manifest["incomplete_runs"] = [{"run_id": "invented", "status": "missing"}]
+    sources.package_manifest.write_bytes(_json_bytes(manifest))
+    expected = replace(
+        expected,
+        package_manifest_sha256=sha256_path(sources.package_manifest),
+    )
+    with pytest.raises(StudyValidationError, match="lists incomplete runs"):
+        validate_restart_screen_archive(sources, expected)
+
+
+def test_restart_analysis_cli_workflow_writes_private_outputs_only_after_match(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("markdown", reason="restart rendered-report dependency")
+    pytest.importorskip("scipy", reason="restart post-hoc analysis dependency")
+    pytest.importorskip("matplotlib", reason="restart plot dependency")
+    sources, expected = _restart_fixture(tmp_path / "source")
+    sealed = validate_restart_screen_archive(sources, expected)
+    production = summarize_restart_records(sealed.records, sealed.configs)
+    members = _read_members(sources.archive)
+    members["summary.json"] = _json_bytes(production)
+    expected = _refresh_sources(sources, expected, members)
+    output = tmp_path / "generated-analysis"
+    handoff = run_analysis(sources, output, expected=expected)
+    assert handoff["normalized_row_counts"] == {
+        "runs": 32,
+        "history_rows": 256,
+        "seed_pairs": 16,
+        "topologies": 8,
+        "target_hitting": 128,
+    }
+    assert json.loads((output / "three_way_comparison.json").read_text())["status"] == (
+        "matched"
+    )
+    assert len(handoff["figures"]) == 4
+    report = (output / "analysis_report.md").read_text(encoding="utf-8")
+    assert report.count("Time:") == 4
+    assert report.count("Evaluations:") == 4
 
 
 def test_independent_reference_replay_collapses_to_topology_blocks(
@@ -566,6 +760,21 @@ def test_zip_size_and_ratio_limits_are_enforced(tmp_path: Path) -> None:
         inspect_zip_integrity(path, ArchiveLimits(max_compression_ratio=2.0))
 
 
+def test_zip_entry_limit_boundary_is_enforced(tmp_path: Path) -> None:
+    allowed = tmp_path / "allowed-entry-count.zip"
+    with zipfile.ZipFile(allowed, "w") as archive:
+        for index in range(512):
+            archive.writestr(f"entries/{index:03d}.txt", b"")
+    assert inspect_zip_integrity(allowed)["entries"] == 512
+
+    rejected = tmp_path / "rejected-entry-count.zip"
+    with zipfile.ZipFile(rejected, "w") as archive:
+        for index in range(513):
+            archive.writestr(f"entries/{index:03d}.txt", b"")
+    with pytest.raises(StudyValidationError, match="too many entries"):
+        inspect_zip_integrity(rejected)
+
+
 def test_zip_crc_corruption_is_rejected(tmp_path: Path) -> None:
     path = tmp_path / "crc.zip"
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
@@ -593,3 +802,57 @@ def test_npz_object_arrays_are_never_unpickled() -> None:
     np.savez(buffer, **arrays)
     with pytest.raises(StudyValidationError, match="pickle-free NPZ"):
         _load_history_arrays(buffer.getvalue(), "object-history.npz")
+
+
+def test_npz_enormous_declared_shape_with_truncated_payload_is_rejected() -> None:
+    payload, _rows = _history_payload(1.0)
+    with zipfile.ZipFile(io.BytesIO(payload), "r") as archive:
+        members = {name: archive.read(name) for name in archive.namelist()}
+
+    malformed = io.BytesIO()
+    np.lib.format.write_array_header_1_0(
+        malformed,
+        {
+            "descr": np.dtype("int32").str,
+            "fortran_order": False,
+            "shape": (2**40,),
+        },
+    )
+    members["call_index.npy"] = malformed.getvalue()
+    corrupted = io.BytesIO()
+    with zipfile.ZipFile(corrupted, "w", compression=zipfile.ZIP_STORED) as archive:
+        for name, member_payload in members.items():
+            archive.writestr(name, member_payload)
+
+    with pytest.raises(StudyValidationError, match="declared shape exceeds safety limits"):
+        _load_history_arrays(corrupted.getvalue(), "enormous-shape-history.npz")
+
+
+@pytest.mark.parametrize(
+    "corruption, expected_message",
+    [
+        ("short_roles", "initial population evidence has wrong size"),
+        ("short_hashes", "initial population evidence has wrong size"),
+        ("invalid_hash", "initial parameter hash is invalid"),
+    ],
+)
+def test_restart_archive_rejects_invalid_initial_population_evidence(
+    tmp_path: Path,
+    corruption: str,
+    expected_message: str,
+) -> None:
+    sources, expected = _restart_fixture(tmp_path)
+    members = _read_members(sources.archive)
+    run_name = next(name for name in members if name.startswith("runs/"))
+    record = json.loads(members[run_name])
+    if corruption == "short_roles":
+        record["initial_population_roles"] = record["initial_population_roles"][:-1]
+    elif corruption == "short_hashes":
+        record["initial_parameter_hashes"] = record["initial_parameter_hashes"][:-1]
+    else:
+        record["initial_parameter_hashes"][0] = "not-a-sha256"
+    members[run_name] = _json_bytes(record)
+    expected = _refresh_sources(sources, expected, members)
+
+    with pytest.raises(StudyValidationError, match=expected_message):
+        validate_restart_screen_archive(sources, expected)

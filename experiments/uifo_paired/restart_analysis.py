@@ -23,6 +23,7 @@ def summarize_restart_records(
     expected_configs: dict[str, dict[str, object]],
     *,
     compute_bootstrap: bool = True,
+    include_exploratory: bool = True,
 ) -> dict[str, object]:
     profiles = {
         str(config.get("study_profile")) for config in expected_configs.values()
@@ -38,7 +39,10 @@ def summarize_restart_records(
         )
     if profile == "restart-screen-v1":
         return _summarize_screen(
-            records, expected_configs, compute_bootstrap=compute_bootstrap
+            records,
+            expected_configs,
+            compute_bootstrap=compute_bootstrap,
+            include_exploratory=include_exploratory,
         )
     raise ValueError(f"unsupported restart study profile: {profile!r}")
 
@@ -121,7 +125,13 @@ def _summarize_mechanics(
     }
 
 
-def _summarize_screen(records, expected_configs, *, compute_bootstrap: bool):
+def _summarize_screen(
+    records,
+    expected_configs,
+    *,
+    compute_bootstrap: bool,
+    include_exploratory: bool,
+):
     policy = _decision_policy(expected_configs)
     complete = [record for record in records if record.get("status") == "complete"]
     errors = [record for record in records if record.get("status") == "error"]
@@ -375,13 +385,22 @@ def _summarize_screen(records, expected_configs, *, compute_bootstrap: bool):
     sign_p = None
     if inference_ready and compute_bootstrap:
         bootstrap_ci = _bootstrap_mean_ci(macro_values)
+    if inference_ready and compute_bootstrap and include_exploratory:
         sign_flip_p = _exact_sign_flip_mean_pvalue(macro_values)
         sign_p = _exact_sign_pvalue(wins, losses)
-    exploratory = _exploratory_sensitivity(
-        topology_rows,
-        macro_values,
-        inference_ready=inference_ready,
-        compute_bootstrap=compute_bootstrap,
+    exploratory = (
+        _exploratory_sensitivity(
+            topology_rows,
+            macro_values,
+            inference_ready=inference_ready,
+            compute_bootstrap=compute_bootstrap,
+        )
+        if include_exploratory
+        else {
+            "ready": False,
+            "deferred_until_frozen_replay_match": True,
+            "changes_frozen_decision": False,
+        }
     )
     return {
         "format_version": 1,

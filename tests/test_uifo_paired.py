@@ -841,6 +841,9 @@ def test_completed_study_packages_deterministically(
         lambda *args, **kwargs: None,
     )
 
+    with pytest.raises(RuntimeError, match="unexpected package input"):
+        package_study(study, tmp_path / "stray.zip")
+    (telemetry_dir / "diagnostic.npz").unlink()
     first = package_study(study, tmp_path / "first.zip")
     second = package_study(study, tmp_path / "second.zip")
 
@@ -856,10 +859,7 @@ def test_completed_study_packages_deterministically(
             archive.getinfo("histories/pair__adam.npz").compress_type
             == zipfile.ZIP_STORED
         )
-        assert (
-            archive.getinfo("optimizer-telemetry/diagnostic.npz").compress_type
-            == zipfile.ZIP_STORED
-        )
+        assert "optimizer-telemetry/diagnostic.npz" not in archive.namelist()
         assert "runs.jsonl" in archive.namelist()
         assert "summary.json" in archive.namelist()
 
@@ -899,7 +899,17 @@ def test_completed_study_packages_deterministically(
     )
     assert recovered_partial["study_complete"] is False
     assert not (study / ".study.lock").exists()
-    assert len(list((study / "recovery").glob("stale-study-lock-*.json"))) == 1
+    receipts = list((study / "recovery").glob("stale-study-lock-*.json"))
+    assert len(receipts) == 1
+    with zipfile.ZipFile(tmp_path / "recovered-partial.zip") as archive:
+        assert f"recovery/{receipts[0].name}" in archive.namelist()
+    receipts[0].write_text('{"pid": 1}\n', encoding="utf-8")
+    with pytest.raises(RuntimeError, match="receipt digest mismatch"):
+        package_study(
+            study,
+            tmp_path / "invalid-recovery.zip",
+            allow_incomplete=True,
+        )
 
 
 def test_lightweight_index_rebuild_skips_revalidating_old_histories(
