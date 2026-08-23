@@ -29,10 +29,25 @@ from experiments.uifo_paired.submission_like_evidence import (
     compare_submission_like_archived_summary,
     compare_submission_like_replays,
 )
+from experiments.uifo_paired.submission_like_posthoc_analysis import (
+    analyze_submission_like_posthoc,
+    create_submission_like_plots,
+    safe_submission_like_posthoc,
+)
 
 
 ROOT = Path(__file__).parents[1]
 SEEDS = (29, 31)
+
+
+def _archived_agreement() -> dict[str, object]:
+    return {
+        "status": "matched",
+        "archived_summary_compared": True,
+        "fields_compared": 21,
+        "absolute_tolerance": 1e-12,
+        "relative_tolerance": 1e-12,
+    }
 
 
 def _target_hits(loss: float | None) -> dict[str, dict[str, float | int | None]]:
@@ -140,6 +155,12 @@ def _study(*, seed_gap: float = 0.2) -> ValidatedStudy:
                 {
                     "run_id": run_id,
                     "status": "complete",
+                    "started_utc": (
+                        f"2026-08-22T00:{config['planned_run_index']:02d}:00+00:00"
+                    ),
+                    "completed_utc": (
+                        f"2026-08-22T00:{config['planned_run_index']:02d}:30+00:00"
+                    ),
                     "config": config,
                     "metrics": {
                         "has_feasible": True,
@@ -167,7 +188,11 @@ def _study(*, seed_gap: float = 0.2) -> ValidatedStudy:
         plan=plan,
         manifest=manifest,
         package_state={},
-        session={},
+        session={
+            "status": "complete",
+            "started_utc": "2026-08-22T00:00:00+00:00",
+            "completed_utc": "2026-08-22T00:20:00+00:00",
+        },
         configs=configs,
         records=records,
         history_rows=histories,
@@ -443,3 +468,192 @@ def test_replay_compares_physical_feasibility_independently() -> None:
     reference["run_rows"][0]["physical_feasible"] = False
     with pytest.raises(StudyValidationError, match=r"\.physical"):
         compare_submission_like_replays(production, reference)
+
+
+def _posthoc(seed_gap: float = 0.2) -> tuple[dict[str, object], dict[str, object]]:
+    pytest.importorskip("scipy", reason="submission-like analysis dependency")
+    study = _study(seed_gap=seed_gap)
+    production = summarize_submission_like_records(study.records, study.configs)
+    reference = reference_submission_like_screen(study)
+    return analyze_submission_like_posthoc(
+        study,
+        production,
+        reference,
+        agreement=_archived_agreement(),
+    ), production
+
+
+def test_posthoc_uses_topology_blocks_and_preserves_censor_bounds() -> None:
+    posthoc, _production = _posthoc()
+    assert posthoc["inference_unit"] == "topology (n=10)"
+    assert posthoc["serial_drift"]["topology_pairs"] == 10
+    assert len(posthoc["topology_rows"]) == 10
+    assert len(posthoc["run_rows"]) == 20
+    assert len(posthoc["leave_one_topology_out"]) == 10
+    assert all(
+        row["topologies_remaining"] == 9
+        and row["decision_recomputed"] is False
+        for row in posthoc["leave_one_topology_out"]
+    )
+    assert "serial_run_order_vs_loss" not in posthoc["serial_drift"]
+    assert "scored_time_proxy_gap_vs_later_minus_earlier_loss" not in posthoc[
+        "serial_drift"
+    ]
+    assert (
+        "actual_start_gap_vs_later_minus_earlier_loss"
+        in posthoc["serial_drift"]
+    )
+    assert posthoc["serial_drift"]["causal_effect_identified"] is False
+
+    target = posthoc["target_hitting"]["4"]
+    assert target["topology_categories"] == {
+        "both_seeds_reached": 3,
+        "one_seed_reached": 1,
+        "neither_seed_reached": 6,
+        "incomplete": 0,
+    }
+    assert target["seed_29_only_topologies"] == 1
+    assert target["seed_31_only_topologies"] == 0
+    censored = next(
+        hit
+        for row in target["topology_rows"]
+        for hit in row["seed_hits"].values()
+        if not hit["event_reached"]
+    )
+    assert censored["observed_or_censor_time_seconds"] == 2.0
+    assert censored["observed_or_censor_eval_count"] == 16
+
+
+def test_posthoc_distinguishes_seed_31_only_target_topology() -> None:
+    posthoc, _production = _posthoc(seed_gap=-0.2)
+    target = posthoc["target_hitting"]["4"]
+    assert target["seed_29_only_topologies"] == 0
+    assert target["seed_31_only_topologies"] == 1
+
+
+@pytest.mark.parametrize(
+    ("record_index", "field", "value", "error"),
+    [
+        (0, "started_utc", "not-a-timestamp", "malformed"),
+        (0, "started_utc", "2026-08-22T00:00:00", "timezone-aware"),
+        (
+            0,
+            "completed_utc",
+            "2026-08-21T23:59:59+00:00",
+            "precedes",
+        ),
+        (
+            0,
+            "started_utc",
+            "2026-08-21T23:59:59+00:00",
+            "outside the session",
+        ),
+        (
+            1,
+            "started_utc",
+            "2026-08-22T00:00:15+00:00",
+            "nonmonotone|overlap",
+        ),
+    ],
+)
+def test_posthoc_rejects_invalid_session_timestamps(
+    record_index: int,
+    field: str,
+    value: str,
+    error: str,
+) -> None:
+    pytest.importorskip("scipy", reason="submission-like analysis dependency")
+    study = _study()
+    run_id = next(
+        run_id
+        for run_id, config in study.configs.items()
+        if config["planned_run_index"] == record_index
+    )
+    record = next(row for row in study.records if row["run_id"] == run_id)
+    record[field] = value
+    production = summarize_submission_like_records(study.records, study.configs)
+    reference = reference_submission_like_screen(study)
+    with pytest.raises(StudyValidationError, match=error):
+        analyze_submission_like_posthoc(
+            study,
+            production,
+            reference,
+            agreement=_archived_agreement(),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("status", "mismatch"),
+        ("archived_summary_compared", False),
+        ("fields_compared", 20),
+        ("absolute_tolerance", 1e-9),
+        ("relative_tolerance", 1e-9),
+    ],
+)
+def test_posthoc_rejects_forged_agreement(field: str, value: object) -> None:
+    pytest.importorskip("scipy", reason="submission-like analysis dependency")
+    study = _study()
+    production = summarize_submission_like_records(study.records, study.configs)
+    reference = reference_submission_like_screen(study)
+    agreement = _archived_agreement()
+    agreement[field] = value
+    with pytest.raises(StudyValidationError, match="three-way agreement"):
+        analyze_submission_like_posthoc(
+            study,
+            production,
+            reference,
+            agreement=agreement,
+        )
+
+
+def test_posthoc_rejects_wrong_frozen_action() -> None:
+    pytest.importorskip("scipy", reason="submission-like analysis dependency")
+    study = _study()
+    production = summarize_submission_like_records(study.records, study.configs)
+    reference = reference_submission_like_screen(study)
+    production["predeclared_decision"]["action"] = "wrong"
+    with pytest.raises(StudyValidationError, match="exact frozen action"):
+        analyze_submission_like_posthoc(
+            study,
+            production,
+            reference,
+            agreement=_archived_agreement(),
+        )
+
+
+def test_safe_posthoc_allowlist_excludes_private_rows_and_identifiers() -> None:
+    posthoc, _production = _posthoc()
+    safe = safe_submission_like_posthoc(posthoc)
+    serialized = json.dumps(safe, sort_keys=True)
+    for forbidden in (
+        "run_id",
+        "pair_id",
+        "topology_sha256",
+        "topology_string",
+        "started_utc",
+        "provider",
+        "gpu",
+        "source_path",
+        "history_rows",
+    ):
+        assert forbidden not in serialized
+    assert safe["no_new_action_authorized"] is True
+    assert safe["leave_one_topology_out"]["omissions"] == 10
+    assert "recommended_next_evidence_gate" not in serialized
+    for topology in SUBMISSION_LIKE_TOPOLOGIES:
+        assert topology not in serialized
+
+
+def test_posthoc_plots_are_the_four_private_diagnostics(tmp_path: Path) -> None:
+    pytest.importorskip("matplotlib", reason="submission-like plot dependency")
+    posthoc, _production = _posthoc()
+    paths = create_submission_like_plots(posthoc, tmp_path)
+    assert [path.name for path in paths] == [
+        "topology_seed_outcomes.png",
+        "run_order_and_throughput.png",
+        "target_hitting_outcomes.png",
+        "leave_one_topology_out.png",
+    ]
+    assert all(path.stat().st_size > 10_000 for path in paths)
