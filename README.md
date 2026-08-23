@@ -6,14 +6,17 @@ The competition asks for an algorithm—not one fixed detector. On each hidden t
 
 ## Current status
 
-**Validated patience-600/no-prior candidate stage.** The frozen
+**Validated patience-600/no-prior submission-review stage.** The frozen
 `development-v2` A100 screen retained no-prior initialization. The subsequent
 bounded restart mechanics gate passed, but the eight-topology patience-200
 screen failed its predeclared promotion rule: 4 p200 wins, 0 ties, 4 losses;
 mean p200-minus-p600 difference `-0.016933403182594786`; median difference
 `+0.05236019711778772`; frozen action `retain_patience_600`. Production replay,
 an independent history-based reference calculation, and the archived summary
-agree. Do not run `confirmation-v1`.
+agree. The separately frozen `submission-like-screen-v1` then completed 20/20
+runs and passed all five operational evidence criteria at ten topology units.
+Its frozen action is `candidate_evidence_complete_for_submission_review`.
+Do not run `confirmation-v1`.
 
 The source results remain private and outside Git. The aggregate evidence,
 outcome-blind integrity workflow, exploratory limitations, and next-gate
@@ -23,15 +26,15 @@ The packaged candidate now defaults to no-prior initialization, matching the
 frozen action. The semantic-prior material remains available only for explicit
 historical experiment replay; the paired harness supplies that flag per arm.
 
-The current submission remains patience 600 and the reserved submission-like
-panel is untouched. The proposed next gate is now frozen as the cost-bounded
-`submission-like-screen-v1` profile: no-prior only, ten topologies, two fresh
-seeds, and 1,200 seconds per run under a hard $16 / 10-hour ceiling. This is not
-an official-budget performance claim. It has not been launched.
-See the aggregate evidence and limitations in
-[`research/2026-08-21-patience-200-a100-results.md`](research/2026-08-21-patience-200-a100-results.md).
+The current submission remains patience 600. The cost-bounded, one-arm
+submission-like screen is now complete and independently validated, but it is
+not an official-budget performance claim or evidence of leaderboard
+competitiveness. The next gate is an unpaid, history-only seed-divergence
+diagnostic that separates progress by evaluation count from progress by wall
+time. See the aggregate results and limitations in
+[`research/2026-08-23-submission-like-screen-a100-results.md`](research/2026-08-23-submission-like-screen-a100-results.md).
 The optimizer still has no hidden-leaderboard or official-budget multi-topology
-performance claim.
+performance claim, and no new paid comparison is authorized by this result.
 
 New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
 

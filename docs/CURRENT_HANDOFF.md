@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-22
+Updated: 2026-08-23
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -28,20 +28,30 @@ are the evidence record, not a competing task list.
   restart summary agree: p200 wins/ties/losses 4/0/4, mean difference
   `-0.016933403182594786`, median `+0.05236019711778772`, frozen action
   `retain_patience_600`.
-- The paid Pod is terminated. Private artifacts are not in Git: this host holds
-  the only verified off-provider copy, while a provider durable-volume copy is
-  still retained for provenance.
+- The separately frozen `submission-like-screen-v1` completed 20/20 runs and
+  all 10 two-seed topology blocks on the untouched panel. All runs were
+  physically and finite feasible.
+- Production replay, a deliberately independent history-first evaluator, and
+  the archived summary agree at `1e-12` absolute and relative tolerance. The
+  frozen operational action is
+  `candidate_evidence_complete_for_submission_review`.
+- Private source and generated artifacts remain outside Git. This host holds
+  the authenticated durable evidence bundle.
 
 ## Next decision
 
-Do not run `confirmation-v1` and do not tune patience further on this development
-panel. Retain the packaged patience-600/no-prior candidate. The next proposed
-gate is now frozen as `submission-like-screen-v1`: a no-prior-only, two-seed,
-ten-topology characterization on the untouched disjoint panel, with 1,200
-seconds per run and a hard $16 / 10-hour provider ceiling. It is explicitly not
-an official-budget or competitiveness claim. The plan still requires review,
-merge, live price/runway verification, and separate owner approval. No GPU
-experiment has been launched.
+Do not run `confirmation-v1`, tune patience further on an observed panel, or
+interpret the submission-like operational pass as a competitiveness claim.
+Retain the packaged patience-600/no-prior candidate and complete final
+package/evidence review.
+
+The next research gate is local and unpaid: use only the authenticated private
+histories to diagnose the observed seed/sweep-phase divergence, comparing
+progress at matched evaluation counts separately from progress at matched wall
+times. Seed 29 was always the first sweep and seed 31 the second, so the current
+screen cannot identify a causal seed or session-order effect. If the diagnostic
+motivates an algorithm change, freeze that change before results and evaluate it
+on a new disjoint panel. No new paid study is authorized yet.
 
 ## What can contribute now
 
@@ -50,14 +60,16 @@ in [`DEVELOPMENT_V2_RESULTS_HANDOFF.md`](DEVELOPMENT_V2_RESULTS_HANDOFF.md). The
 durable aggregate result and exploratory evidence boundaries are in
 [`2026-08-21-development-v2-a100-results.md`](../research/2026-08-21-development-v2-a100-results.md).
 
-Useful unpaid work now includes ingestion hardening, candidate packaging
-correctness, contract checks, and review/freeze of the next gate. The validated
-restart result and exact private reproduction command are in
+Useful unpaid work now includes final package/evidence review, the bounded
+history-only seed-divergence diagnostic, ingestion hardening, and contract
+checks. The validated restart result and exact private reproduction command are in
 [`2026-08-21-patience-200-a100-results.md`](../research/2026-08-21-patience-200-a100-results.md).
 Do not claim an order-of-magnitude gain: no restart target supplied a complete
 eight-topology comparison.
 
-The exact pre-result profile, sealed evidence workflow, and approval boundary
-are in [`2026-08-22-submission-like-screen-plan.md`](../research/2026-08-22-submission-like-screen-plan.md).
-The future operating commands are in
+The exact pre-result profile is in
+[`2026-08-22-submission-like-screen-plan.md`](../research/2026-08-22-submission-like-screen-plan.md).
+The validated aggregate result and limitations are in
+[`2026-08-23-submission-like-screen-a100-results.md`](../research/2026-08-23-submission-like-screen-a100-results.md).
+The sealed operating and replay commands are in
 [`SUBMISSION_LIKE_SCREEN_RUNBOOK.md`](SUBMISSION_LIKE_SCREEN_RUNBOOK.md).

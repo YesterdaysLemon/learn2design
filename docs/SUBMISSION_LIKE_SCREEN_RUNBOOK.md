@@ -1,8 +1,10 @@
 # Submission-like screen runbook
 
-This is the future operating guide for the frozen, cost-bounded
-`submission-like-screen-v1` profile. It is not authorization to create a Pod.
-Read `research/2026-08-22-submission-like-screen-plan.md` first.
+This is the operating and sealed-replay guide for the frozen, cost-bounded
+`submission-like-screen-v1` profile. Its single terminal attempt completed on
+2026-08-23; the launch section is retained for provenance and is not
+authorization to create another Pod. Read the frozen plan and validated results
+report first.
 
 ## Pre-launch approval
 
@@ -190,7 +192,10 @@ uv run --frozen --group dev --group integration --group analysis `
 
 This command does not extract the archive. For a complete archive it
 authenticates and recomputes raw histories, matches production and independent
-reference results, and only then opens the archived summary. For a terminal
+reference results, and only then opens the archived summary. After three-way
+agreement it writes private normalized diagnostics, an allowlisted aggregate
+JSON, a Markdown/HTML report, and four figures under the external output
+directory. Every generated plot must be visually inspected. For a terminal
 partial it writes only structural integrity evidence and leaves outcomes
 sealed. Generated output remains outside Git. Stop and open a discrepancy issue
 on any mismatch; do not interpret partial outcomes or launch another attempt.

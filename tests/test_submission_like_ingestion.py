@@ -40,6 +40,9 @@ from experiments.uifo_paired.runner import (
     _run_config,
     strict_json,
 )
+from experiments.uifo_paired.submission_like_analysis import (
+    summarize_submission_like_records,
+)
 from tools.create_submission_like_source_lock import build_source_lock
 from tools.analyze_submission_like import run_analysis
 
@@ -280,8 +283,8 @@ def _build_complete_bundle(tmp_path: Path) -> _CompleteBundle:
             "format_version": 1,
             "run_id": run_id,
             "status": "complete",
-            "started_utc": "2026-08-22T00:00:00+00:00",
-            "completed_utc": "2026-08-22T00:20:00+00:00",
+            "started_utc": f"2026-08-22T00:{index:02d}:00+00:00",
+            "completed_utc": f"2026-08-22T00:{index:02d}:30+00:00",
             "config": config,
             "environment": environment,
             "metrics": metrics,
@@ -652,6 +655,56 @@ def test_complete_109_member_archive_validates_end_to_end_and_keeps_summary_seal
     assert study.integrity["source_lock"] == "passed"
     assert study.integrity["terminal_attempt_receipt"] == "passed"
     assert study.integrity["summary_content_opened"] is False
+
+
+def test_complete_analysis_writes_safe_aggregates_and_private_diagnostics(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("markdown", reason="submission-like analysis dependency")
+    pytest.importorskip("matplotlib", reason="submission-like analysis dependency")
+    pytest.importorskip("scipy", reason="submission-like analysis dependency")
+    bundle = _build_complete_bundle(tmp_path / "bundle")
+    expected = _authenticate(bundle)
+    study = validate_submission_like_archive(
+        bundle.sources,
+        expected=expected,
+        terminal_attempt_receipt=bundle.receipt,
+    )
+    members = _read_members(bundle.sources.archive)
+    members["summary.json"] = _json_bytes(
+        summarize_submission_like_records(study.records, study.configs)
+    )
+    _refresh_complete_bundle(bundle, members)
+
+    output = tmp_path / "complete-analysis"
+    result = run_analysis(
+        sources=bundle.sources,
+        source_lock=bundle.source_lock,
+        expected_source_lock_sha256=sha256_path(bundle.source_lock),
+        terminal_attempt_receipt=bundle.receipt,
+        output=output,
+    )
+
+    assert result["raw_replay"] == "matched"
+    assert result["archived_summary"] == "matched"
+    assert result["figures"] == 4
+    assert (output / "private_posthoc_diagnostics.json").is_file()
+    assert (output / "posthoc_analysis.json").is_file()
+    assert (output / "analysis_report.md").is_file()
+    assert (output / "analysis_report.html").is_file()
+    assert (output / "handoff.json").is_file()
+    assert sorted(path.name for path in (output / "figures").iterdir()) == [
+        "leave_one_topology_out.png",
+        "run_order_and_throughput.png",
+        "target_hitting_outcomes.png",
+        "topology_seed_outcomes.png",
+    ]
+    safe_serialized = (output / "posthoc_analysis.json").read_text(
+        encoding="utf-8"
+    )
+    assert "topology_sha256" not in safe_serialized
+    assert "run_id" not in safe_serialized
+    assert "recommended_next_evidence_gate" not in safe_serialized
 
 
 @pytest.mark.parametrize("corruption", ["missing", "unexpected"])
