@@ -51,3 +51,6 @@ jobs:
           tests/test_uifo_results_ingestion.py
           tests/test_restart_reference_analysis.py
           tests/test_restart_screen.py
+          tests/test_submission_like_ingestion.py
+          tests/test_submission_like_plan.py
+          tests/test_submission_like_reference_analysis.py

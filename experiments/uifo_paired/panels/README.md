@@ -6,7 +6,9 @@ later, explicitly post-hoc follow-up with a separate evidence boundary.
 
 - `development-v1.json`: 16 topologies for the short initializer screen;
 - `confirmation-v1.json`: 12 disjoint topologies for longer confirmation;
-- `submission-like-v1.json`: 10 disjoint topologies for official-budget rehearsal;
+- `submission-like-v1.json`: 10 disjoint topologies originally reserved for an
+  official-budget rehearsal; the current cost-bounded screen does not make that
+  claim;
 - `restart-mechanics-v1.json`: one outcome-selected restart mechanics case whose
   loss is excluded from inference;
 - `restart-screen-v1.json`: eight development topologies selected by a committed

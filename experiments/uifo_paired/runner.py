@@ -10,7 +10,9 @@ import json
 import math
 import os
 import platform
+import re
 import shutil
+import stat
 import subprocess
 import sys
 import time
@@ -18,7 +20,7 @@ import traceback
 import zipfile
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from experiments.uifo_paired.analysis import summarize_records
 from experiments.uifo_paired.metrics import flatten_histories, summarize_rows
@@ -36,6 +38,9 @@ from experiments.uifo_paired.optimizer_settings import (
 )
 from experiments.uifo_paired.plan import VALID_ARMS, build_plan
 from experiments.uifo_paired.restart_analysis import summarize_restart_records
+from experiments.uifo_paired.submission_like_analysis import (
+    summarize_submission_like_records,
+)
 from experiments.uifo_paired.study_profiles import profile_names
 
 ROOT = Path(__file__).parents[2]
@@ -1222,9 +1227,13 @@ def orchestrate(
     recover_stale_lock: bool = False,
 ) -> int:
     study_profile = plan.get("configuration", {}).get("study_profile")
-    if resume and study_profile in {"restart-mechanics-v1", "restart-screen-v1"}:
+    if resume and study_profile in {
+        "restart-mechanics-v1",
+        "restart-screen-v1",
+        "submission-like-screen-v1",
+    }:
         raise RuntimeError(
-            "restart study profiles are non-resumable; preserve and package the "
+            "terminal-attempt study profiles are non-resumable; preserve and package the "
             "terminal partial attempt"
         )
     manifest_path = output_dir / "manifest.json"
@@ -1313,6 +1322,12 @@ def _orchestrate_locked(
     if bool(common.get("require_a100")):
         _validate_required_a100(runtime_environment)
 
+    terminal_attempt = _claim_terminal_attempt(
+        plan,
+        output_dir,
+        revision=revision,
+    )
+
     prior_path = ROOT / "submission" / "semantic_prior.json"
     manifest = {
         **plan,
@@ -1329,6 +1344,8 @@ def _orchestrate_locked(
             }
         },
     }
+    if terminal_attempt is not None:
+        manifest["terminal_attempt"] = terminal_attempt
     if manifest_path.exists():
         _validate_resume_manifest(
             json.loads(manifest_path.read_text(encoding="utf-8")), manifest
@@ -1503,9 +1520,15 @@ def _orchestrate_locked(
                 if completed.returncode != 0 or record.get("status") != "complete":
                     failures += 1
                 else:
-                    validate_completed_record(
-                        record, config, history_path, runtime_environment
-                    )
+                    try:
+                        validate_completed_record(
+                            record, config, history_path, runtime_environment
+                        )
+                    except Exception as error:
+                        record = _preserve_record_integrity_failure(
+                            output_path, record, error
+                        )
+                        failures += 1
 
             _rebuild_indexes(
                 output_dir,
@@ -1543,6 +1566,46 @@ def _orchestrate_locked(
     return 1 if failures else 0
 
 
+def _claim_terminal_attempt(
+    plan: dict[str, object],
+    output_dir: Path,
+    *,
+    revision: str,
+) -> dict[str, object] | None:
+    """Atomically consume the one allowed result-bearing attempt for a profile."""
+    configuration = plan.get("configuration")
+    if not isinstance(configuration, dict):
+        raise RuntimeError("study plan has no configuration")
+    profile = configuration.get("study_profile")
+    if profile != "submission-like-screen-v1":
+        return None
+    receipt_path = output_dir.parent / f"{profile}.terminal-attempt.json"
+    payload = {
+        "format_version": 1,
+        "study_profile": profile,
+        "plan_id": plan.get("plan_id"),
+        "project_revision": revision,
+        "claimed_utc": datetime.now(UTC).isoformat(),
+        "rule": "first result-bearing attempt is terminal; resume and rerun forbidden",
+    }
+    encoded = (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode()
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with receipt_path.open("xb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except FileExistsError as error:
+        raise RuntimeError(
+            "submission-like-screen-v1 terminal attempt was already claimed; "
+            "preserve the existing attempt and do not rerun under a new plan ID"
+        ) from error
+    return {
+        "receipt_name": receipt_path.name,
+        "receipt_sha256": hashlib.sha256(encoded).hexdigest(),
+    }
+
+
 def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, object]:
     config = {
         **run,
@@ -1563,6 +1626,9 @@ def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, 
         "study_profile",
         "decision_policy",
         "mechanics_evidence",
+        "candidate_package_evidence",
+        "execution_mode",
+        "resource_budget",
         "provider_stop_utc",
         "provider_deadline_maximum_horizon_seconds",
         "provider_evacuation_reserve_seconds",
@@ -1746,6 +1812,35 @@ def _synthetic_worker_error(
     }
 
 
+def _preserve_record_integrity_failure(
+    output_path: Path,
+    record: dict[str, object],
+    error: Exception,
+) -> dict[str, object]:
+    """Retain a failed worker record while making terminal packaging possible."""
+    original_sha256 = (
+        sha256(output_path)
+        if output_path.is_file()
+        else hashlib.sha256(
+            (
+                json.dumps(strict_json(record), sort_keys=True, allow_nan=False)
+                + "\n"
+            ).encode()
+        ).hexdigest()
+    )
+    preserved = dict(record)
+    preserved["status"] = "error"
+    preserved["error"] = {
+        "type": "RecordIntegrityError",
+        "validation_error_type": type(error).__name__,
+        "message": str(error),
+        "original_worker_status": record.get("status"),
+        "original_record_sha256": original_sha256,
+    }
+    atomic_json(output_path, preserved)
+    return preserved
+
+
 def _validate_resume_manifest(existing: dict, current: dict) -> None:
     for key in (
         "format_version",
@@ -1778,7 +1873,7 @@ def _require_provider_time(
     )
     if maximum_horizon is not None and remaining > float(maximum_horizon) + 60.0:
         raise RuntimeError(
-            "provider stop deadline exceeds the frozen eight-hour horizon"
+            "provider stop deadline exceeds the frozen provider horizon"
         )
     if remaining < required_seconds:
         raise RuntimeError(
@@ -1844,23 +1939,36 @@ def _rebuild_indexes(
     temporary.write_text(jsonl, encoding="utf-8")
     os.replace(temporary, output_dir / "runs.jsonl")
 
+    profiles = (
+        {
+            str(config.get("study_profile"))
+            for config in expected_configs.values()
+        }
+        if expected_configs is not None
+        else set()
+    )
     restart_profiles = {"restart-mechanics-v1", "restart-screen-v1"}
     use_restart_summary = bool(expected_configs) and {
         str(config.get("study_profile")) for config in expected_configs.values()
     } <= restart_profiles
-    summary = (
-        summarize_restart_records(
+    if profiles == {"submission-like-screen-v1"}:
+        summary = summarize_submission_like_records(
             records,
             expected_configs,
             compute_bootstrap=validate_complete_records,
         )
-        if use_restart_summary
-        else summarize_records(
+    elif use_restart_summary:
+        summary = summarize_restart_records(
             records,
             expected_configs,
             compute_bootstrap=validate_complete_records,
         )
-    )
+    else:
+        summary = summarize_records(
+            records,
+            expected_configs,
+            compute_bootstrap=validate_complete_records,
+        )
     atomic_json(
         output_dir / "summary.json",
         summary,
@@ -2028,6 +2136,210 @@ def parse_arm_patience(values: list[str]) -> dict[str, int] | None:
     return result
 
 
+def validate_candidate_package(
+    archive_path: Path,
+    builder_manifest_path: Path,
+) -> dict[str, object]:
+    """Bind the deterministic package evaluated by a submission-like plan."""
+    if not archive_path.is_file() or not builder_manifest_path.is_file():
+        raise ValueError("candidate package or builder manifest is missing")
+    try:
+        manifest = json.loads(builder_manifest_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("candidate builder manifest is malformed") from error
+    if not isinstance(manifest, dict):
+        raise ValueError("candidate builder manifest must be a JSON object")
+    required = {
+        "archive",
+        "archive_sha256",
+        "created_utc",
+        "project_revision",
+        "source_files",
+        "upstream_reference",
+        "working_tree_dirty",
+    }
+    if set(manifest) != required:
+        raise ValueError("candidate builder manifest schema mismatch")
+    if manifest.get("archive") != archive_path.name:
+        raise ValueError("candidate builder manifest archive name mismatch")
+    archive_digest = sha256(archive_path)
+    if manifest.get("archive_sha256") != archive_digest:
+        raise ValueError("candidate archive digest mismatch")
+    revision = _git("rev-parse", "HEAD")
+    if _git("status", "--porcelain"):
+        raise ValueError("candidate package validation requires a clean checkout")
+    if manifest.get("project_revision") != revision:
+        raise ValueError("candidate package revision differs from current checkout")
+    if manifest.get("working_tree_dirty") is not False:
+        raise ValueError("candidate package was built from a dirty checkout")
+    source_files = manifest.get("source_files")
+    if not isinstance(source_files, list) or not source_files:
+        raise ValueError("candidate builder manifest has no source files")
+
+    manifest_sources: dict[str, dict[str, object]] = {}
+    for item in source_files:
+        if not isinstance(item, dict) or set(item) != {
+            "path",
+            "sha256",
+            "size_bytes",
+        }:
+            raise ValueError("candidate builder manifest source schema mismatch")
+        name = item.get("path")
+        digest = item.get("sha256")
+        size = item.get("size_bytes")
+        if not isinstance(name, str) or not name:
+            raise ValueError("candidate builder manifest source path is invalid")
+        posix = PurePosixPath(name)
+        windows = PureWindowsPath(name)
+        if (
+            "\\" in name
+            or name.startswith("/")
+            or posix.is_absolute()
+            or windows.is_absolute()
+            or bool(windows.drive)
+            or posix.as_posix() != name
+            or any(part in {"", ".", ".."} for part in posix.parts)
+            or name in manifest_sources
+        ):
+            raise ValueError("candidate builder manifest source path is unsafe")
+        if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+            raise ValueError("candidate builder manifest source digest is invalid")
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            raise ValueError("candidate builder manifest source size is invalid")
+        manifest_sources[name] = item
+
+    source_root = ROOT / "submission"
+    checkout_sources = {
+        path.relative_to(source_root).as_posix(): path
+        for path in source_root.rglob("*")
+        if path.is_file()
+        and "__pycache__" not in path.parts
+        and path.suffix not in {".pyc", ".pyo"}
+    }
+    if set(manifest_sources) != set(checkout_sources):
+        raise ValueError("candidate source list differs from the executed checkout")
+    if not {"submission.py", "requirements.txt"} <= set(manifest_sources):
+        raise ValueError("candidate archive is missing required root files")
+
+    def stable_source_bytes(path: Path) -> bytes:
+        if path.suffix.lower() in {
+            ".json",
+            ".md",
+            ".py",
+            ".toml",
+            ".txt",
+            ".yaml",
+            ".yml",
+        }:
+            text = path.read_text(encoding="utf-8")
+            return text.replace("\r\n", "\n").replace("\r", "\n").encode()
+        return path.read_bytes()
+
+    try:
+        with zipfile.ZipFile(archive_path, "r") as archive:
+            infos = archive.infolist()
+            names = [info.filename for info in infos]
+            if len(names) != len(set(names)):
+                raise ValueError("candidate archive contains duplicate members")
+            if set(names) != set(manifest_sources):
+                raise ValueError("candidate archive members differ from its manifest")
+            if sum(info.file_size for info in infos) > 32 * 1024 * 1024:
+                raise ValueError("candidate archive exceeds the total size limit")
+            for info in infos:
+                name = info.filename
+                mode = (info.external_attr >> 16) & 0xFFFF
+                if (
+                    info.is_dir()
+                    or info.flag_bits & 0x1
+                    or (mode and not stat.S_ISREG(mode))
+                    or info.file_size > 16 * 1024 * 1024
+                    or (info.compress_size == 0 and info.file_size > 0)
+                    or (
+                        info.compress_size > 0
+                        and info.file_size / info.compress_size > 250.0
+                    )
+                ):
+                    raise ValueError(f"candidate archive member is unsafe: {name}")
+                payload = archive.read(info)
+                item = manifest_sources[name]
+                checkout_payload = stable_source_bytes(checkout_sources[name])
+                if (
+                    len(payload) != item["size_bytes"]
+                    or hashlib.sha256(payload).hexdigest() != item["sha256"]
+                    or payload != checkout_payload
+                ):
+                    raise ValueError(
+                        f"candidate archive member differs from manifest or checkout: {name}"
+                    )
+            if archive.testzip() is not None:
+                raise ValueError("candidate archive failed CRC validation")
+    except (OSError, zipfile.BadZipFile, UnicodeDecodeError) as error:
+        raise ValueError("candidate archive is malformed") from error
+    return {
+        "format_version": 1,
+        "archive_name": archive_path.name,
+        "archive_sha256": archive_digest,
+        "builder_manifest_name": builder_manifest_path.name,
+        "builder_manifest_sha256": sha256(builder_manifest_path),
+        "project_revision": revision,
+        "source_files": source_files,
+        "upstream_reference": manifest.get("upstream_reference"),
+    }
+
+
+def freeze_or_authenticate_plan_output(
+    plan: dict[str, object],
+    path: Path,
+    *,
+    dry_run: bool,
+    approved_sha256: str | None,
+) -> tuple[str, dict[str, object]]:
+    """Write a review plan once, then require that exact file for execution."""
+    resolved = path.resolve()
+    current = resolved.parent
+    if any((parent / ".git").exists() for parent in (current, *current.parents)):
+        raise ValueError("--plan-output must remain outside every Git checkout")
+    configuration = plan.get("configuration")
+    profile = configuration.get("study_profile") if isinstance(configuration, dict) else None
+    approval_required = profile == "submission-like-screen-v1" and not dry_run
+    if dry_run and approved_sha256 is not None:
+        raise ValueError("--approved-plan-sha256 is invalid with --dry-run")
+    if approved_sha256 is not None and re.fullmatch(
+        r"[0-9a-f]{64}", approved_sha256
+    ) is None:
+        raise ValueError("--approved-plan-sha256 must be a lowercase SHA-256")
+    if approval_required and approved_sha256 is None:
+        raise ValueError(
+            "submission-like execution requires --approved-plan-sha256 for "
+            "the previously reviewed --plan-output"
+        )
+    if approval_required:
+        if not resolved.is_file():
+            raise ValueError("approved submission-like plan output is missing")
+        observed = sha256(resolved)
+        if observed != approved_sha256:
+            raise ValueError("approved submission-like plan SHA-256 mismatch")
+        try:
+            approved_plan = json.loads(resolved.read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError("approved submission-like plan is malformed") from error
+        if not isinstance(approved_plan, dict) or not isinstance(
+            approved_plan.get("created_utc"), str
+        ):
+            raise ValueError("approved submission-like plan schema is invalid")
+        rebuilt = dict(plan)
+        rebuilt["created_utc"] = approved_plan["created_utc"]
+        if strict_json(approved_plan) != strict_json(rebuilt):
+            raise ValueError(
+                "approved submission-like plan differs from the rebuilt frozen plan"
+            )
+        return observed, approved_plan
+    if resolved.exists():
+        raise ValueError(f"refusing to overwrite plan output: {resolved}")
+    atomic_json(resolved, plan)
+    return sha256(resolved), plan
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group()
@@ -2051,6 +2363,11 @@ def main() -> None:
         default="rotate_pairs",
     )
     parser.add_argument(
+        "--seed-order-policy",
+        choices=["listed", "mirrored_sweeps"],
+        default="listed",
+    )
+    parser.add_argument(
         "--optimizer-telemetry", choices=[OPTIMIZER_TELEMETRY_MODE]
     )
     parser.add_argument("--n-frequencies", type=int, default=50)
@@ -2060,8 +2377,13 @@ def main() -> None:
     parser.add_argument("--max-worker-failures", type=int, default=1)
     parser.add_argument("--provider-stop-utc")
     parser.add_argument("--provider-evacuation-reserve", type=float)
+    parser.add_argument(
+        "--provider-deadline-maximum-horizon", type=float, default=8 * 60 * 60
+    )
     parser.add_argument("--mechanics-study-dir", type=Path)
     parser.add_argument("--mechanics-package", type=Path)
+    parser.add_argument("--candidate-package", type=Path)
+    parser.add_argument("--candidate-package-manifest", type=Path)
     parser.add_argument("--study-profile", choices=profile_names())
     parser.add_argument("--require-a100", action="store_true")
     parser.add_argument("--minimum-gpu-memory-mib", type=int)
@@ -2073,6 +2395,8 @@ def main() -> None:
     parser.add_argument("--exclude-prior-panel", action="append", type=Path, default=[])
     parser.add_argument("--allow-cpu", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--plan-output", type=Path)
+    parser.add_argument("--approved-plan-sha256")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--recover-stale-lock", action="store_true")
     parser.add_argument(
@@ -2117,6 +2441,16 @@ def main() -> None:
 
             mechanics_evidence = validate_mechanics_predecessor(
                 args.mechanics_study_dir, args.mechanics_package
+            )
+        if bool(args.candidate_package) != bool(args.candidate_package_manifest):
+            raise ValueError(
+                "--candidate-package and --candidate-package-manifest are required together"
+            )
+        candidate_package_evidence = None
+        if args.candidate_package:
+            candidate_package_evidence = validate_candidate_package(
+                args.candidate_package,
+                args.candidate_package_manifest,
             )
         if args.topologies_file:
             topologies, topology_panel = parse_topology_panel(args.topologies_file)
@@ -2173,14 +2507,33 @@ def main() -> None:
             optimizer_telemetry=args.optimizer_telemetry,
             arm_patience=parse_arm_patience(args.arm_patience),
             pair_order_policy=args.pair_order_policy,
+            seed_order_policy=args.seed_order_policy,
             mechanics_evidence=mechanics_evidence,
+            candidate_package_evidence=candidate_package_evidence,
             provider_stop_utc=args.provider_stop_utc,
             provider_evacuation_reserve_seconds=(
                 args.provider_evacuation_reserve
             ),
+            provider_deadline_maximum_horizon_seconds=(
+                args.provider_deadline_maximum_horizon
+            ),
         )
     except (OSError, TypeError, ValueError, RuntimeError, json.JSONDecodeError) as error:
         parser.error(str(error))
+    if args.study_profile == "submission-like-screen-v1" and not args.plan_output:
+        parser.error("submission-like-screen-v1 requires --plan-output outside Git")
+    if args.approved_plan_sha256 and args.study_profile != "submission-like-screen-v1":
+        parser.error("--approved-plan-sha256 is only valid for submission-like-screen-v1")
+    if args.plan_output:
+        try:
+            _, plan = freeze_or_authenticate_plan_output(
+                plan,
+                args.plan_output,
+                dry_run=args.dry_run,
+                approved_sha256=args.approved_plan_sha256,
+            )
+        except (OSError, TypeError, ValueError) as error:
+            parser.error(str(error))
     if args.dry_run:
         print(json.dumps(plan, indent=2, sort_keys=True))
         return

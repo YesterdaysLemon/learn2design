@@ -199,6 +199,67 @@ STUDY_PROFILES: dict[str, dict[str, object]] = {
             "optimizer_seeds_are_repeated_measurements": True,
         },
     },
+    "submission-like-screen-v1": {
+        "stage": "submission_readiness_screen",
+        "requires_candidate_package_evidence": True,
+        "requires_provider_deadline": True,
+        "required_configuration": {
+            "allow_cpu": False,
+            "arms": ["no_prior"],
+            "evaluation_chunk_size": None,
+            "execution_mode": "serial",
+            "max_evals": None,
+            "max_idle_gpu_memory_mib": 1_000,
+            "max_idle_gpu_utilization_percent": 5,
+            "max_time_seconds": 1_200.0,
+            "max_session_wall_seconds": 9 * 60 * 60,
+            "max_worker_failures": 1,
+            "minimum_free_disk_gib": 20.0,
+            "minimum_gpu_memory_mib": 75_000,
+            "n_frequencies": 50,
+            "optimizer_seeds": [29, 31],
+            "optimizer_telemetry": None,
+            "population_size": 8,
+            "provider_deadline_maximum_horizon_seconds": 10 * 60 * 60.0,
+            "provider_evacuation_reserve_seconds": 1_800.0,
+            "require_a100": True,
+            "resource_budget": {
+                "currency": "USD",
+                "gpu_count": 1,
+                "maximum_gpu_hourly_price": 1.60,
+                "maximum_provider_charge": 16.00,
+                "maximum_provider_hours": 10.0,
+                "planned_runs": 20,
+                "scored_objective_seconds": 24_000,
+            },
+            "seed_order_policy": "mirrored_sweeps",
+            "target_losses": [4.0, 1.0, 0.5, 0.0],
+            "worker_timeout_seconds": 2_100.0,
+        },
+        "required_panel": {
+            "panel_id": "submission-like-v1",
+            "topology_count": 10,
+            "source_sha256": (
+                "d85227f216528d635e56a93094e661721f62f379808707f310bf4da60d8fa57b"
+            ),
+            "archive_exclusion_verified": True,
+        },
+        "decision_policy": {
+            "policy_id": "no-prior-submission-like-screen-v1",
+            "action_if_passed": "candidate_evidence_complete_for_submission_review",
+            "action_if_failed": (
+                "retain_candidate_and_investigate_submission_like_reliability"
+            ),
+            "action_if_not_evaluable": "retain_candidate_attempt_not_evaluable",
+            "require_all_runs_finite_feasible": True,
+            "require_candidate_package_bound": True,
+            "require_complete_topology_blocks": True,
+            "inference_unit": "topology",
+            "optimizer_seeds_are_repeated_measurements": True,
+            "changes_packaged_candidate": False,
+            "official_budget_claim_allowed": False,
+        },
+    },
 }
 
 
@@ -225,6 +286,10 @@ def bind_study_profile(
         _validate_provider_deadline(configuration.get("provider_stop_utc"))
     if profile.get("requires_mechanics_evidence"):
         _validate_mechanics_evidence(configuration.get("mechanics_evidence"))
+    if profile.get("requires_candidate_package_evidence"):
+        _validate_candidate_package_evidence(
+            configuration.get("candidate_package_evidence")
+        )
 
     panel = configuration.get("topology_panel")
     if not isinstance(panel, dict):
@@ -317,3 +382,72 @@ def _validate_mechanics_evidence(value: object) -> None:
     ):
         if not re.fullmatch(r"[0-9a-f]{64}", str(value.get(key, ""))):
             raise ValueError(f"mechanics evidence {key} is invalid")
+
+
+def _validate_candidate_package_evidence(value: object) -> None:
+    required = {
+        "format_version",
+        "archive_name",
+        "archive_sha256",
+        "builder_manifest_name",
+        "builder_manifest_sha256",
+        "project_revision",
+        "source_files",
+        "upstream_reference",
+    }
+    if not isinstance(value, dict) or set(value) != required:
+        raise ValueError(
+            "submission-like profile requires exact candidate package evidence"
+        )
+    if value.get("format_version") != 1:
+        raise ValueError("candidate package evidence version mismatch")
+    for key in ("archive_name", "builder_manifest_name"):
+        name = value.get(key)
+        if (
+            not isinstance(name, str)
+            or not name
+            or "/" in name
+            or "\\" in name
+            or re.match(r"^[A-Za-z]:", name)
+        ):
+            raise ValueError(f"candidate package evidence {key} is invalid")
+    for key in ("archive_sha256", "builder_manifest_sha256"):
+        if not re.fullmatch(r"[0-9a-f]{64}", str(value.get(key, ""))):
+            raise ValueError(f"candidate package evidence {key} is invalid")
+    if not re.fullmatch(r"[0-9a-f]{40}", str(value.get("project_revision", ""))):
+        raise ValueError("candidate package evidence project_revision is invalid")
+    if not isinstance(value.get("upstream_reference"), str) or not value.get(
+        "upstream_reference"
+    ):
+        raise ValueError("candidate package evidence upstream reference is invalid")
+    source_files = value.get("source_files")
+    if not isinstance(source_files, list) or not source_files:
+        raise ValueError("candidate package evidence source_files is invalid")
+    seen: set[str] = set()
+    for item in source_files:
+        if not isinstance(item, dict) or set(item) != {
+            "path",
+            "sha256",
+            "size_bytes",
+        }:
+            raise ValueError("candidate package evidence source file schema mismatch")
+        path = item.get("path")
+        digest = item.get("sha256")
+        size = item.get("size_bytes")
+        normalized_parts = (
+            path.replace("\\", "/").split("/") if isinstance(path, str) else []
+        )
+        if (
+            not isinstance(path, str)
+            or not path
+            or path.startswith(("/", "\\"))
+            or re.match(r"^[A-Za-z]:", path)
+            or any(part in {"", ".", ".."} for part in normalized_parts)
+            or path in seen
+        ):
+            raise ValueError("candidate package evidence source path is invalid")
+        seen.add(path)
+        if not re.fullmatch(r"[0-9a-f]{64}", str(digest)):
+            raise ValueError("candidate package evidence source digest is invalid")
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            raise ValueError("candidate package evidence source size is invalid")

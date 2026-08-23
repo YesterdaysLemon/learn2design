@@ -629,7 +629,7 @@ def test_restart_profiles_are_non_resumable_and_deadline_guarded(
             1.0,
             "start test",
         )
-    with pytest.raises(RuntimeError, match="eight-hour horizon"):
+    with pytest.raises(RuntimeError, match="frozen provider horizon"):
         _require_provider_time(
             {
                 "provider_stop_utc": "2099-01-01T00:00:00Z",

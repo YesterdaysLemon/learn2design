@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-21
+Updated: 2026-08-22
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -35,11 +35,13 @@ are the evidence record, not a competing task list.
 ## Next decision
 
 Do not run `confirmation-v1` and do not tune patience further on this development
-panel. Retain the packaged patience-600/no-prior candidate. The recommended next
-gate is a separately frozen, no-prior-only submission-like evaluation on the
-existing disjoint panel, with the candidate, official-style budget, outputs,
-and hard cost/stop envelope fixed before launch. This is a recommendation only;
-no GPU experiment has been launched from the result.
+panel. Retain the packaged patience-600/no-prior candidate. The next proposed
+gate is now frozen as `submission-like-screen-v1`: a no-prior-only, two-seed,
+ten-topology characterization on the untouched disjoint panel, with 1,200
+seconds per run and a hard $16 / 10-hour provider ceiling. It is explicitly not
+an official-budget or competitiveness claim. The plan still requires review,
+merge, live price/runway verification, and separate owner approval. No GPU
+experiment has been launched.
 
 ## What can contribute now
 
@@ -54,3 +56,8 @@ restart result and exact private reproduction command are in
 [`2026-08-21-patience-200-a100-results.md`](../research/2026-08-21-patience-200-a100-results.md).
 Do not claim an order-of-magnitude gain: no restart target supplied a complete
 eight-topology comparison.
+
+The exact pre-result profile, sealed evidence workflow, and approval boundary
+are in [`2026-08-22-submission-like-screen-plan.md`](../research/2026-08-22-submission-like-screen-plan.md).
+The future operating commands are in
+[`SUBMISSION_LIKE_SCREEN_RUNBOOK.md`](SUBMISSION_LIKE_SCREEN_RUNBOOK.md).

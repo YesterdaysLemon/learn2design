@@ -58,6 +58,16 @@ uninstrumented `restart-screen-v1` comparison: patience 600 versus 200 on eight
 mechanically selected development topologies with fresh paired seeds 19/23.
 See [`PATIENCE_200_SCREEN_RUNBOOK.md`](../../docs/PATIENCE_200_SCREEN_RUNBOOK.md).
 
+The next proposed profile, `submission-like-screen-v1`, evaluates only the
+unchanged no-prior/patience-600 candidate on all ten untouched
+`submission-like-v1` topologies. Fresh seeds 29/31 run as forward/reverse
+mirrored sweeps at 1,200 seconds each. It is non-resumable, terminal after the
+first failed worker, binds the deterministic candidate ZIP, and creates a
+cross-plan attempt receipt before the first result-bearing worker. Its frozen
+decision is operational evidence completeness, not an optimizer comparison or
+official-budget claim. See
+[`SUBMISSION_LIKE_SCREEN_RUNBOOK.md`](../../docs/SUBMISSION_LIKE_SCREEN_RUNBOOK.md).
+
 For an unaudited smoke panel, pass a JSON list through `--topologies-file`. A named panel can use the object form:
 
 ```json
@@ -152,5 +162,13 @@ uv run --frozen --group dev --group integration --group analysis `
 
 The generated normalized tables, report, and figures remain outside Git. The
 tool refuses any output inside a Git checkout or an existing directory.
+
+For a future sealed `submission-like-screen-v1` package, use
+`tools/analyze_submission_like.py`. It first authenticates the out-of-band
+source-lock digest, all five external sources, the terminal-attempt receipt,
+the exact 109-member archive, and every pickle-free history. It then compares
+the production record summary with an independent history-first evaluator
+before opening archived `summary.json`. Generated normalized JSON and CSV stay
+outside Git.
 
 The first WSL2 deployment smoke is recorded in `research/2026-08-19-rtx4060-deployment-smoke.md`: scalar UIFO works, while the batched candidate OOMs at population 2 on the 8 GB RTX 4060. A later scalar-chunk attempt is recorded in `research/2026-08-19-low-memory-diagnostic-smoke.md`; one arm completed, but an unrelated CUDA workload contaminated the attempted pair. The clean follow-up in `research/2026-08-19-idle-candidate-probe.md` completed all six workers and did not reproduce a semantic-only latency tail. Use larger-memory hardware for competition-aligned paired studies, and require an otherwise idle device for any local diagnostic comparison.
