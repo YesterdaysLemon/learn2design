@@ -1,5 +1,9 @@
 # H100 coverage screen runbook
 
+> Superseded as the next launch path by
+> [`H100_COVERAGE_TRIAGE_RUNBOOK.md`](H100_COVERAGE_TRIAGE_RUNBOOK.md). Preserve
+> this 12-topology contract for provenance; do not launch it directly.
+
 This is a pre-launch operating guide for `coverage-robustness-screen-v1`. It
 does not authorize paid compute. The owner must explicitly approve the exact
 maximum charge after every local and provider gate below passes.

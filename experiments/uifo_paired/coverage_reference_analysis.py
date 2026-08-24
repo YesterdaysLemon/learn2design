@@ -65,6 +65,69 @@ FROZEN_POLICY = {
     "changes_packaged_candidate_default": False,
     "official_budget_claim_allowed": False,
 }
+TRIAGE_POLICY = {
+    "study_profile": "coverage-triage-screen-v1",
+    "stage": "optimizer_development_triage",
+    "policy_id": "coverage-triage-development-screen-v1",
+    "action_if_passed": "review_precommitted_stage_b_design_and_seek_owner_approval",
+    "action_if_failed": "retain_random_start_candidate",
+    "action_if_not_evaluable": "retain_candidate_attempt_not_evaluable",
+    "maximum_topology_median_difference": -0.05,
+    "maximum_topology_p90_regret": 0.5,
+    "maximum_harmful_topology_difference": 0.5,
+    "minimum_coverage_topology_wins": 7,
+    "minimum_overall_median_evaluation_ratio": 0.95,
+    "minimum_topology_evaluation_ratio": 0.90,
+    "require_all_pairs_finite_comparable": True,
+    "require_both_arm_order_mean_differences_below_zero": True,
+    "require_both_seed_mean_differences_below_zero": True,
+    "require_complete_uncensored_panel": True,
+    "require_topology_mean_difference_below_zero": True,
+    "inference_unit": "topology",
+    "optimizer_seeds_are_repeated_measurements": True,
+    "screen_can_reject_but_not_promote": True,
+    "confirmation_panel_must_be_disjoint": True,
+    "changes_packaged_candidate_default": False,
+    "official_budget_claim_allowed": False,
+    "stage_b_design_precommitment": {
+        "status": "design_only_not_executable",
+        "proposed_profile_id": "coverage-confirmation-screen-v1",
+        "panel_id": "coverage-robustness-v1",
+        "panel_source_sha256": (
+            "e3385a6f4939445e869d71dbf7f1bd5119aa25eebbb89e083b1ec9be336f7309"
+        ),
+        "optimizer_seeds": [43, 47],
+        "max_time_seconds": 1_200.0,
+        "topology_count": 12,
+        "planned_runs": 48,
+        "minimum_coverage_topology_wins": 10,
+        "maximum_topology_median_difference": -0.05,
+        "maximum_topology_p90_regret": 0.5,
+        "maximum_harmful_topology_difference": 0.5,
+        "require_topology_mean_difference_below_zero": True,
+        "require_both_seed_mean_differences_below_zero": True,
+        "require_both_arm_order_mean_differences_below_zero": True,
+        "require_bootstrap_mean_ci_upper_below_zero": True,
+        "minimum_overall_median_evaluation_ratio": 0.95,
+        "minimum_topology_evaluation_ratio": 0.90,
+        "requires_profile_implementation_and_refreeze": True,
+        "requires_separate_owner_approval": True,
+    },
+}
+FROZEN_PROFILES = {
+    PROFILE: {
+        "runs": RUNS,
+        "topologies": TOPOLOGIES,
+        "seeds": SEEDS,
+        "policy": FROZEN_POLICY,
+    },
+    "coverage-triage-screen-v1": {
+        "runs": 32,
+        "topologies": 8,
+        "seeds": {37, 41},
+        "policy": TRIAGE_POLICY,
+    },
+}
 
 
 def _topology_key(value: object) -> str:
@@ -236,12 +299,22 @@ def reference_coverage_screen(study: ValidatedStudy) -> dict[str, object]:
     if study.integrity.get("summary_content_opened") is not False:
         raise StudyValidationError("reference replay requires the summary sealed")
     configuration = study.plan.get("configuration")
-    if not isinstance(configuration, dict) or configuration.get("study_profile") != PROFILE:
+    if not isinstance(configuration, dict):
         raise StudyValidationError("reference coverage configuration mismatch")
-    if configuration.get("decision_policy") != FROZEN_POLICY:
+    profile = configuration.get("study_profile")
+    frozen = FROZEN_PROFILES.get(profile)
+    if not isinstance(frozen, dict):
+        raise StudyValidationError("reference coverage configuration mismatch")
+    runs = int(frozen["runs"])
+    topologies = int(frozen["topologies"])
+    seeds = set(frozen["seeds"])
+    frozen_policy = frozen["policy"]
+    if configuration.get("decision_policy") != frozen_policy:
         raise StudyValidationError("reference frozen decision policy mismatch")
-    if len(study.configs) != RUNS or len(study.records) != RUNS:
-        raise StudyValidationError("reference replay requires exactly 48 runs")
+    if len(study.configs) != runs or len(study.records) != runs:
+        raise StudyValidationError(
+            f"reference replay requires exactly {runs} runs"
+        )
     if set(study.history_rows) != set(study.configs):
         raise StudyValidationError("reference history/config hierarchy mismatch")
 
@@ -265,7 +338,7 @@ def reference_coverage_screen(study: ValidatedStudy) -> dict[str, object]:
         )
         by_pair[pair_id][arm] = run_id
 
-    if len(by_pair) != RUNS // 2 or any(
+    if len(by_pair) != runs // 2 or any(
         set(arms) != {CONTROL_ARM, TREATMENT_ARM} for arms in by_pair.values()
     ):
         raise StudyValidationError("reference replay found incomplete arm pairs")
@@ -322,8 +395,8 @@ def reference_coverage_screen(study: ValidatedStudy) -> dict[str, object]:
             expected_topologies[_topology_key(config["topology"])].add(
                 int(config["optimizer_seed"])
             )
-    if len(expected_topologies) != TOPOLOGIES or any(
-        seeds != SEEDS for seeds in expected_topologies.values()
+    if len(expected_topologies) != topologies or any(
+        observed_seeds != seeds for observed_seeds in expected_topologies.values()
     ):
         raise StudyValidationError("reference topology/seed hierarchy mismatch")
     by_topology: dict[str, list[dict[str, object]]] = defaultdict(list)
@@ -379,7 +452,7 @@ def reference_coverage_screen(study: ValidatedStudy) -> dict[str, object]:
         for row in topology_rows
         if row["inference_complete"]
     ]
-    inference_ready = len(macro_values) == TOPOLOGIES
+    inference_ready = len(macro_values) == topologies
     macro_mean = mean(macro_values) if inference_ready else None
     macro_median = median(macro_values) if inference_ready else None
     p90_regret = _percentile(macro_values, 0.9) if inference_ready else None
@@ -388,14 +461,14 @@ def reference_coverage_screen(study: ValidatedStudy) -> dict[str, object]:
     losses = sum(value > TIE_TOLERANCE for value in macro_values)
 
     seed_means = {}
-    for seed in sorted(SEEDS):
+    for seed in sorted(seeds):
         values = [
             float(row["difference_coverage_minus_random"])
             for row in pair_rows
             if int(row["optimizer_seed"]) == seed
             and row["difference_coverage_minus_random"] is not None
         ]
-        seed_means[str(seed)] = mean(values) if len(values) == TOPOLOGIES else None
+        seed_means[str(seed)] = mean(values) if len(values) == topologies else None
     order_means = {}
     for coverage_first in (False, True):
         values = [
@@ -405,21 +478,21 @@ def reference_coverage_screen(study: ValidatedStudy) -> dict[str, object]:
             and row["difference_coverage_minus_random"] is not None
         ]
         key = "coverage_first" if coverage_first else "random_first"
-        order_means[key] = mean(values) if len(values) == TOPOLOGIES else None
+        order_means[key] = mean(values) if len(values) == topologies else None
 
     pair_ratios = [
         float(row["evaluation_ratio_coverage_over_random"])
         for row in pair_rows
         if row["evaluation_ratio_coverage_over_random"] is not None
     ]
-    overall_ratio = median(pair_ratios) if len(pair_ratios) == RUNS // 2 else None
+    overall_ratio = median(pair_ratios) if len(pair_ratios) == runs // 2 else None
     topology_ratios = [
         float(row["aggregate_evaluation_ratio_coverage_over_random"])
         for row in topology_rows
         if row["aggregate_evaluation_ratio_coverage_over_random"] is not None
     ]
     minimum_topology_ratio = (
-        min(topology_ratios) if len(topology_ratios) == TOPOLOGIES else None
+        min(topology_ratios) if len(topology_ratios) == topologies else None
     )
     all_feasible = all(
         row["control_physically_feasible"]
@@ -429,51 +502,58 @@ def reference_coverage_screen(study: ValidatedStudy) -> dict[str, object]:
         for row in pair_rows
     )
     criteria = {
-        "panel_execution_complete": len(pair_rows) == RUNS // 2,
+        "panel_execution_complete": len(pair_rows) == runs // 2,
         "complete_records_revalidated": True,
         "inference_ready": inference_ready,
         "all_runs_physically_and_finite_feasible": all_feasible,
-        "all_pairs_finite_comparable": len(pair_rows) == RUNS // 2
+        "all_pairs_finite_comparable": len(pair_rows) == runs // 2
         and all(row["difference_coverage_minus_random"] is not None for row in pair_rows),
         "minimum_topology_wins_met": wins
-        >= int(FROZEN_POLICY["minimum_coverage_topology_wins"]),
+        >= int(frozen_policy["minimum_coverage_topology_wins"]),
         "median_difference_at_most_negative_0_05": bool(
             macro_median is not None
             and macro_median
-            <= float(FROZEN_POLICY["maximum_topology_median_difference"])
+            <= float(frozen_policy["maximum_topology_median_difference"])
         ),
         "mean_difference_below_zero": bool(macro_mean is not None and macro_mean < 0),
-        "both_seed_mean_differences_below_zero": set(seed_means) == {"37", "41"}
+        "both_seed_mean_differences_below_zero": set(seed_means)
+        == {str(seed) for seed in seeds}
         and all(value is not None and value < 0 for value in seed_means.values()),
         "both_arm_order_mean_differences_below_zero": set(order_means)
         == {"coverage_first", "random_first"}
         and all(value is not None and value < 0 for value in order_means.values()),
         "p90_regret_at_most_0_5": bool(
             p90_regret is not None
-            and p90_regret <= float(FROZEN_POLICY["maximum_topology_p90_regret"])
+            and p90_regret <= float(frozen_policy["maximum_topology_p90_regret"])
         ),
         "overall_median_evaluation_ratio_at_least_0_95": bool(
             overall_ratio is not None
             and overall_ratio
-            >= float(FROZEN_POLICY["minimum_overall_median_evaluation_ratio"])
+            >= float(frozen_policy["minimum_overall_median_evaluation_ratio"])
         ),
         "every_topology_evaluation_ratio_at_least_0_90": bool(
             minimum_topology_ratio is not None
             and minimum_topology_ratio
-            >= float(FROZEN_POLICY["minimum_topology_evaluation_ratio"])
+            >= float(frozen_policy["minimum_topology_evaluation_ratio"])
         ),
     }
+    if "maximum_harmful_topology_difference" in frozen_policy:
+        criteria["maximum_harmful_topology_difference_at_most_0_5"] = bool(
+            inference_ready
+            and max(macro_values)
+            <= float(frozen_policy["maximum_harmful_topology_difference"])
+        )
     passed = all(criteria.values())
     status = "passed" if passed else "failed"
     action = str(
-        FROZEN_POLICY["action_if_passed"]
+        frozen_policy["action_if_passed"]
         if passed
-        else FROZEN_POLICY["action_if_failed"]
+        else frozen_policy["action_if_failed"]
     )
     return {
         "format_version": 1,
-        "study_profile": PROFILE,
-        "completed_runs": RUNS,
+        "study_profile": profile,
+        "completed_runs": runs,
         "error_runs": 0,
         "interrupted_runs": 0,
         "complete_optimizer_seed_pairs": len(pair_rows),

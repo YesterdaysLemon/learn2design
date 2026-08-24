@@ -43,17 +43,23 @@ The optimizer still has no hidden-leaderboard or official-budget multi-topology
 performance claim. No new paid comparison should start until that narrow change,
 budget, panel, and decision rule are frozen.
 
-The owner reports that the Round-1 ZIP was uploaded on 2026-08-24. The next
-unpaid work is the pre-result `coverage-robustness-screen-v1` gate: an opt-in
-midpoint Latin-hypercube transform of the seven non-anchor starts, tested on 12
-new disjoint topologies with paired seeds 37/41. Its H100/CUDA-13 profile,
-source-lock, exact 249-member archive validator, independent history-first
-replay, exact chronology and raw-transform checks, and comparator-issued
-sealed-summary workflow are implemented and pass the whole local suite. No paid
-H100 has been created; launch-revision packaging, an encrypted evidence backup,
-a cold provider smoke, and explicit approval of the `$75` cap remain required. See
-[`research/2026-08-24-h100-coverage-robustness-plan.md`](research/2026-08-24-h100-coverage-robustness-plan.md)
-and [`docs/H100_COVERAGE_RUNBOOK.md`](docs/H100_COVERAGE_RUNBOOK.md).
+The owner reports that the Round-1 ZIP was uploaded on 2026-08-24, before the
+optional first public-leaderboard deadline on 2026-08-26 AoE. The next gate is
+now the cheaper pre-result `coverage-triage-screen-v1`: the same opt-in
+midpoint Latin-hypercube transform on 8 newly generated, archive- and
+prior-panel-disjoint topologies with paired seeds 37/41. It freezes 32 serial
+600-second runs, requires at least 7/8 topology wins plus 13 other guards, and
+can only produce a review request for a precommitted Stage-B design. That
+proposed profile is not registered or executable. Its
+exact H100/CUDA-13 contract, 169-member validator, detached summary commitment,
+no-import replay, raw-transform checks, terminal-attempt ledger, and post-cleanup
+billing receipt are implemented locally. The provider stop is 8 hours:
+`$26.32` maximum GPU charge and `$30` maximum total charge at `$3.29/hour`.
+No paid H100 has been created; clean launch-revision packaging, the encrypted
+evidence backup, a cold provider smoke, current price/stock review, and a new
+explicit approval of the `$30` cap remain required. See
+[`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md)
+and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
 New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
 

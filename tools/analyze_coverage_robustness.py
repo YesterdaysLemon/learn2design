@@ -1,10 +1,14 @@
-"""Authenticate and replay the sealed H100 coverage screen outside Git."""
+"""Authenticate and replay a sealed H100 coverage screen outside Git."""
 
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).parents[1]
+sys.path.insert(0, str(ROOT))
 
 from experiments.uifo_paired.coverage_analysis import summarize_coverage_records
 from experiments.uifo_paired.coverage_evidence import (
@@ -43,6 +47,8 @@ def run_analysis(
     source_lock: Path,
     expected_source_lock_sha256: str,
     output: Path,
+    summary_release: Path | None = None,
+    provider_billing_receipt: Path | None = None,
 ) -> dict[str, object]:
     """Run authenticate, sealed replay, unlock, and archive-agreement gates."""
     if inside_git(output):
@@ -59,6 +65,7 @@ def run_analysis(
         expected_source_lock_sha256=expected_source_lock_sha256,
         sources=sources,
         terminal_attempt_receipt=terminal_attempt_receipt,
+        provider_billing_receipt=provider_billing_receipt,
     )
     if not coverage_package_is_complete(sources, expected):
         partial = validate_coverage_terminal_partial(
@@ -79,13 +86,15 @@ def run_analysis(
     production = summarize_coverage_records(study.records, study.configs)
     reference = reference_coverage_screen(study)
     replay = compare_coverage_replays(production, reference, study=study)
-    archived = load_coverage_summary_after_reproduction(study, replay)
+    archived = load_coverage_summary_after_reproduction(
+        study, replay, summary_release_path=summary_release
+    )
     agreement = compare_coverage_archived_summary(
         production, reference, archived
     )
     receipt = {
         "status": "validated",
-        "study_profile": "coverage-robustness-screen-v1",
+        "study_profile": expected.study_profile,
         "plan_id": expected.plan_id,
         "project_revision": expected.project_revision,
         "expected_source_lock_sha256": expected_source_lock_sha256,
@@ -117,6 +126,8 @@ def main() -> None:
     parser.add_argument("--source-lock", type=Path, required=True)
     parser.add_argument("--expected-source-lock-sha256", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--summary-release", type=Path)
+    parser.add_argument("--provider-billing-receipt", type=Path)
     args = parser.parse_args()
     receipt = run_analysis(
         archive=args.archive,
@@ -127,6 +138,8 @@ def main() -> None:
         source_lock=args.source_lock,
         expected_source_lock_sha256=args.expected_source_lock_sha256,
         output=args.output,
+        summary_release=args.summary_release,
+        provider_billing_receipt=args.provider_billing_receipt,
     )
     print(json.dumps(receipt, sort_keys=True, allow_nan=False))
 

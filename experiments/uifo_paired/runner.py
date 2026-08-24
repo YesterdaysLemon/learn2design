@@ -24,6 +24,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from experiments.uifo_paired.analysis import summarize_records
 from experiments.uifo_paired.coverage_analysis import summarize_coverage_records
+from experiments.uifo_paired.coverage_profiles import coverage_profile_names
 from experiments.uifo_paired.metrics import flatten_histories, summarize_rows
 from experiments.uifo_paired.optimizer_telemetry import (
     OPTIMIZER_TELEMETRY_MODE,
@@ -87,6 +88,7 @@ H100_CUDA13_PACKAGE_VERSIONS = {
     "jax-cuda13-pjrt": "0.9.0.1",
     "jax-cuda13-plugin": "0.9.0.1",
 }
+COVERAGE_STUDY_PROFILES = coverage_profile_names()
 
 
 def atomic_json(path: Path, payload: dict[str, object]) -> None:
@@ -1403,18 +1405,42 @@ def orchestrate(
     resume: bool,
     subprocess_environment: dict[str, str] | None = None,
     recover_stale_lock: bool = False,
+    terminal_attempt_receipt_path: Path | None = None,
+    approved_plan_output_path: Path | None = None,
+    approved_plan_sha256: str | None = None,
 ) -> int:
     study_profile = plan.get("configuration", {}).get("study_profile")
-    if resume and study_profile in {
+    terminal_profiles = {
         "restart-mechanics-v1",
         "restart-screen-v1",
         "submission-like-screen-v1",
-        "coverage-robustness-screen-v1",
-    }:
+        *COVERAGE_STUDY_PROFILES,
+    }
+    approval_profiles = {
+        "submission-like-screen-v1",
+        *COVERAGE_STUDY_PROFILES,
+    }
+    if resume and study_profile in terminal_profiles:
         raise RuntimeError(
             "terminal-attempt study profiles are non-resumable; preserve and package the "
             "terminal partial attempt"
         )
+    if study_profile in approval_profiles:
+        if approved_plan_output_path is None or approved_plan_sha256 is None:
+            raise RuntimeError(
+                "terminal-attempt orchestration requires an authenticated approved plan"
+            )
+        try:
+            _, plan = freeze_or_authenticate_plan_output(
+                plan,
+                approved_plan_output_path,
+                dry_run=False,
+                approved_sha256=approved_plan_sha256,
+            )
+        except (OSError, TypeError, ValueError) as error:
+            raise RuntimeError(
+                "terminal-attempt orchestration approval validation failed"
+            ) from error
     manifest_path = output_dir / "manifest.json"
     if manifest_path.exists() and not resume:
         raise FileExistsError(
@@ -1426,6 +1452,7 @@ def orchestrate(
             output_dir,
             resume,
             subprocess_environment=subprocess_environment,
+            terminal_attempt_receipt_path=terminal_attempt_receipt_path,
         )
 
 
@@ -1434,6 +1461,7 @@ def _orchestrate_locked(
     output_dir: Path,
     resume: bool,
     subprocess_environment: dict[str, str] | None = None,
+    terminal_attempt_receipt_path: Path | None = None,
 ) -> int:
     session_started = time.perf_counter()
     session_started_utc = datetime.now(UTC).isoformat()
@@ -1513,6 +1541,7 @@ def _orchestrate_locked(
         plan,
         output_dir,
         revision=revision,
+        receipt_path=terminal_attempt_receipt_path,
     )
 
     prior_path = ROOT / "submission" / "semantic_prior.json"
@@ -1630,6 +1659,7 @@ def _orchestrate_locked(
                 )
                 _rebuild_indexes(output_dir, expected_configs, runtime_environment)
                 return 2
+            worker_started_utc = datetime.now(UTC).isoformat()
             started = time.perf_counter()
             completed = None
             timed_out = None
@@ -1664,6 +1694,7 @@ def _orchestrate_locked(
             except subprocess.TimeoutExpired as error:
                 timed_out = error
             full_wall_seconds = time.perf_counter() - started
+            worker_completed_utc = datetime.now(UTC).isoformat()
             stdout = _process_text(
                 timed_out.stdout if timed_out is not None else completed.stdout
             )
@@ -1678,6 +1709,8 @@ def _orchestrate_locked(
                 None if timed_out is not None else completed.returncode,
                 full_wall_seconds,
                 timed_out is not None,
+                worker_started_utc,
+                worker_completed_utc,
             )
 
             if timed_out is not None:
@@ -1758,6 +1791,7 @@ def _claim_terminal_attempt(
     output_dir: Path,
     *,
     revision: str,
+    receipt_path: Path | None = None,
 ) -> dict[str, object] | None:
     """Atomically consume the one allowed result-bearing attempt for a profile."""
     configuration = plan.get("configuration")
@@ -1766,11 +1800,18 @@ def _claim_terminal_attempt(
     profile = configuration.get("study_profile")
     terminal_profiles = {
         "submission-like-screen-v1",
-        "coverage-robustness-screen-v1",
+        *COVERAGE_STUDY_PROFILES,
     }
     if profile not in terminal_profiles:
         return None
-    receipt_path = output_dir.parent / f"{profile}.terminal-attempt.json"
+    if receipt_path is None:
+        receipt_path = output_dir.parent / f"{profile}.terminal-attempt.json"
+    receipt_path = receipt_path.resolve()
+    if any(
+        (parent / ".git").exists()
+        for parent in (receipt_path.parent, *receipt_path.parent.parents)
+    ):
+        raise RuntimeError("terminal-attempt receipt must remain outside Git")
     payload = {
         "format_version": 1,
         "study_profile": profile,
@@ -1818,7 +1859,7 @@ def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, 
         config["required_gpu_name"] = common["required_gpu_name"]
     if "preclock_warmup" in common:
         config["preclock_warmup"] = common["preclock_warmup"]
-    if common.get("study_profile") == "coverage-robustness-screen-v1":
+    if common.get("study_profile") in COVERAGE_STUDY_PROFILES:
         config["initial_population_mode"] = (
             "coverage_balanced"
             if run["arm"] == "coverage_balanced"
@@ -1975,6 +2016,8 @@ def _persist_worker_process(
     returncode: int | None,
     wall_seconds: float,
     timed_out: bool,
+    started_utc: str,
+    completed_utc: str,
 ) -> dict[str, object]:
     stdout_path = output_dir / "logs" / f"{run_id}.stdout.log"
     stderr_path = output_dir / "logs" / f"{run_id}.stderr.log"
@@ -1983,6 +2026,8 @@ def _persist_worker_process(
     return {
         "returncode": returncode,
         "timed_out": timed_out,
+        "started_utc": started_utc,
+        "completed_utc": completed_utc,
         "full_wall_seconds": wall_seconds,
         "within_official_4h30_container_limit": wall_seconds <= 4.5 * 60 * 60,
         "stdout": {
@@ -2160,7 +2205,7 @@ def _rebuild_indexes(
             expected_configs,
             compute_bootstrap=validate_complete_records,
         )
-    elif profiles == {"coverage-robustness-screen-v1"}:
+    elif len(profiles) == 1 and profiles <= COVERAGE_STUDY_PROFILES:
         summary = summarize_coverage_records(
             records,
             expected_configs,
@@ -2512,7 +2557,7 @@ def freeze_or_authenticate_plan_output(
     profile = configuration.get("study_profile") if isinstance(configuration, dict) else None
     terminal_profiles = {
         "submission-like-screen-v1",
-        "coverage-robustness-screen-v1",
+        *COVERAGE_STUDY_PROFILES,
     }
     approval_required = profile in terminal_profiles and not dry_run
     if dry_run and approved_sha256 is not None:
@@ -2551,6 +2596,11 @@ def freeze_or_authenticate_plan_output(
         raise ValueError(f"refusing to overwrite plan output: {resolved}")
     atomic_json(resolved, plan)
     return sha256(resolved), plan
+
+
+def _terminal_attempt_receipt_path(plan_output: Path, profile: str) -> Path:
+    """Use one profile ledger per durable plan directory, independent of filenames."""
+    return plan_output.resolve().parent / f"{profile}.terminal-attempt.json"
 
 
 def main() -> None:
@@ -2741,15 +2791,16 @@ def main() -> None:
         parser.error(str(error))
     terminal_profiles = {
         "submission-like-screen-v1",
-        "coverage-robustness-screen-v1",
+        *COVERAGE_STUDY_PROFILES,
     }
     if args.study_profile in terminal_profiles and not args.plan_output:
         parser.error(f"{args.study_profile} requires --plan-output outside Git")
     if args.approved_plan_sha256 and args.study_profile not in terminal_profiles:
         parser.error("--approved-plan-sha256 is only valid for terminal profiles")
+    plan_sha256 = None
     if args.plan_output:
         try:
-            _, plan = freeze_or_authenticate_plan_output(
+            plan_sha256, plan = freeze_or_authenticate_plan_output(
                 plan,
                 args.plan_output,
                 dry_run=args.dry_run,
@@ -2758,9 +2809,16 @@ def main() -> None:
         except (OSError, TypeError, ValueError) as error:
             parser.error(str(error))
     if args.dry_run:
+        if plan_sha256 is not None:
+            print(f"plan_sha256={plan_sha256}", file=sys.stderr)
         print(json.dumps(plan, indent=2, sort_keys=True))
         return
     output_dir = args.output / plan["plan_id"]
+    terminal_attempt_receipt_path = (
+        _terminal_attempt_receipt_path(args.plan_output, args.study_profile)
+        if args.study_profile in terminal_profiles and args.plan_output is not None
+        else None
+    )
     if args.recover_stale_lock and not args.resume:
         parser.error("--recover-stale-lock requires --resume")
     raise SystemExit(
@@ -2769,6 +2827,9 @@ def main() -> None:
             output_dir,
             resume=args.resume,
             recover_stale_lock=args.recover_stale_lock,
+            terminal_attempt_receipt_path=terminal_attempt_receipt_path,
+            approved_plan_output_path=args.plan_output,
+            approved_plan_sha256=plan_sha256,
         )
     )
 

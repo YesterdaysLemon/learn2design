@@ -68,16 +68,23 @@ operational evidence completeness, not an optimizer comparison or
 official-budget claim. The terminal receipt forbids another attempt. See
 [`SUBMISSION_LIKE_SCREEN_RUNBOOK.md`](../../docs/SUBMISSION_LIKE_SCREEN_RUNBOOK.md).
 
-The unlaunched `coverage-robustness-screen-v1` profile compares the submitted
-random suffix with a midpoint Latin-hypercube transform of the identical
-pre-transform draw. It uses 12 fresh disjoint topologies, seeds 37/41, exact
-H100/CUDA-13 provenance, and 48 serial 1,200-second runs. Records bind the raw
-draw hashes; the archive validator independently checks the control suffix,
-treatment levels, paired anchor, and exact 249-member package. The production
-summary and a no-import history-first reference replay must agree before
-`summary.json` can be opened. See
-[`H100_COVERAGE_RUNBOOK.md`](../../docs/H100_COVERAGE_RUNBOOK.md). No paid run is
-authorized by the checked-in profile.
+The current unlaunched `coverage-triage-screen-v1` profile is the lower-cost
+Stage-A test of the same midpoint Latin-hypercube suffix. It uses 8 newly
+generated topologies disjoint from the archive and all earlier panels, seeds
+37/41, exact H100/CUDA-13 provenance, and 32 serial 600-second runs. The exact
+169-member package replaces plaintext `summary.json` with a summary commitment;
+production and no-import history-first replays must agree before the detached,
+precommitted summary is released. A post-cleanup billing receipt enforces the
+8-hour/`$26.32` GPU and `$30` total caps. Passing 7/8 topology wins and every
+other frozen gate only produces a review request for a Stage-B design that is
+not yet registered or executable. See
+[`H100_COVERAGE_TRIAGE_RUNBOOK.md`](../../docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
+
+The older unlaunched `coverage-robustness-screen-v1` contract remains unchanged
+at 12 topologies, 48 serial 1,200-second runs, and an exact 249-member archive.
+Its panel is now reserved by the Stage-A policy for independent Stage B; do not
+launch the old profile directly. No paid run is authorized by either checked-in
+profile.
 
 For an unaudited smoke panel, pass a JSON list through `--topologies-file`. A named panel can use the object form:
 
@@ -127,7 +134,7 @@ python tools/run_uifo_candidate_probe.py \
 
 Set the idle thresholds from a clean baseline before the run; do not loosen them after observing a candidate. The probe refuses a dirty tree or existing output directory, samples total-device telemetry throughout each worker, requires an exact parent/worker/telemetry process-ID handshake, and waits for post-worker quiescence. Global memory and utilization thresholds remain mandatory because host-side WDDM processes may not be visible inside WSL. A clean timeout with a validated pre-evaluation candidate milestone is retained as right-censored evidence and does not prevent the reverse-order workers; every other error or provenance failure stops the study. Its two observations per role can diagnose a large candidate-conditioned tail, but they are not optimizer-quality or throughput evidence.
 
-The orchestrator refuses a dirty Git tree and refuses to resume if the revision, plan, upstream reference, semantic-prior bytes, runtime versions, backend, or device identity changed. It also rejects stale/foreign run files and concurrent writers. Commit the harness and configuration before consuming accelerator time.
+The orchestrator refuses a dirty Git tree and refuses to resume if the revision, plan, upstream reference, semantic-prior bytes, runtime versions, backend, or device identity changed. It also rejects stale/foreign run files and concurrent writers. Terminal profiles derive their one-attempt receipt ledger beside the frozen external plan rather than beneath the selectable result root. Commit the harness and configuration before consuming accelerator time.
 
 After a clean completion, `tools/package_uifo_study.py` revalidates every run, history, log, and plan membership before writing a deterministic ZIP, SHA-256 sidecar, and package manifest. If a paid machine must be evacuated after the writer has stopped, `--allow-incomplete` writes an explicitly partial package with missing/error run IDs; it cannot pass as a completed study. A hard-kill lock can be recovered only with the explicit `--resume --recover-stale-lock` combination after the owner process is proven dead; the stale lock is preserved under `recovery/`.
 

@@ -1,4 +1,4 @@
-"""Outcome-blind ingestion for ``coverage-robustness-screen-v1``.
+"""Outcome-blind ingestion for sealed H100 coverage profiles.
 
 The source-lock digest is authenticated before its JSON is parsed.  Complete
 archives are replayed from pickle-free histories while ``summary.json`` stays
@@ -17,6 +17,10 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from experiments.uifo_paired.coverage_profiles import (
+    CoverageProfileSpec,
+    coverage_profile_spec,
+)
 from experiments.uifo_paired.coverage_evidence import (
     CoverageReplayAgreement,
     coverage_study_identity_sha256,
@@ -44,6 +48,7 @@ from experiments.uifo_paired.results_ingestion import (
 from experiments.uifo_paired.runner import (
     H100_CUDA13_PACKAGE_VERSIONS,
     JAX_RUNTIME_ENVIRONMENT_KEYS,
+    OFFICIAL_DATASET_SHA256,
     _parameter_hashes,
     _run_config,
     strict_json,
@@ -67,6 +72,20 @@ UPSTREAM_REFERENCE = "1bb7f54737dec6a08b59879a8831d125f08f8a0b"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 PANEL_PATH = Path(__file__).with_name("panels") / "coverage-robustness-v1.json"
 RECOVERY_RECEIPT = re.compile(r"^recovery/stale-study-lock-([0-9a-f]{12})\.json$")
+DETACHED_SUMMARY_PROFILE = "coverage-triage-screen-v1"
+SUMMARY_COMMITMENT_MEMBER = "summary.commitment.json"
+CHRONOLOGY_TOLERANCE_SECONDS = 5.0
+OFFICIAL_DATASET_SIZE_BYTES = 74_920_439
+OFFICIAL_DATASET_ENTRIES = 29_650
+OFFICIAL_DATASET_UNIQUE_TOPOLOGIES = 12_437
+TRIAGE_PRIOR_PANEL_FILENAMES = (
+    "development-v1.json",
+    "confirmation-v1.json",
+    "submission-like-v1.json",
+    "coverage-robustness-v1.json",
+    "restart-mechanics-v1.json",
+    "restart-screen-v1.json",
+)
 
 
 def _canonical(value: object) -> str:
@@ -85,14 +104,101 @@ def _parse_utc_timestamp(value: object, label: str) -> datetime:
     return parsed.astimezone(UTC)
 
 
-def _validate_utc_interval(value: dict[str, object], label: str) -> float:
+def _utc_interval_bounds(
+    value: dict[str, object], label: str
+) -> tuple[datetime, datetime, float]:
     started = _parse_utc_timestamp(value.get("started_utc"), f"{label} start")
     completed = _parse_utc_timestamp(
         value.get("completed_utc"), f"{label} completion"
     )
     if completed <= started:
         raise StudyValidationError(f"{label} timestamps are reversed or empty")
-    return (completed - started).total_seconds()
+    return started, completed, (completed - started).total_seconds()
+
+
+def _validate_utc_interval(value: dict[str, object], label: str) -> float:
+    return _utc_interval_bounds(value, label)[2]
+
+
+def _validate_topology_panel_evidence(
+    panel_evidence: dict[str, object],
+    specification: CoverageProfileSpec,
+    committed: list[str],
+) -> None:
+    """Bind the plan to committed panel bytes and the real exclusion audit."""
+    base = {
+        "panel_id": specification.panel_id,
+        "topology_count": specification.topologies,
+        "source_sha256": sha256_path(_panel_path(specification)),
+        "archive_exclusion_verified": True,
+    }
+    if specification.profile != DETACHED_SUMMARY_PROFILE:
+        if panel_evidence != base:
+            raise StudyValidationError(
+                "coverage plan is not bound to the exact committed panel bytes"
+            )
+        return
+
+    expected_keys = {
+        *base,
+        "source_kind",
+        "source_name",
+        "official_dataset_sha256",
+        "archive_exclusion_audit",
+    }
+    if set(panel_evidence) != expected_keys or any(
+        panel_evidence.get(key) != value for key, value in base.items()
+    ):
+        raise StudyValidationError(
+            "coverage plan is not bound to the exact committed panel bytes"
+        )
+    if (
+        panel_evidence.get("source_kind") != "json_topology_panel"
+        or panel_evidence.get("source_name") != specification.panel_filename
+        or panel_evidence.get("official_dataset_sha256")
+        != OFFICIAL_DATASET_SHA256
+    ):
+        raise StudyValidationError("coverage topology panel provenance drifted")
+
+    identity_digest = hashlib.sha256(
+        json.dumps(sorted(set(committed)), separators=(",", ":")).encode()
+    ).hexdigest()
+    prior_panels = []
+    for filename in TRIAGE_PRIOR_PANEL_FILENAMES:
+        path = _panel_path(specification).with_name(filename)
+        payload = strict_json_loads(path.read_bytes(), filename)
+        mapping = _require_mapping(payload, filename)
+        topologies = mapping.get("topologies")
+        if not isinstance(topologies, list) or not all(
+            isinstance(value, str) for value in topologies
+        ):
+            raise StudyValidationError(f"committed prior panel is invalid: {filename}")
+        prior_panels.append(
+            {
+                "source_name": filename,
+                "source_sha256": sha256_path(path),
+                "topology_count": len(topologies),
+                "overlap_count": 0,
+            }
+        )
+    expected_audit = {
+        "method": "exact topology-string set intersection",
+        "panel_identity_sha256": identity_digest,
+        "panel_topology_count": specification.topologies,
+        "official_dataset": {
+            "source_name": "dataset.h5",
+            "sha256": OFFICIAL_DATASET_SHA256,
+            "size_bytes": OFFICIAL_DATASET_SIZE_BYTES,
+            "entries": OFFICIAL_DATASET_ENTRIES,
+            "unique_topologies": OFFICIAL_DATASET_UNIQUE_TOPOLOGIES,
+            "overlap_count": 0,
+        },
+        "prior_panels": prior_panels,
+    }
+    if strict_json(panel_evidence.get("archive_exclusion_audit")) != strict_json(
+        expected_audit
+    ):
+        raise StudyValidationError("coverage topology exclusion audit drifted")
 
 
 def _coverage_logits_from_ranks(ranks, member_count: int, dtype):
@@ -130,6 +236,7 @@ def authenticate_coverage_source_lock(
     expected_source_lock_sha256: str,
     sources: SourcePaths,
     terminal_attempt_receipt: Path,
+    provider_billing_receipt: Path | None = None,
 ) -> ExpectedSources:
     """Authenticate the out-of-band lock digest before parsing its JSON."""
     if SHA256.fullmatch(expected_source_lock_sha256) is None:
@@ -151,7 +258,13 @@ def authenticate_coverage_source_lock(
         "files",
     }:
         raise StudyValidationError("coverage source-lock schema mismatch")
-    if lock.get("format_version") != 1 or lock.get("study_profile") != PROFILE:
+    try:
+        specification = coverage_profile_spec(lock.get("study_profile"))
+    except ValueError as error:
+        raise StudyValidationError(
+            "coverage source-lock profile or version mismatch"
+        ) from error
+    if lock.get("format_version") != 1:
         raise StudyValidationError("coverage source-lock profile or version mismatch")
     plan_id = lock.get("plan_id")
     revision = lock.get("project_revision")
@@ -168,6 +281,14 @@ def authenticate_coverage_source_lock(
         sources.plan.name: sources.plan,
         terminal_attempt_receipt.name: terminal_attempt_receipt,
     }
+    if specification.profile == DETACHED_SUMMARY_PROFILE:
+        if provider_billing_receipt is None:
+            raise StudyValidationError("coverage triage billing receipt is missing")
+        if provider_billing_receipt.name in paths:
+            raise StudyValidationError("coverage billing receipt basename collides")
+        paths[provider_billing_receipt.name] = provider_billing_receipt
+    elif provider_billing_receipt is not None:
+        raise StudyValidationError("unexpected coverage billing receipt")
     if set(files) != set(paths):
         raise StudyValidationError("coverage source-lock basenames do not match inputs")
     for basename, path in paths.items():
@@ -187,6 +308,67 @@ def authenticate_coverage_source_lock(
         ):
             raise StudyValidationError(f"coverage source-lock file mismatch: {basename}")
 
+    billing_digest = None
+    if provider_billing_receipt is not None:
+        receipt = _require_mapping(
+            strict_json_loads(
+                provider_billing_receipt.read_bytes(), "provider billing receipt"
+            ),
+            "provider billing receipt",
+        )
+        required_billing = {
+            "format_version",
+            "study_profile",
+            "plan_id",
+            "provider",
+            "gpu_type_id",
+            "cloud_type",
+            "gpu_count",
+            "maximum_gpu_hourly_price",
+            "provider_hours",
+            "gpu_charge",
+            "total_provider_charge",
+            "resources_deleted",
+            "captured_utc",
+        }
+        numeric = (
+            "maximum_gpu_hourly_price",
+            "provider_hours",
+            "gpu_charge",
+            "total_provider_charge",
+        )
+        if (
+            set(receipt) != required_billing
+            or receipt.get("format_version") != 1
+            or receipt.get("study_profile") != specification.profile
+            or receipt.get("plan_id") != plan_id
+            or receipt.get("provider") != "Runpod"
+            or receipt.get("gpu_type_id") != EXACT_GPU_NAME
+            or receipt.get("cloud_type") != "SECURE"
+            or receipt.get("gpu_count") != 1
+            or receipt.get("resources_deleted") is not True
+            or any(
+                isinstance(receipt.get(key), bool)
+                or not isinstance(receipt.get(key), (int, float))
+                or not math.isfinite(float(receipt[key]))
+                or float(receipt[key]) < 0
+                for key in numeric
+            )
+            or float(receipt["maximum_gpu_hourly_price"]) > 3.29
+            or float(receipt["provider_hours"]) > 8.0
+            or float(receipt["gpu_charge"]) > 26.32 + 1e-9
+            or float(receipt["gpu_charge"])
+            > float(receipt["provider_hours"])
+            * float(receipt["maximum_gpu_hourly_price"])
+            + 0.01
+            or float(receipt["total_provider_charge"])
+            < float(receipt["gpu_charge"])
+            or float(receipt["total_provider_charge"]) > 30.0
+        ):
+            raise StudyValidationError("coverage triage billing receipt is invalid")
+        _parse_utc_timestamp(receipt.get("captured_utc"), "billing capture")
+        billing_digest = sha256_path(provider_billing_receipt)
+
     return ExpectedSources(
         zip_sha256=str(files[sources.archive.name]["sha256"]),
         package_manifest_sha256=str(
@@ -196,18 +378,39 @@ def authenticate_coverage_source_lock(
         plan_sha256=str(files[sources.plan.name]["sha256"]),
         plan_id=plan_id,
         project_revision=revision,
+        study_profile=specification.profile,
+        provider_billing_receipt_sha256=billing_digest,
     )
 
 
-def _panel_topologies() -> list[str]:
+def _profile_spec(expected: ExpectedSources) -> CoverageProfileSpec:
+    try:
+        return coverage_profile_spec(expected.study_profile)
+    except ValueError as error:
+        raise StudyValidationError("coverage expected-source profile is missing") from error
+
+
+def _panel_path(specification: CoverageProfileSpec) -> Path:
+    # Preserve the v1 monkeypatch/audit seam while binding new profiles through
+    # the immutable registry.
+    return PANEL_PATH if specification.profile == PROFILE else specification.panel_path
+
+
+def _panel_topologies(specification: CoverageProfileSpec) -> list[str]:
+    panel_path = _panel_path(specification)
     payload = _require_mapping(
-        strict_json_loads(PANEL_PATH.read_bytes(), "committed coverage panel"),
+        strict_json_loads(
+            panel_path.read_bytes(), "committed coverage panel"
+        ),
         "committed coverage panel",
     )
     topologies = payload.get("topologies")
-    if payload.get("panel_id") != PANEL_ID or not isinstance(topologies, list):
+    if (
+        payload.get("panel_id") != specification.panel_id
+        or not isinstance(topologies, list)
+    ):
         raise StudyValidationError("committed coverage panel is invalid")
-    if len(topologies) != TOPOLOGIES or not all(
+    if len(topologies) != specification.topologies or not all(
         isinstance(value, str) and TOPOLOGY_PATTERN.fullmatch(value) is not None
         for value in topologies
     ):
@@ -215,39 +418,81 @@ def _panel_topologies() -> list[str]:
     return [str(value) for value in topologies]
 
 
+def _coverage_expected_members(
+    expected_configs: dict[str, dict[str, object]],
+    specification: CoverageProfileSpec,
+) -> set[str]:
+    members = _expected_archive_members(expected_configs)
+    if specification.profile == DETACHED_SUMMARY_PROFILE:
+        members.remove("summary.json")
+        members.add(SUMMARY_COMMITMENT_MEMBER)
+    return members
+
+
+def _validate_summary_commitment(
+    archive: zipfile.ZipFile,
+    package_manifest: dict[str, object],
+    specification: CoverageProfileSpec,
+) -> None:
+    if specification.profile != DETACHED_SUMMARY_PROFILE:
+        if "summary_release" in package_manifest:
+            raise StudyValidationError("unexpected detached summary metadata")
+        return
+    release = _require_mapping(
+        package_manifest.get("summary_release"), "detached summary release"
+    )
+    if set(release) != {"path", "sha256", "size_bytes", "archive_member"}:
+        raise StudyValidationError("detached summary release schema mismatch")
+    if (
+        not isinstance(release.get("path"), str)
+        or not release.get("path")
+        or not isinstance(release.get("sha256"), str)
+        or SHA256.fullmatch(str(release.get("sha256"))) is None
+        or isinstance(release.get("size_bytes"), bool)
+        or not isinstance(release.get("size_bytes"), int)
+        or int(release["size_bytes"]) < 1
+        or release.get("archive_member") != SUMMARY_COMMITMENT_MEMBER
+    ):
+        raise StudyValidationError("detached summary release metadata is invalid")
+    commitment = _load_json_member(archive, SUMMARY_COMMITMENT_MEMBER)
+    if commitment != {
+        "format_version": 1,
+        "study_profile": specification.profile,
+        "summary_sha256": release["sha256"],
+        "size_bytes": release["size_bytes"],
+    }:
+        raise StudyValidationError("detached summary commitment mismatch")
+
+
 def _validate_plan(
     plan: dict[str, object], expected: ExpectedSources
 ) -> dict[str, dict[str, object]]:
+    specification = _profile_spec(expected)
     if plan.get("format_version") != 1 or plan.get("plan_id") != expected.plan_id:
         raise StudyValidationError("coverage plan identity mismatch")
     configuration = _require_mapping(plan.get("configuration"), "plan configuration")
-    if configuration.get("study_profile") != PROFILE:
+    if configuration.get("study_profile") != specification.profile:
         raise StudyValidationError("coverage study profile mismatch")
     try:
-        policy = bind_study_profile(PROFILE, configuration)
+        policy = bind_study_profile(specification.profile, configuration)
     except ValueError as error:
         raise StudyValidationError(f"coverage frozen profile mismatch: {error}") from error
     if strict_json(configuration.get("decision_policy")) != strict_json(policy):
         raise StudyValidationError("coverage frozen decision policy mismatch")
-    if _require_mapping(policy, "decision policy").get("policy_id") != POLICY_ID:
+    if (
+        _require_mapping(policy, "decision policy").get("policy_id")
+        != specification.policy_id
+    ):
         raise StudyValidationError("coverage decision policy ID mismatch")
 
-    committed = _panel_topologies()
+    committed = _panel_topologies(specification)
     expected_specs = [{"kind": "string", "value": value} for value in committed]
     if configuration.get("topologies") != expected_specs:
         raise StudyValidationError("coverage panel contents or order drifted")
     panel_evidence = _require_mapping(
         configuration.get("topology_panel"), "coverage topology panel evidence"
     )
-    if panel_evidence != {
-        "panel_id": PANEL_ID,
-        "topology_count": TOPOLOGIES,
-        "source_sha256": sha256_path(PANEL_PATH),
-        "archive_exclusion_verified": True,
-    }:
-        raise StudyValidationError(
-            "coverage plan is not bound to the exact committed panel bytes"
-        )
+    _validate_topology_panel_evidence(panel_evidence, specification, committed)
     evidence = _require_mapping(
         configuration.get("candidate_package_evidence"),
         "candidate package evidence",
@@ -258,14 +503,18 @@ def _validate_plan(
         raise StudyValidationError("candidate package upstream reference drifted")
 
     runs = plan.get("runs")
-    if not isinstance(runs, list) or len(runs) != RUNS or not all(
+    if not isinstance(runs, list) or len(runs) != specification.runs or not all(
         isinstance(run, dict) for run in runs
     ):
-        raise StudyValidationError("coverage plan must contain exactly 48 runs")
+        raise StudyValidationError(
+            f"coverage plan must contain exactly {specification.runs} runs"
+        )
     run_rows = [run for run in runs if isinstance(run, dict)]
-    if [run.get("planned_run_index") for run in run_rows] != list(range(RUNS)):
+    if [run.get("planned_run_index") for run in run_rows] != list(
+        range(specification.runs)
+    ):
         raise StudyValidationError("coverage planned-run indexes drifted")
-    if len({str(run.get("run_id")) for run in run_rows}) != RUNS:
+    if len({str(run.get("run_id")) for run in run_rows}) != specification.runs:
         raise StudyValidationError("coverage plan contains duplicate run IDs")
 
     expected_run_keys = {
@@ -288,7 +537,7 @@ def _validate_plan(
         arm = run.get("arm")
         if topology not in expected_specs or not isinstance(value, str):
             raise StudyValidationError("coverage run references unknown topology")
-        if seed not in SEEDS or arm not in ARMS:
+        if seed not in set(specification.seeds) or arm not in ARMS:
             raise StudyValidationError("coverage run seed or arm mismatch")
         pair_id = _pair_id(value, int(seed))
         if run.get("pair_id") != pair_id or run.get("run_id") != f"{pair_id}__{arm}":
@@ -298,7 +547,7 @@ def _validate_plan(
         by_pair[pair_id].append(run)
         by_topology[value].add(int(seed))
 
-    if len(by_pair) != PAIRS or any(
+    if len(by_pair) != specification.pairs or any(
         len(rows) != 2
         or {str(row["arm"]) for row in rows} != ARMS
         or {int(row["run_order_within_pair"]) for row in rows} != {0, 1}
@@ -306,21 +555,24 @@ def _validate_plan(
     ):
         raise StudyValidationError("coverage arm-pair hierarchy is broken")
     if set(by_topology) != set(committed) or any(
-        seeds != SEEDS for seeds in by_topology.values()
+        seeds != set(specification.seeds) for seeds in by_topology.values()
     ):
         raise StudyValidationError("coverage topology/seed hierarchy is broken")
 
-    pair_blocks = [run_rows[index : index + 2] for index in range(0, RUNS, 2)]
-    first_sweep = pair_blocks[:TOPOLOGIES]
-    second_sweep = pair_blocks[TOPOLOGIES:]
+    pair_blocks = [
+        run_rows[index : index + 2]
+        for index in range(0, specification.runs, 2)
+    ]
+    first_sweep = pair_blocks[: specification.topologies]
+    second_sweep = pair_blocks[specification.topologies :]
     if (
         [str(block[0]["topology"]["value"]) for block in first_sweep] != committed
         or [int(block[0]["optimizer_seed"]) for block in first_sweep]
-        != [37] * TOPOLOGIES
+        != [specification.seeds[0]] * specification.topologies
         or [str(block[0]["topology"]["value"]) for block in second_sweep]
         != list(reversed(committed))
         or [int(block[0]["optimizer_seed"]) for block in second_sweep]
-        != [41] * TOPOLOGIES
+        != [specification.seeds[1]] * specification.topologies
     ):
         raise StudyValidationError("coverage mirrored sweep order drifted")
     if any(block[0]["pair_id"] != block[1]["pair_id"] for block in pair_blocks):
@@ -332,9 +584,9 @@ def _validate_plan(
     ):
         raise StudyValidationError("coverage run-order policy mismatch")
     required_order = {
-        "complete_primary_pairs": 24,
-        "no_prior_first": 12,
-        "coverage_balanced_first": 12,
+        "complete_primary_pairs": specification.pairs,
+        "no_prior_first": specification.pairs // 2,
+        "coverage_balanced_first": specification.pairs // 2,
         "absolute_imbalance": 0,
     }
     recomputed_order = {
@@ -378,6 +630,7 @@ def _validate_terminal_receipt(
     expected: ExpectedSources,
     manifest: dict[str, object],
 ) -> None:
+    specification = _profile_spec(expected)
     receipt = _require_mapping(
         strict_json_loads(path.read_bytes(), "terminal attempt receipt"),
         "terminal attempt receipt",
@@ -393,7 +646,7 @@ def _validate_terminal_receipt(
         raise StudyValidationError("terminal attempt receipt schema mismatch")
     if (
         receipt.get("format_version") != 1
-        or receipt.get("study_profile") != PROFILE
+        or receipt.get("study_profile") != specification.profile
         or receipt.get("plan_id") != expected.plan_id
         or receipt.get("project_revision") != expected.project_revision
         or not isinstance(receipt.get("claimed_utc"), str)
@@ -412,6 +665,7 @@ def _authenticated_external_metadata(
     sources: SourcePaths,
     expected: ExpectedSources,
 ) -> tuple[dict[str, str], dict[str, object], dict[str, object]]:
+    specification = _profile_spec(expected)
     paths = {
         "archive": sources.archive,
         "checksum": sources.checksum,
@@ -460,6 +714,8 @@ def _authenticated_external_metadata(
         "incomplete_runs",
         "archive",
     }
+    if specification.profile == DETACHED_SUMMARY_PROFILE:
+        required_manifest.add("summary_release")
     if set(package_manifest) != required_manifest:
         raise StudyValidationError("coverage package manifest schema mismatch")
     archive_meta = _require_mapping(package_manifest.get("archive"), "archive metadata")
@@ -469,7 +725,7 @@ def _authenticated_external_metadata(
         package_manifest.get("format_version") != 1
         or package_manifest.get("study_plan_id") != expected.plan_id
         or package_manifest.get("study_project_revision") != expected.project_revision
-        or package_manifest.get("planned_runs") != RUNS
+        or package_manifest.get("planned_runs") != specification.runs
         or not isinstance(archive_meta.get("path"), str)
         or not archive_meta.get("path")
         or archive_meta.get("sha256") != hashes["archive"]
@@ -478,6 +734,10 @@ def _authenticated_external_metadata(
         or external_plan.get("plan_id") != expected.plan_id
     ):
         raise StudyValidationError("coverage external metadata mismatch")
+    if expected.provider_billing_receipt_sha256 is not None:
+        hashes["provider_billing_receipt"] = (
+            expected.provider_billing_receipt_sha256
+        )
     return hashes, package_manifest, external_plan
 
 
@@ -647,10 +907,13 @@ def _validate_coverage_history_chronology(
     rows: list[dict[str, object]],
     expected_config: dict[str, object],
     record: dict[str, object],
-) -> None:
+    worker_timeout_seconds: float,
+) -> tuple[datetime, datetime, float]:
     """Reconstruct exact full-vmap calls and enforce all frozen time ceilings."""
     run_id = str(expected_config["run_id"])
-    _validate_utc_interval(record, f"coverage run {run_id}")
+    run_started, run_completed, run_seconds = _utc_interval_bounds(
+        record, f"coverage run {run_id}"
+    )
     population_size = int(expected_config["population_size"])
     by_call: dict[int, list[dict[str, object]]] = defaultdict(list)
     observed_sequence: list[tuple[int, int]] = []
@@ -714,15 +977,61 @@ def _validate_coverage_history_chronology(
         previous_time = float(call_time)
 
     process = _require_mapping(record.get("worker_process"), f"worker process {run_id}")
+    process_started, process_completed, process_seconds = _utc_interval_bounds(
+        process, f"coverage worker process {run_id}"
+    )
     wall = process.get("full_wall_seconds")
     if (
         isinstance(wall, bool)
         or not isinstance(wall, (int, float))
         or not math.isfinite(float(wall))
         or float(wall) < 0
-        or float(wall) > WORKER_TIMEOUT_SECONDS
+        or float(wall) > worker_timeout_seconds
     ):
         raise StudyValidationError(f"coverage worker exceeded its timeout: {run_id}")
+    wall_seconds = float(wall)
+    if not math.isfinite(previous_time):
+        raise StudyValidationError(f"coverage history has no final Objective time: {run_id}")
+    if abs(wall_seconds - process_seconds) > CHRONOLOGY_TOLERANCE_SECONDS:
+        raise StudyValidationError(
+            f"coverage worker wall time disagrees with its UTC process interval: {run_id}"
+        )
+    if run_started < process_started or run_completed > process_completed:
+        raise StudyValidationError(
+            f"coverage run interval is outside its worker process: {run_id}"
+        )
+    if previous_time > run_seconds + CHRONOLOGY_TOLERANCE_SECONDS:
+        raise StudyValidationError(
+            f"coverage final Objective time exceeds its UTC run interval: {run_id}"
+        )
+    if wall_seconds + CHRONOLOGY_TOLERANCE_SECONDS < previous_time:
+        raise StudyValidationError(
+            f"coverage worker wall time is shorter than final Objective time: {run_id}"
+        )
+    return process_started, process_completed, previous_time
+
+
+def _validate_coverage_run_chronology(
+    run_intervals: list[tuple[str, datetime, datetime]],
+    session_started: datetime,
+    session_completed: datetime,
+) -> None:
+    """Require serial plan-order intervals to fit wholly inside the session."""
+    previous_run_id: str | None = None
+    previous_completed: datetime | None = None
+    for run_id, started, completed in run_intervals:
+        if started < session_started or completed > session_completed:
+            raise StudyValidationError(
+                f"coverage run interval is outside the session: {run_id}"
+            )
+        if previous_completed is not None and started < previous_completed:
+            assert previous_run_id is not None
+            raise StudyValidationError(
+                "coverage run intervals overlap or violate plan order: "
+                f"{previous_run_id} then {run_id}"
+            )
+        previous_run_id = run_id
+        previous_completed = completed
 
 
 def coverage_package_is_complete(
@@ -744,6 +1053,7 @@ def validate_coverage_terminal_partial(
     limits: ArchiveLimits = ArchiveLimits(),
 ) -> dict[str, object]:
     """Authenticate a terminal partial structurally without reading outcomes."""
+    specification = _profile_spec(expected)
     source_hashes, package_manifest, external_plan = _authenticated_external_metadata(
         sources, expected
     )
@@ -753,9 +1063,9 @@ def validate_coverage_terminal_partial(
     incomplete = package_manifest.get("incomplete_runs")
     if (
         type(completed) is not int
-        or not 0 <= completed < RUNS
+        or not 0 <= completed < specification.runs
         or not isinstance(incomplete, list)
-        or len(incomplete) != RUNS - completed
+        or len(incomplete) != specification.runs - completed
     ):
         raise StudyValidationError("coverage terminal-partial run counts are invalid")
     expected_configs = _validate_plan(external_plan, expected)
@@ -780,14 +1090,19 @@ def validate_coverage_terminal_partial(
     archive_meta = _require_mapping(package_manifest.get("archive"), "archive metadata")
     if archive_meta.get("files") != len(member_names):
         raise StudyValidationError("terminal-partial archive count mismatch")
-    expected_members = _expected_archive_members(expected_configs)
+    expected_members = _coverage_expected_members(expected_configs, specification)
     recovery_names = {name for name in observed if name.startswith("recovery/")}
-    if not (FIXED_MEMBERS | PREFLIGHT_MEMBERS) <= observed:
+    required_fixed = set(FIXED_MEMBERS)
+    if specification.profile == DETACHED_SUMMARY_PROFILE:
+        required_fixed.remove("summary.json")
+        required_fixed.add(SUMMARY_COMMITMENT_MEMBER)
+    if not (required_fixed | PREFLIGHT_MEMBERS) <= observed:
         raise StudyValidationError("terminal partial lacks structural evidence")
     if observed - expected_members - recovery_names:
         raise StudyValidationError("terminal partial contains an unexpected member")
 
     with zipfile.ZipFile(sources.archive, "r") as archive:
+        _validate_summary_commitment(archive, package_manifest, specification)
         for name in recovery_names:
             match = RECOVERY_RECEIPT.fullmatch(name)
             payload = _read_member(archive, name)
@@ -822,7 +1137,7 @@ def validate_coverage_terminal_partial(
         if package_state != {
             "format_version": 1,
             "study_complete": False,
-            "planned_runs": RUNS,
+            "planned_runs": specification.runs,
             "completed_runs": completed,
             "incomplete_runs": incomplete,
         }:
@@ -852,7 +1167,8 @@ def validate_coverage_terminal_partial(
         if status == "running" and (
             not recovery_names
             or not isinstance(session.get("started_utc"), str)
-            or session.get("max_session_wall_seconds") != SESSION_WALL_SECONDS
+            or session.get("max_session_wall_seconds")
+            != specification.session_wall_seconds
         ):
             raise StudyValidationError("running partial lacks stale-writer recovery")
         if status == "running":
@@ -869,11 +1185,14 @@ def validate_coverage_terminal_partial(
                 or not isinstance(elapsed, (int, float))
                 or not math.isfinite(float(elapsed))
                 or float(elapsed) <= 0
-                or float(elapsed) > SESSION_WALL_SECONDS
+                or float(elapsed) > specification.session_wall_seconds
                 or abs(float(elapsed) - timestamp_elapsed) > 5.0
             ):
                 raise StudyValidationError("terminal-partial elapsed time is invalid")
-            if session.get("max_session_wall_seconds") != SESSION_WALL_SECONDS:
+            if (
+                session.get("max_session_wall_seconds")
+                != specification.session_wall_seconds
+            ):
                 raise StudyValidationError("terminal-partial wall limit drifted")
             if status in {"wall_limit_reached", "provider_deadline_guard"}:
                 next_run = session.get("next_run_id")
@@ -891,7 +1210,7 @@ def validate_coverage_terminal_partial(
     return {
         "status": "not_evaluable",
         "action": "retain_candidate_attempt_not_evaluable",
-        "study_profile": PROFILE,
+        "study_profile": specification.profile,
         "plan_id": expected.plan_id,
         "project_revision": expected.project_revision,
         "completed_runs": completed,
@@ -916,22 +1235,27 @@ def validate_coverage_archive(
     limits: ArchiveLimits = ArchiveLimits(),
 ) -> ValidatedStudy:
     """Authenticate complete raw evidence while leaving the summary sealed."""
+    specification = _profile_spec(expected)
     source_hashes, package_manifest, external_plan = _authenticated_external_metadata(
         sources, expected
     )
     if (
         package_manifest.get("study_complete") is not True
-        or package_manifest.get("completed_runs") != RUNS
+        or package_manifest.get("completed_runs") != specification.runs
         or package_manifest.get("incomplete_runs") != []
     ):
         raise StudyValidationError("complete coverage package state mismatch")
     integrity = inspect_zip_integrity(sources.archive, limits)
     member_names = tuple(integrity["member_names"])
     archive_meta = _require_mapping(package_manifest.get("archive"), "archive metadata")
-    if archive_meta.get("files") != len(member_names) or len(member_names) != ARCHIVE_MEMBERS:
+    if (
+        archive_meta.get("files") != len(member_names)
+        or len(member_names) != specification.archive_members
+    ):
         raise StudyValidationError("coverage archive member count mismatch")
 
     with zipfile.ZipFile(sources.archive, "r") as archive:
+        _validate_summary_commitment(archive, package_manifest, specification)
         manifest = _load_json_member(archive, "manifest.json")
         package_state = _load_json_member(archive, "package-state.json")
         session = _load_json_member(archive, "session.json")
@@ -957,26 +1281,33 @@ def validate_coverage_archive(
         if package_state != {
             "format_version": 1,
             "study_complete": True,
-            "planned_runs": RUNS,
-            "completed_runs": RUNS,
+            "planned_runs": specification.runs,
+            "completed_runs": specification.runs,
             "incomplete_runs": [],
         }:
-            raise StudyValidationError("package state does not prove 48/48 completion")
+            raise StudyValidationError(
+                "package state does not prove complete coverage execution"
+            )
+        session_started, session_completed, timestamp_elapsed = _utc_interval_bounds(
+            session, "coverage session"
+        )
         elapsed = session.get("elapsed_seconds")
-        timestamp_elapsed = _validate_utc_interval(session, "coverage session")
         if (
             session.get("status") != "complete"
             or isinstance(elapsed, bool)
             or not isinstance(elapsed, (int, float))
             or not math.isfinite(float(elapsed))
             or float(elapsed) <= 0
-            or float(elapsed) > SESSION_WALL_SECONDS
+            or float(elapsed) > specification.session_wall_seconds
             or abs(float(elapsed) - timestamp_elapsed) > 5.0
-            or session.get("max_session_wall_seconds") != SESSION_WALL_SECONDS
+            or session.get("max_session_wall_seconds")
+            != specification.session_wall_seconds
         ):
             raise StudyValidationError("coverage session completion evidence mismatch")
 
-        expected_members = _expected_archive_members(expected_configs)
+        expected_members = _coverage_expected_members(
+            expected_configs, specification
+        )
         missing = sorted(expected_members - set(member_names))
         unexpected = sorted(set(member_names) - expected_members)
         if missing or unexpected:
@@ -994,6 +1325,7 @@ def validate_coverage_archive(
         initial_arrays: dict[str, object] = {}
         topology_to_hash: dict[str, str] = {}
         hierarchy: dict[str, set[tuple[int, str]]] = defaultdict(set)
+        run_intervals: list[tuple[str, datetime, datetime]] = []
         for run_id, expected_config in expected_configs.items():
             config = _load_json_member(archive, f"configs/{run_id}.json")
             if strict_json(config) != strict_json(expected_config):
@@ -1010,9 +1342,13 @@ def validate_coverage_archive(
             histories[run_id] = _validate_record(
                 record, expected_config, archive, expected_environment
             )
-            _validate_coverage_history_chronology(
-                histories[run_id], expected_config, record
+            run_started, run_completed, _ = _validate_coverage_history_chronology(
+                histories[run_id],
+                expected_config,
+                record,
+                specification.worker_timeout_seconds,
             )
+            run_intervals.append((run_id, run_started, run_completed))
             _validate_coverage_record_evidence(
                 record, expected_config, arrays["initial_params_unbounded"]
             )
@@ -1026,10 +1362,16 @@ def validate_coverage_archive(
                 (int(expected_config["optimizer_seed"]), str(expected_config["arm"]))
             )
 
+        _validate_coverage_run_chronology(
+            run_intervals, session_started, session_completed
+        )
+
         if set(records_by_id) != set(expected_configs):
             raise StudyValidationError("coverage record IDs do not match the plan")
-        expected_cells = {(seed, arm) for seed in SEEDS for arm in ARMS}
-        if len(topology_to_hash) != TOPOLOGIES or any(
+        expected_cells = {
+            (seed, arm) for seed in specification.seeds for arm in ARMS
+        }
+        if len(topology_to_hash) != specification.topologies or any(
             cells != expected_cells for cells in hierarchy.values()
         ):
             raise StudyValidationError("coverage topology hierarchy is broken")
@@ -1075,8 +1417,10 @@ def validate_coverage_archive(
             ).splitlines()
         except UnicodeDecodeError as error:
             raise StudyValidationError("coverage runs.jsonl is not UTF-8") from error
-        if len(lines) != RUNS:
-            raise StudyValidationError("coverage runs.jsonl must contain 48 records")
+        if len(lines) != specification.runs:
+            raise StudyValidationError(
+                "coverage runs.jsonl must contain every planned record"
+            )
         jsonl_records = [
             _require_mapping(strict_json_loads(line, "runs.jsonl line"), "run")
             for line in lines
@@ -1090,15 +1434,15 @@ def validate_coverage_archive(
         "source_lock": "passed",
         "sidecar_filename_and_digest": "passed",
         "terminal_attempt_receipt": "passed",
-        "records": RUNS,
-        "histories": RUNS,
-        "configs": RUNS,
-        "stdout_logs": RUNS,
-        "stderr_logs": RUNS,
-        "topologies": TOPOLOGIES,
-        "optimizer_seed_pairs": PAIRS,
-        "pretransform_draw_pairs": PAIRS,
-        "coverage_initial_arrays": RUNS // 2,
+        "records": specification.runs,
+        "histories": specification.runs,
+        "configs": specification.runs,
+        "stdout_logs": specification.runs,
+        "stderr_logs": specification.runs,
+        "topologies": specification.topologies,
+        "optimizer_seed_pairs": specification.pairs,
+        "pretransform_draw_pairs": specification.pairs,
+        "coverage_initial_arrays": specification.pairs,
         "summary_content_opened": False,
     }
     return ValidatedStudy(
@@ -1119,8 +1463,10 @@ def validate_coverage_archive(
 def load_coverage_summary_after_reproduction(
     study: ValidatedStudy,
     reproduction_agreement: CoverageReplayAgreement,
+    *,
+    summary_release_path: Path | None = None,
 ) -> dict[str, object]:
-    """Open the archived summary only after two raw-data replays agree."""
+    """Open only the precommitted summary after two raw-data replays agree."""
     if study.integrity.get("summary_content_opened") is not False:
         raise StudyValidationError("coverage summary receipt is invalid")
     if not isinstance(reproduction_agreement, CoverageReplayAgreement):
@@ -1128,16 +1474,50 @@ def load_coverage_summary_after_reproduction(
             "coverage summary requires a comparator-issued replay agreement"
         )
     agreement = reproduction_agreement.as_dict()
+    configuration = _require_mapping(
+        study.plan.get("configuration"), "coverage plan configuration"
+    )
+    try:
+        specification = coverage_profile_spec(configuration.get("study_profile"))
+    except ValueError as error:
+        raise StudyValidationError("coverage study profile is invalid") from error
     if agreement != {
         "status": "matched",
-        "runs_compared": RUNS,
-        "topology_values_compared": TOPOLOGIES,
-        "optimizer_seed_pairs_compared": PAIRS,
-        "frozen_criteria_compared": 13,
+        "runs_compared": specification.runs,
+        "topology_values_compared": specification.topologies,
+        "optimizer_seed_pairs_compared": specification.pairs,
+        "frozen_criteria_compared": specification.criteria,
         "study_identity_sha256": coverage_study_identity_sha256(study),
     }:
         raise StudyValidationError(
             "coverage summary remains locked until two raw replays agree"
         )
+    if specification.profile != DETACHED_SUMMARY_PROFILE:
+        if summary_release_path is not None:
+            raise StudyValidationError("archived summary does not accept a release file")
+        with zipfile.ZipFile(study.sources.archive, "r") as archive:
+            return _load_json_member(archive, "summary.json")
+
+    if summary_release_path is None or not summary_release_path.is_file():
+        raise StudyValidationError("detached summary release is missing")
+    package_manifest = _require_mapping(
+        strict_json_loads(
+            study.sources.package_manifest.read_bytes(), "package manifest"
+        ),
+        "package manifest",
+    )
+    release = _require_mapping(
+        package_manifest.get("summary_release"), "detached summary release"
+    )
+    if (
+        summary_release_path.name != release.get("path")
+        or summary_release_path.stat().st_size != release.get("size_bytes")
+        or sha256_path(summary_release_path) != release.get("sha256")
+    ):
+        raise StudyValidationError("detached summary release does not match commitment")
     with zipfile.ZipFile(study.sources.archive, "r") as archive:
-        return _load_json_member(archive, "summary.json")
+        _validate_summary_commitment(archive, package_manifest, specification)
+    return _require_mapping(
+        strict_json_loads(summary_release_path.read_bytes(), "detached summary"),
+        "detached summary",
+    )

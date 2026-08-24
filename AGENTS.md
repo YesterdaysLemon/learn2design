@@ -8,9 +8,10 @@ This repository values reproducible evidence over speculative feature work.
 2. Read [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) for the next decision.
 3. Read the README and dated research record for the area you will change.
 
-The current gate is a frozen A100 comparison. Do not add another optimizer or
-ML model until that experiment resolves the existing `semantic_prior` versus
-`no_prior` question.
+The current gate is the frozen, unlaunched H100
+`coverage-triage-screen-v1`. Do not add another optimizer or ML model, launch
+the older 12-topology coverage profile, or spend on Stage B until Stage A is
+outcome-blindly validated and the owner separately approves the next spend.
 
 ## Working rules
 

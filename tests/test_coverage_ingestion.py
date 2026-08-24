@@ -5,6 +5,7 @@ import io
 import json
 import zipfile
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,11 @@ pytestmark = pytest.mark.integration
 
 import experiments.uifo_paired.coverage_results_ingestion as coverage_ingestion
 from experiments.uifo_paired.coverage_analysis import summarize_coverage_records
-from experiments.uifo_paired.coverage_evidence import compare_coverage_replays
+from experiments.uifo_paired.coverage_evidence import (
+    compare_coverage_archived_summary,
+    compare_coverage_replays,
+)
+from experiments.uifo_paired.coverage_profiles import coverage_profile_spec
 from experiments.uifo_paired.coverage_reference_analysis import (
     reference_coverage_screen,
 )
@@ -44,6 +49,7 @@ from experiments.uifo_paired.runner import (
     strict_json,
 )
 from tests.test_coverage_robustness import _plan
+from tests.test_coverage_triage import _triage_plan
 from tools.create_submission_like_source_lock import build_source_lock
 from tools.analyze_coverage_robustness import run_analysis
 
@@ -58,6 +64,8 @@ class _Bundle:
     sources: SourcePaths
     receipt: Path
     source_lock: Path
+    summary_release: Path | None = None
+    provider_billing_receipt: Path | None = None
 
 
 def _json_bytes(value: object) -> bytes:
@@ -160,9 +168,20 @@ def _history_payload(
     return payload, _rows_from_history_arrays(arrays)
 
 
-def _build_bundle(tmp_path: Path) -> _Bundle:
+def _build_bundle(
+    tmp_path: Path,
+    *,
+    plan_factory=_plan,
+    profile: str = PROFILE,
+    winning_topologies: int = 9,
+) -> _Bundle:
     tmp_path.mkdir(parents=True, exist_ok=True)
-    plan = _plan()
+    plan = plan_factory()
+    specification = coverage_profile_spec(profile)
+    session_started = datetime(2026, 8, 24, tzinfo=UTC)
+    synthetic_run_stride = timedelta(seconds=60)
+    session_elapsed = float((specification.runs + 1) * 60)
+    session_completed = session_started + timedelta(seconds=session_elapsed)
     assert plan["configuration"]["candidate_package_evidence"][
         "project_revision"
     ] == REVISION
@@ -173,7 +192,7 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
         _json_bytes(
             {
                 "format_version": 1,
-                "study_profile": PROFILE,
+                "study_profile": profile,
                 "plan_id": plan["plan_id"],
                 "project_revision": REVISION,
                 "claimed_utc": "2026-08-24T00:00:00+00:00",
@@ -225,18 +244,18 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
             {
                 "format_version": 1,
                 "study_complete": True,
-                "planned_runs": 48,
-                "completed_runs": 48,
+                "planned_runs": specification.runs,
+                "completed_runs": specification.runs,
                 "incomplete_runs": [],
             }
         ),
         "session.json": _json_bytes(
             {
                 "status": "complete",
-                "started_utc": "2026-08-24T00:00:00+00:00",
-                "completed_utc": "2026-08-24T20:00:00+00:00",
-                "elapsed_seconds": 72_000.0,
-                "max_session_wall_seconds": 79_200.0,
+                "started_utc": session_started.isoformat(),
+                "completed_utc": session_completed.isoformat(),
+                "elapsed_seconds": session_elapsed,
+                "max_session_wall_seconds": specification.session_wall_seconds,
             }
         ),
         "preflight.host-environment.json": _json_bytes(
@@ -260,7 +279,7 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
         for index, topology in enumerate(configuration["topologies"])
     }
     pair_indices: dict[str, int] = {}
-    for run in plan["runs"]:
+    for run_index, run in enumerate(plan["runs"]):
         config = _run_config(run, configuration)
         run_id = str(config["run_id"])
         pair_id = str(config["pair_id"])
@@ -268,7 +287,7 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
         raw = _raw_population(pair_index)
         initial = _initial_population(str(config["arm"]), raw)
         topology_index = topology_order[json.dumps(config["topology"], sort_keys=True)]
-        difference = -0.10 if topology_index < 9 else 0.02
+        difference = -0.10 if topology_index < winning_topologies else 0.02
         control_loss = 1.0 + topology_index / 100
         loss = control_loss if config["arm"] == "no_prior" else control_loss + difference
         history_payload, rows = _history_payload(loss, initial)
@@ -282,12 +301,14 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
         stdout = f"synthetic completion {run_id}\n".encode()
         stderr = b""
         topology = str(config["topology"]["value"])
+        run_started = session_started + run_index * synthetic_run_stride
+        run_completed = run_started + timedelta(seconds=50)
         record = {
             "format_version": 1,
             "run_id": run_id,
             "status": "complete",
-            "started_utc": "2026-08-24T00:00:00+00:00",
-            "completed_utc": "2026-08-24T00:20:30+00:00",
+            "started_utc": run_started.isoformat(),
+            "completed_utc": run_completed.isoformat(),
             "config": config,
             "environment": environment,
             "metrics": metrics,
@@ -319,7 +340,9 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
             "worker_process": {
                 "returncode": 0,
                 "timed_out": False,
-                "full_wall_seconds": 1_230.0,
+                "started_utc": run_started.isoformat(),
+                "completed_utc": run_completed.isoformat(),
+                "full_wall_seconds": 45.0,
                 "within_official_4h30_container_limit": True,
                 "stdout": {
                     "path": f"logs/{run_id}.stdout.log",
@@ -346,8 +369,22 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
         for record in records
     )
     summary = summarize_coverage_records(records, configs)
-    members["summary.json"] = _json_bytes(summary)
-    assert len(members) == 249
+    summary_bytes = _json_bytes(summary)
+    summary_release = None
+    if profile == "coverage-triage-screen-v1":
+        members["summary.commitment.json"] = _json_bytes(
+            {
+                "format_version": 1,
+                "study_profile": profile,
+                "summary_sha256": sha256_bytes(summary_bytes),
+                "size_bytes": len(summary_bytes),
+            }
+        )
+        summary_release = tmp_path / "coverage-screen.zip.summary.json"
+        summary_release.write_bytes(summary_bytes)
+    else:
+        members["summary.json"] = summary_bytes
+    assert len(members) == specification.archive_members
 
     archive = tmp_path / "coverage-screen.zip"
     archive.write_bytes(_zip_bytes(members))
@@ -363,8 +400,8 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
                 "study_plan_id": plan["plan_id"],
                 "study_project_revision": REVISION,
                 "study_complete": True,
-                "planned_runs": 48,
-                "completed_runs": 48,
+                "planned_runs": specification.runs,
+                "completed_runs": specification.runs,
                 "incomplete_runs": [],
                 "archive": {
                     "path": "/workspace/results/coverage-screen.zip",
@@ -372,24 +409,66 @@ def _build_bundle(tmp_path: Path) -> _Bundle:
                     "size_bytes": archive.stat().st_size,
                     "files": len(members),
                 },
+                **(
+                    {
+                        "summary_release": {
+                            "path": summary_release.name,
+                            "sha256": sha256_path(summary_release),
+                            "size_bytes": summary_release.stat().st_size,
+                            "archive_member": "summary.commitment.json",
+                        }
+                    }
+                    if summary_release is not None
+                    else {}
+                ),
             }
         )
     )
     sources = SourcePaths(archive, checksum, package_manifest, plan_path)
-    source_lock = tmp_path / "coverage-source-lock.json"
-    source_lock.write_bytes(
-        _json_bytes(
-            build_source_lock(
-                archive=archive,
-                checksum=checksum,
-                package_manifest=package_manifest,
-                plan=plan_path,
-                terminal_attempt_receipt=receipt,
-                study_profile=PROFILE,
+    provider_billing_receipt = None
+    if profile == "coverage-triage-screen-v1":
+        provider_billing_receipt = tmp_path / "runpod-billing-receipt.json"
+        provider_billing_receipt.write_bytes(
+            _json_bytes(
+                {
+                    "format_version": 1,
+                    "study_profile": profile,
+                    "plan_id": plan["plan_id"],
+                    "provider": "Runpod",
+                    "gpu_type_id": "NVIDIA H100 80GB HBM3",
+                    "cloud_type": "SECURE",
+                    "gpu_count": 1,
+                    "maximum_gpu_hourly_price": 3.29,
+                    "provider_hours": 6.5,
+                    "gpu_charge": 21.385,
+                    "total_provider_charge": 21.385,
+                    "resources_deleted": True,
+                    "captured_utc": "2026-08-24T07:00:00Z",
+                }
             )
         )
+    source_lock = tmp_path / "coverage-source-lock.json"
+    source_lock_payload = build_source_lock(
+        archive=archive,
+        checksum=checksum,
+        package_manifest=package_manifest,
+        plan=plan_path,
+        terminal_attempt_receipt=receipt,
+        study_profile=profile,
     )
-    return _Bundle(sources, receipt, source_lock)
+    if provider_billing_receipt is not None:
+        source_lock_payload["files"][provider_billing_receipt.name] = {
+            "sha256": sha256_path(provider_billing_receipt),
+            "size_bytes": provider_billing_receipt.stat().st_size,
+        }
+    source_lock.write_bytes(_json_bytes(source_lock_payload))
+    return _Bundle(
+        sources,
+        receipt,
+        source_lock,
+        summary_release,
+        provider_billing_receipt,
+    )
 
 
 def _authenticate(bundle: _Bundle) -> ExpectedSources:
@@ -398,6 +477,7 @@ def _authenticate(bundle: _Bundle) -> ExpectedSources:
         expected_source_lock_sha256=sha256_path(bundle.source_lock),
         sources=bundle.sources,
         terminal_attempt_receipt=bundle.receipt,
+        provider_billing_receipt=bundle.provider_billing_receipt,
     )
 
 
@@ -482,6 +562,136 @@ def _rewrite_history(
     )
     members[record_name] = _json_bytes(record)
     _rewrite_runs_jsonl(members)
+
+
+def test_complete_169_member_triage_archive_uses_detached_summary_commitment(
+    tmp_path: Path,
+) -> None:
+    bundle = _build_bundle(
+        tmp_path,
+        plan_factory=_triage_plan,
+        profile="coverage-triage-screen-v1",
+        winning_topologies=7,
+    )
+    assert bundle.summary_release is not None
+    with zipfile.ZipFile(bundle.sources.archive, "r") as archive:
+        assert len(archive.namelist()) == 169
+        assert "summary.json" not in archive.namelist()
+        assert "summary.commitment.json" in archive.namelist()
+
+    expected = _authenticate(bundle)
+    assert expected.study_profile == "coverage-triage-screen-v1"
+    study = validate_coverage_archive(
+        bundle.sources,
+        expected=expected,
+        terminal_attempt_receipt=bundle.receipt,
+    )
+    assert study.integrity["records"] == 32
+    assert study.integrity["topologies"] == 8
+    assert study.integrity["optimizer_seed_pairs"] == 16
+    production = summarize_coverage_records(study.records, study.configs)
+    reference = reference_coverage_screen(study)
+    replay = compare_coverage_replays(production, reference, study=study)
+    with pytest.raises(StudyValidationError, match="release is missing"):
+        load_coverage_summary_after_reproduction(study, replay)
+    archived = load_coverage_summary_after_reproduction(
+        study,
+        replay,
+        summary_release_path=bundle.summary_release,
+    )
+    assert compare_coverage_archived_summary(
+        production, reference, archived
+    )["status"] == "matched"
+
+
+def test_triage_source_lock_cannot_be_relabelled_as_v1(tmp_path: Path) -> None:
+    bundle = _build_bundle(
+        tmp_path,
+        plan_factory=_triage_plan,
+        profile="coverage-triage-screen-v1",
+        winning_topologies=7,
+    )
+    lock = json.loads(bundle.source_lock.read_text(encoding="utf-8"))
+    lock["study_profile"] = PROFILE
+    assert bundle.provider_billing_receipt is not None
+    lock["files"].pop(bundle.provider_billing_receipt.name)
+    bundle.source_lock.write_bytes(_json_bytes(lock))
+    expected = authenticate_coverage_source_lock(
+        bundle.source_lock,
+        expected_source_lock_sha256=sha256_path(bundle.source_lock),
+        sources=bundle.sources,
+        terminal_attempt_receipt=bundle.receipt,
+    )
+    with pytest.raises(
+        StudyValidationError, match="schema mismatch|study profile mismatch"
+    ):
+        validate_coverage_archive(
+            bundle.sources,
+            expected=expected,
+            terminal_attempt_receipt=bundle.receipt,
+        )
+
+
+def test_triage_billing_receipt_enforces_the_provider_cap(tmp_path: Path) -> None:
+    bundle = _build_bundle(
+        tmp_path,
+        plan_factory=_triage_plan,
+        profile="coverage-triage-screen-v1",
+        winning_topologies=7,
+    )
+    assert bundle.provider_billing_receipt is not None
+    billing = json.loads(
+        bundle.provider_billing_receipt.read_text(encoding="utf-8")
+    )
+    billing["total_provider_charge"] = 30.01
+    bundle.provider_billing_receipt.write_bytes(_json_bytes(billing))
+    lock = json.loads(bundle.source_lock.read_text(encoding="utf-8"))
+    lock["files"][bundle.provider_billing_receipt.name] = {
+        "sha256": sha256_path(bundle.provider_billing_receipt),
+        "size_bytes": bundle.provider_billing_receipt.stat().st_size,
+    }
+    bundle.source_lock.write_bytes(_json_bytes(lock))
+    with pytest.raises(StudyValidationError, match="billing receipt is invalid"):
+        authenticate_coverage_source_lock(
+            bundle.source_lock,
+            expected_source_lock_sha256=sha256_path(bundle.source_lock),
+            sources=bundle.sources,
+            terminal_attempt_receipt=bundle.receipt,
+            provider_billing_receipt=bundle.provider_billing_receipt,
+        )
+
+
+def test_triage_analysis_cli_path_replays_then_releases_summary(
+    tmp_path: Path,
+) -> None:
+    bundle = _build_bundle(
+        tmp_path / "bundle",
+        plan_factory=_triage_plan,
+        profile="coverage-triage-screen-v1",
+        winning_topologies=7,
+    )
+    assert bundle.summary_release is not None
+    assert bundle.provider_billing_receipt is not None
+    output = tmp_path / "analysis"
+    receipt = run_analysis(
+        archive=bundle.sources.archive,
+        checksum=bundle.sources.checksum,
+        package_manifest=bundle.sources.package_manifest,
+        plan=bundle.sources.plan,
+        terminal_attempt_receipt=bundle.receipt,
+        source_lock=bundle.source_lock,
+        expected_source_lock_sha256=sha256_path(bundle.source_lock),
+        output=output,
+        summary_release=bundle.summary_release,
+        provider_billing_receipt=bundle.provider_billing_receipt,
+    )
+    assert receipt["status"] == "validated"
+    assert receipt["study_profile"] == "coverage-triage-screen-v1"
+    assert receipt["replay_agreement"]["runs_compared"] == 32
+    assert receipt["predeclared_decision"]["action"] == (
+        "review_precommitted_stage_b_design_and_seek_owner_approval"
+    )
+    assert (output / "validation_receipt.json").is_file()
 
 
 def test_complete_249_member_coverage_archive_replays_with_summary_sealed(

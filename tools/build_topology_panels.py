@@ -16,13 +16,16 @@ OFFICIAL_DATASET_SHA256 = (
 UPSTREAM_REFERENCE = "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
 PANEL_UPSTREAM_REFERENCES = {
     "coverage-robustness-v1": "1bb7f54737dec6a08b59879a8831d125f08f8a0b",
+    "coverage-triage-v1": "1bb7f54737dec6a08b59879a8831d125f08f8a0b",
 }
 DEFAULT_COUNTS = {
     "development-v1": 16,
     "confirmation-v1": 12,
     "submission-like-v1": 10,
     "coverage-robustness-v1": 12,
+    "coverage-triage-v1": 8,
 }
+POSTHOC_PANEL_IDS = ("restart-mechanics-v1", "restart-screen-v1")
 
 
 def sha256(path: Path) -> str:
@@ -220,6 +223,56 @@ def panel_distribution(members: list[dict[str, object]]) -> dict[str, object]:
     }
 
 
+def posthoc_panel_records(
+    output_dir: Path,
+    archive_topologies: set[str],
+    generated_panels: list[tuple[str, set[str]]],
+) -> list[dict[str, object]]:
+    """Record later panels without treating them as generated candidates.
+
+    Restart panels were selected under separate, explicitly post-hoc rules.  They
+    belong in the audit for provenance and exclusion checks, but must remain
+    outside the generated-panel selection order.
+    """
+    records: list[dict[str, object]] = []
+    previous = list(generated_panels)
+    for panel_id in POSTHOC_PANEL_IDS:
+        path = output_dir / f"{panel_id}.json"
+        if not path.is_file():
+            continue
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        topologies = payload.get("topologies")
+        if (
+            not isinstance(topologies, list)
+            or not topologies
+            or not all(isinstance(topology, str) for topology in topologies)
+            or len(set(topologies)) != len(topologies)
+        ):
+            raise ValueError(f"invalid post-hoc panel: {panel_id}")
+        identities = {str(topology) for topology in topologies}
+        features = [topology_features(topology) for topology in topologies]
+        generation = payload.get("generation")
+        if not isinstance(generation, dict):
+            raise ValueError(f"post-hoc panel lacks generation metadata: {panel_id}")
+        records.append(
+            {
+                "panel_id": panel_id,
+                "source_name": path.name,
+                "source_sha256": sha256(path),
+                "topology_count": len(identities),
+                "archive_overlap_count": len(identities & archive_topologies),
+                "previous_panel_overlap_counts": {
+                    earlier_id: len(identities & earlier_identities)
+                    for earlier_id, earlier_identities in previous
+                },
+                "distribution": panel_distribution(features),
+                "provenance": generation,
+            }
+        )
+        previous.append((panel_id, identities))
+    return records
+
+
 def build_panels(
     dataset_path: Path,
     output_dir: Path,
@@ -275,6 +328,9 @@ def build_panels(
         },
         "official_dataset": archive_metadata,
         "panels": panel_records,
+        "posthoc_panels": posthoc_panel_records(
+            output_dir, archive_topologies, previous
+        ),
     }
     _atomic_bytes(output_dir / "audit.json", _json_bytes(audit))
     return audit

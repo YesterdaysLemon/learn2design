@@ -6,6 +6,10 @@ import random
 from collections import defaultdict
 from statistics import mean, median
 
+from experiments.uifo_paired.coverage_profiles import (
+    coverage_profile_names,
+    coverage_profile_spec,
+)
 
 CONTROL_ARM = "no_prior"
 TREATMENT_ARM = "coverage_balanced"
@@ -24,8 +28,11 @@ def summarize_coverage_records(
     profiles = {
         str(config.get("study_profile")) for config in expected_configs.values()
     }
-    if profiles != {"coverage-robustness-screen-v1"}:
+    if len(profiles) != 1 or not profiles <= coverage_profile_names():
         raise ValueError("coverage configurations disagree on the frozen profile")
+    profile = next(iter(profiles))
+    specification = coverage_profile_spec(profile)
+    expected_seed_labels = {str(seed) for seed in specification.seeds}
     policy = _decision_policy(expected_configs)
     complete = [record for record in records if record.get("status") == "complete"]
     errors = [record for record in records if record.get("status") == "error"]
@@ -277,7 +284,7 @@ def summarize_coverage_records(
             macro_mean is not None and macro_mean < 0
         ),
         "both_seed_mean_differences_below_zero": bool(
-            set(seed_means) == {"37", "41"}
+            set(seed_means) == expected_seed_labels
             and all(value is not None and value < 0 for value in seed_means.values())
         ),
         "both_arm_order_mean_differences_below_zero": bool(
@@ -299,6 +306,12 @@ def summarize_coverage_records(
             >= float(policy["minimum_topology_evaluation_ratio"])
         ),
     }
+    if "maximum_harmful_topology_difference" in policy:
+        criteria["maximum_harmful_topology_difference_at_most_0_5"] = bool(
+            inference_ready
+            and max(macro_values)
+            <= float(policy["maximum_harmful_topology_difference"])
+        )
 
     status = "pending"
     passed = False
@@ -320,7 +333,7 @@ def summarize_coverage_records(
     )
     return {
         "format_version": 1,
-        "study_profile": "coverage-robustness-screen-v1",
+        "study_profile": profile,
         "completed_runs": len(complete),
         "error_runs": len(errors),
         "interrupted_runs": len(interrupted),

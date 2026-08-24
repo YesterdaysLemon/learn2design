@@ -8,12 +8,14 @@ import math
 import re
 from datetime import UTC, datetime
 
+from experiments.uifo_paired.coverage_profiles import coverage_profile_names
 from experiments.uifo_paired.optimizer_settings import settings_with_patience
 from experiments.uifo_paired.optimizer_telemetry import OPTIMIZER_TELEMETRY_MODE
 from experiments.uifo_paired.study_profiles import bind_study_profile
 
 RESTART_SCREEN_ARMS = ("no_prior_p600", "no_prior_p200")
 COVERAGE_SCREEN_ARMS = ("no_prior", "coverage_balanced")
+COVERAGE_STUDY_PROFILES = coverage_profile_names()
 VALID_ARMS = (
     "adam",
     "no_prior",
@@ -133,11 +135,11 @@ def build_plan(
         raise ValueError("optimizer telemetry is only supported for batched arms")
     if (
         "coverage_balanced" in arms
-        and study_profile != "coverage-robustness-screen-v1"
+        and study_profile not in COVERAGE_STUDY_PROFILES
     ):
         raise ValueError(
             "coverage_balanced is only valid for "
-            "coverage-robustness-screen-v1"
+            f"one of {sorted(COVERAGE_STUDY_PROFILES)!r}"
         )
     if pair_order_policy not in ("rotate_pairs", "alternate_topology_and_seed"):
         raise ValueError("unknown pair_order_policy")
@@ -156,7 +158,7 @@ def build_plan(
     if (
         candidate_package_evidence is not None
         and study_profile
-        not in {"submission-like-screen-v1", "coverage-robustness-screen-v1"}
+        not in {"submission-like-screen-v1", *COVERAGE_STUDY_PROFILES}
     ):
         raise ValueError(
             "candidate_package_evidence is only valid for package-bound profiles"
@@ -380,6 +382,19 @@ def build_plan(
             "maximum_provider_hours": 22.0,
             "planned_runs": 48,
             "scored_objective_seconds": 57_600,
+        }
+    elif study_profile == "coverage-triage-screen-v1":
+        configuration["execution_mode"] = "serial"
+        configuration["resource_budget"] = {
+            "cloud_type": "SECURE",
+            "currency": "USD",
+            "gpu_count": 1,
+            "gpu_type_id": "NVIDIA H100 80GB HBM3",
+            "maximum_gpu_hourly_price": 3.29,
+            "maximum_provider_charge": 30.00,
+            "maximum_provider_hours": 8.0,
+            "planned_runs": 32,
+            "scored_objective_seconds": 19_200,
         }
     configuration["decision_policy"] = bind_study_profile(study_profile, configuration)
     primary_order = primary_pair_order_counts(runs)

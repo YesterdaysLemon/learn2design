@@ -57,19 +57,27 @@ are the evidence record, not a competing task list.
   provider pods, endpoints, templates, and volumes were removed.
 - The next local candidate adds an opt-in midpoint Latin-hypercube transform of
   the seven random non-anchor starts. The packaged default remains the submitted
-  random initializer unless and until evidence promotes the treatment.
-- A new 12-topology `coverage-robustness-v1` panel is disjoint from the official
-  archive and every prior named panel. The frozen paired screen uses seeds
-  37/41, 48 serial 1,200-second runs, exact H100/CUDA-13 provenance, a 22-hour
-  provider ceiling, and a `$75` maximum charge.
-- The coverage path now has source-lock authentication, exact 249-member archive
-  validation, exact used-suffix raw-draw-to-treatment rank binding,
-  objective/worker/session chronology checks, independent history-first replay
-  with no project imports,
-  and an opaque summary unlock that only the replay comparator can issue.
-  Synthetic full-archive, forged-chronology, unrelated-LHS, terminal-partial,
-  and end-to-end CLI tests pass. Whole-repository verification also passes;
-  launch-time clean packaging and real-H100 mechanics evidence remain open.
+  random initializer; Stage A cannot promote or change it.
+- `coverage-triage-v1` contains 8 newly generated topologies with zero exact
+  overlap against the official archive and every earlier generated panel. Its
+  SHA-256 is
+  `f400cdc3a947cd076ce9bd9f48a2dafcb98dfd3f9f938a74ceb11ca88c360972`.
+  All four older generated panels remained byte-identical. The untouched
+  12-topology `coverage-robustness-v1` panel is reserved for Stage B.
+- The frozen Stage-A profile uses seeds 37/41, 32 serial 600-second runs, exact
+  H100/CUDA-13 provenance, a 7-hour main session and 8-hour provider stop,
+  `$26.32` maximum GPU charge, and `$30` maximum total provider charge. It needs
+  at least 7/8 topology wins and every other frozen guard merely to produce a
+  Stage-B design-review request. The proposed Stage-B profile is not registered
+  or executable and still needs an independent freeze and owner approval.
+- The coverage path authenticates a six-file source lock including a
+  post-cleanup billing receipt, validates the exact 169-member archive and
+  raw-draw-to-treatment rank binding, and enforces Objective/worker/session
+  chronology. The Stage-A archive contains a summary commitment, not plaintext
+  outcomes; production and no-import history-first replays must agree before
+  the exact detached summary is released. The one-attempt ledger is derived
+  beside the frozen external plan rather than beneath the selectable result
+  root.
 - The public `dfbench==0.3.3` warmup helpers dispatch before logging but return
   no arrays. Because JAX is asynchronous, this is documented as common
   best-effort compilation warmup, not a proven pre-clock completion barrier.
@@ -84,20 +92,34 @@ interpret the submission-like operational pass as a competitiveness claim.
 Retain the packaged patience-600/no-prior candidate; its final package/evidence
 review is complete.
 
-Before paid GPU work, create and verify an encrypted second copy of the external
-evidence bundle, commit the exact candidate, rebuild its separate package from
-that clean revision, rerun the whole suite, and freeze the external plan. Then
-ask the owner for explicit approval of a maximum `$75` total secure-cloud
-charge. Do not provision from the general budget offer alone.
+Before paid GPU work, finish whole-repository verification, create and verify an
+encrypted second copy of the external evidence bundle, commit the exact Stage-A
+candidate, rebuild its separately named package from that clean revision, and
+freeze the external plan. Refresh exact secure H100 stock and price. Then ask
+the owner for explicit approval of a maximum `$30` total secure-cloud charge.
+The owner's approval to refreeze locally and general offer of GPU budget do not
+authorize provisioning.
 
-If approved, provision one exact H100 and run the cold mechanics smoke first.
+If separately approved, configure provider-native auto-stop/delete, provision
+one exact H100, and run the cold mechanics smoke first.
 The smoke must prove exact provider/JAX device identity, the CUDA-13 wheel stack,
 cache policy, memory fit, and one admitted history; it is not optimizer evidence.
 Any smoke failure stops the paid attempt. Only a passing smoke permits the
-unchanged `coverage-robustness-screen-v1` plan to continue. A terminal partial
+unchanged `coverage-triage-screen-v1` plan to continue. A terminal partial
 or worker failure is preserved as `not_evaluable` and is not rerun. See
-[`H100_COVERAGE_RUNBOOK.md`](H100_COVERAGE_RUNBOOK.md). The treatment is not
-promoted unless every frozen topology-level criterion passes.
+[`H100_COVERAGE_TRIAGE_RUNBOOK.md`](H100_COVERAGE_TRIAGE_RUNBOOK.md). A pass
+only produces a review request for the precommitted Stage-B design; it neither
+enables Stage B nor promotes the treatment.
+
+## Public deadlines
+
+The currently published [official competition timeline](https://github.com/artificial-scientist-lab/Learn2Design-2026/blob/main/README.md#timeline)
+lists optional public-leaderboard deadlines on 2026-08-26, 2026-09-12, and
+2026-09-29 Anywhere on Earth, followed by the prize-determining final deadline
+on 2026-10-15 AoE. Recheck it before any schedule-critical launch; the
+owner-reported 2026-08-24 upload means a baseline is already on file before the
+first public deadline, while Stage A is research upside rather than a
+prerequisite for eligibility.
 
 ## What can contribute now
 

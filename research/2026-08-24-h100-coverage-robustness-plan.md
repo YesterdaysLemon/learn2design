@@ -1,5 +1,10 @@
 # H100 coverage-robustness screen — frozen pre-result design
 
+> Superseded as the first paid gate by the lower-cost
+> [`2026-08-24-h100-coverage-triage-plan.md`](2026-08-24-h100-coverage-triage-plan.md).
+> This original design remains frozen for provenance; its panel is reserved by
+> the Stage-A policy for a separately approved independent Stage B.
+
 ## Status and evidence boundary
 
 This document defines a pre-result development screen. It contains no UIFO

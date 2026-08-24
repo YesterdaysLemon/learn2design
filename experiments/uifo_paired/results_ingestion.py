@@ -76,6 +76,8 @@ class ExpectedSources:
     plan_sha256: str
     plan_id: str
     project_revision: str
+    study_profile: str | None = None
+    provider_billing_receipt_sha256: str | None = None
 
 
 DEVELOPMENT_V2_SOURCES = ExpectedSources(

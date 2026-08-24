@@ -1,9 +1,10 @@
 {
   "format_version": 1,
   "generator": {
-    "candidate_attempts": 1000,
+    "candidate_attempts": 1160,
     "panel_upstream_reference_overrides": {
-      "coverage-robustness-v1": "1bb7f54737dec6a08b59879a8831d125f08f8a0b"
+      "coverage-robustness-v1": "1bb7f54737dec6a08b59879a8831d125f08f8a0b",
+      "coverage-triage-v1": "1bb7f54737dec6a08b59879a8831d125f08f8a0b"
     },
     "path": "tools/build_topology_panels.py",
     "seed_start": 2026081900,
@@ -122,6 +123,105 @@
       "source_name": "coverage-robustness-v1.json",
       "source_sha256": "e3385a6f4939445e869d71dbf7f1bd5119aa25eebbb89e083b1ec9be336f7309",
       "topology_count": 12
+    },
+    {
+      "archive_overlap_count": 0,
+      "distribution": {
+        "directional_bin": {
+          "high": 2,
+          "low": 2,
+          "middle": 4
+        },
+        "readout": {
+          "D": 4,
+          "H": 4
+        },
+        "squeezer_bin": {
+          "high": 2,
+          "low": 4,
+          "middle": 2
+        }
+      },
+      "panel_id": "coverage-triage-v1",
+      "previous_panel_overlap_counts": {
+        "confirmation-v1": 0,
+        "coverage-robustness-v1": 0,
+        "development-v1": 0,
+        "submission-like-v1": 0
+      },
+      "source_name": "coverage-triage-v1.json",
+      "source_sha256": "f400cdc3a947cd076ce9bd9f48a2dafcb98dfd3f9f938a74ceb11ca88c360972",
+      "topology_count": 8
+    }
+  ],
+  "posthoc_panels": [
+    {
+      "archive_overlap_count": 0,
+      "distribution": {
+        "directional_bin": {
+          "middle": 1
+        },
+        "readout": {
+          "H": 1
+        },
+        "squeezer_bin": {
+          "middle": 1
+        }
+      },
+      "panel_id": "restart-mechanics-v1",
+      "previous_panel_overlap_counts": {
+        "confirmation-v1": 0,
+        "coverage-robustness-v1": 0,
+        "coverage-triage-v1": 0,
+        "development-v1": 1,
+        "submission-like-v1": 0
+      },
+      "provenance": {
+        "method": "outcome-selected mechanics-only case from the authenticated development-v2 trajectories",
+        "performance_inference_allowed": false,
+        "selection_reason": "earliest retrospectively predicted patience-200 trigger",
+        "source_panel": "development-v1"
+      },
+      "source_name": "restart-mechanics-v1.json",
+      "source_sha256": "2bc42026f52c09d85625ecce8d3ce0729c1efa06d0716511ed18d9d59c9f91c6",
+      "topology_count": 1
+    },
+    {
+      "archive_overlap_count": 0,
+      "distribution": {
+        "directional_bin": {
+          "high": 5,
+          "low": 3
+        },
+        "readout": {
+          "D": 5,
+          "H": 3
+        },
+        "squeezer_bin": {
+          "high": 4,
+          "low": 3,
+          "middle": 1
+        }
+      },
+      "panel_id": "restart-screen-v1",
+      "previous_panel_overlap_counts": {
+        "confirmation-v1": 0,
+        "coverage-robustness-v1": 0,
+        "coverage-triage-v1": 0,
+        "development-v1": 8,
+        "restart-mechanics-v1": 0,
+        "submission-like-v1": 0
+      },
+      "provenance": {
+        "excluded_mechanics_topology": "FEECAACFB-LSLSLSLSHSLS",
+        "hash_input": "UTF8(selection_domain + NUL + topology)",
+        "method": "ascending SHA-256 rank of the development-v1 panel after excluding the mechanics-only topology",
+        "selection_domain": "L2D-PATIENCE-200-SCREEN-V1-2026-08-21",
+        "source_panel": "development-v1"
+      },
+      "source_name": "restart-screen-v1.json",
+      "source_sha256": "dd1404e7b260c93a141b303c1a7f88f9ef02ceba03f109523708b2a8ed54b5d3",
+      "topology_count": 8
     }
   ]
 }

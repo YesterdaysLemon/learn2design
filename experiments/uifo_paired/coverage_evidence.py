@@ -8,13 +8,16 @@ import math
 from types import MappingProxyType
 from typing import Protocol
 
+from experiments.uifo_paired.coverage_profiles import (
+    CoverageProfileSpec,
+    coverage_profile_spec,
+)
 from experiments.uifo_paired.results_ingestion import StudyValidationError
 
 
 RUNS = 48
 TOPOLOGIES = 12
 CRITERIA = 13
-_REPLAY_AGREEMENT_SEAL = object()
 
 
 class CoverageReplayStudy(Protocol):
@@ -49,31 +52,6 @@ def coverage_study_identity_sha256(study: CoverageReplayStudy) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-class CoverageReplayAgreement:
-    """Opaque proof that the production and independent replays agreed.
-
-    A plain caller-authored dictionary is deliberately not accepted by the
-    summary-unlock API.  Only ``compare_coverage_replays`` can mint an
-    agreement through the private module seal.
-    """
-
-    __slots__ = ("_payload",)
-
-    def __init__(
-        self,
-        payload: dict[str, object],
-        *,
-        _seal: object,
-    ) -> None:
-        if _seal is not _REPLAY_AGREEMENT_SEAL:
-            raise TypeError("coverage replay agreements are comparator-issued")
-        self._payload = MappingProxyType(dict(payload))
-
-    def as_dict(self) -> dict[str, object]:
-        """Return a serializable copy for a validation receipt."""
-        return dict(self._payload)
-
-
 def _compare(left: object, right: object, path: str) -> None:
     if isinstance(left, bool) or isinstance(right, bool):
         if left is not right:
@@ -105,49 +83,87 @@ def _compare(left: object, right: object, path: str) -> None:
         raise StudyValidationError(f"coverage replay mismatch at {path}")
 
 
-def _validate_shape(value: dict[str, object], label: str) -> None:
-    if value.get("completed_runs") != RUNS:
-        raise StudyValidationError(f"{label} does not contain 48 completed runs")
+def _validate_shape(
+    value: dict[str, object], label: str
+) -> CoverageProfileSpec:
+    try:
+        specification = coverage_profile_spec(value.get("study_profile"))
+    except ValueError as error:
+        raise StudyValidationError(f"{label} profile is invalid") from error
+    if value.get("completed_runs") != specification.runs:
+        raise StudyValidationError(
+            f"{label} does not contain {specification.runs} completed runs"
+        )
     topologies = value.get("topology_differences")
     pairs = value.get("optimizer_seed_pair_rows")
     decision = value.get("predeclared_decision")
-    if not isinstance(topologies, list) or len(topologies) != TOPOLOGIES:
+    if not isinstance(topologies, list) or len(topologies) != specification.topologies:
         raise StudyValidationError(f"{label} topology table is incomplete")
-    if not isinstance(pairs, list) or len(pairs) != RUNS // 2:
+    if not isinstance(pairs, list) or len(pairs) != specification.pairs:
         raise StudyValidationError(f"{label} pair table is incomplete")
     if not isinstance(decision, dict) or not isinstance(
         decision.get("criteria"), dict
     ):
         raise StudyValidationError(f"{label} decision receipt is missing")
-    if len(decision["criteria"]) != CRITERIA:
+    if len(decision["criteria"]) != specification.criteria:
         raise StudyValidationError(f"{label} decision criteria count drifted")
+    return specification
 
 
-def compare_coverage_replays(
-    production: dict[str, object],
-    reference: dict[str, object],
-    *,
-    study: CoverageReplayStudy,
-) -> CoverageReplayAgreement:
-    """Require exact-schema production/reference agreement."""
-    _validate_shape(production, "production coverage replay")
-    _validate_shape(reference, "reference coverage replay")
-    _compare(production, reference, "coverage")
-    if production.get("run_ids") != sorted(study.configs):
-        raise StudyValidationError(
-            "coverage replay run IDs do not match the authenticated study"
+def _build_replay_comparator():
+    """Keep the issuance token outside the module namespace.
+
+    This is an accidental-misuse barrier, not a cryptographic trust boundary.
+    The detached Stage-A summary commitment supplies the durable pre-result
+    binding.
+    """
+    seal = object()
+
+    class _CoverageReplayAgreement:
+        __slots__ = ("_payload",)
+
+        def __init__(self, payload: dict[str, object], *, _seal: object) -> None:
+            if _seal is not seal:
+                raise TypeError("coverage replay agreements are comparator-issued")
+            self._payload = MappingProxyType(dict(payload))
+
+        def as_dict(self) -> dict[str, object]:
+            return dict(self._payload)
+
+    def _compare_replays(
+        production: dict[str, object],
+        reference: dict[str, object],
+        *,
+        study: CoverageReplayStudy,
+    ) -> _CoverageReplayAgreement:
+        production_spec = _validate_shape(
+            production, "production coverage replay"
         )
-    return CoverageReplayAgreement(
-        {
-            "status": "matched",
-            "runs_compared": RUNS,
-            "topology_values_compared": TOPOLOGIES,
-            "optimizer_seed_pairs_compared": RUNS // 2,
-            "frozen_criteria_compared": CRITERIA,
-            "study_identity_sha256": coverage_study_identity_sha256(study),
-        },
-        _seal=_REPLAY_AGREEMENT_SEAL,
-    )
+        reference_spec = _validate_shape(reference, "reference coverage replay")
+        if production_spec != reference_spec:
+            raise StudyValidationError("coverage replay profile mismatch")
+        _compare(production, reference, "coverage")
+        if production.get("run_ids") != sorted(study.configs):
+            raise StudyValidationError(
+                "coverage replay run IDs do not match the authenticated study"
+            )
+        return _CoverageReplayAgreement(
+            {
+                "status": "matched",
+                "runs_compared": production_spec.runs,
+                "topology_values_compared": production_spec.topologies,
+                "optimizer_seed_pairs_compared": production_spec.pairs,
+                "frozen_criteria_compared": production_spec.criteria,
+                "study_identity_sha256": coverage_study_identity_sha256(study),
+            },
+            _seal=seal,
+        )
+
+    return _CoverageReplayAgreement, _compare_replays
+
+
+CoverageReplayAgreement, compare_coverage_replays = _build_replay_comparator()
+del _build_replay_comparator
 
 
 def compare_coverage_archived_summary(
@@ -156,14 +172,18 @@ def compare_coverage_archived_summary(
     archived: dict[str, object],
 ) -> dict[str, object]:
     """Require archived summary agreement after the two raw replays match."""
-    _validate_shape(archived, "archived coverage summary")
+    production_spec = _validate_shape(production, "production coverage replay")
+    reference_spec = _validate_shape(reference, "reference coverage replay")
+    archived_spec = _validate_shape(archived, "archived coverage summary")
+    if not production_spec == reference_spec == archived_spec:
+        raise StudyValidationError("coverage archived-summary profile mismatch")
     _compare(production, archived, "coverage.archived_vs_production")
     _compare(reference, archived, "coverage.archived_vs_reference")
     return {
         "status": "matched",
-        "runs_compared": RUNS,
-        "topology_values_compared": TOPOLOGIES,
-        "optimizer_seed_pairs_compared": RUNS // 2,
-        "frozen_criteria_compared": CRITERIA,
+        "runs_compared": production_spec.runs,
+        "topology_values_compared": production_spec.topologies,
+        "optimizer_seed_pairs_compared": production_spec.pairs,
+        "frozen_criteria_compared": production_spec.criteria,
         "archived_summary_compared": True,
     }
