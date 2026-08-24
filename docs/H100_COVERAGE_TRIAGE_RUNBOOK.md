@@ -46,7 +46,7 @@ bundle before any new paid work. Then, from a clean committed revision:
 ```powershell
 uv sync --frozen --group dev --group integration
 uv run --frozen --group dev --group integration pytest -q
-python tools/build_submission.py `
+uv run --no-sync python tools/build_submission.py `
   --output artifacts/generated/coverage-triage-candidate.zip `
   --manifest artifacts/generated/coverage-triage-candidate.manifest.json
 ```
@@ -55,11 +55,16 @@ Do not overwrite `submission.zip`, `coverage-candidate.zip`, or their manifests.
 The new manifest must report the exact clean launch revision. Record its ZIP and
 manifest SHA-256 values.
 
+Every later `uv run --no-sync` is deliberate: it uses the environment already
+created by the preceding frozen sync and cannot silently change the locked
+dependency set.
+
 ## 2. Freeze the external plan
 
-On the Linux execution host, keep the dataset, candidate, plan, output, receipt
-ledger, and eventual result bundle on durable storage outside Git. Set the
-provider stop no more than eight hours away:
+From the clean prepared checkout after the locked integration environment has
+been synced, keep the dataset, candidate, plan, output, receipt ledger, and
+eventual result bundle on durable storage outside Git. Set the provider stop no
+more than eight hours away:
 
 ```bash
 export L2D_DATASET=/workspace/private/dataset.h5
@@ -67,7 +72,7 @@ export L2D_RESULTS=/workspace/private/coverage-triage
 export L2D_PROVIDER_STOP_UTC=YYYY-MM-DDTHH:MM:SSZ
 mkdir -p "$L2D_RESULTS"
 
-python tools/run_uifo_paired.py \
+uv run --no-sync python tools/run_uifo_paired.py \
   --topologies-file experiments/uifo_paired/panels/coverage-triage-v1.json \
   --official-dataset "$L2D_DATASET" \
   --exclude-prior-panel experiments/uifo_paired/panels/development-v1.json \
@@ -143,7 +148,7 @@ export CUDA_VISIBLE_DEVICES=0
 uv sync --frozen --python 3.12 \
   --group dev --group integration --group accelerator-h100
 
-python tools/run_uifo_paired.py \
+uv run --no-sync python tools/run_uifo_paired.py \
   --topology-seeds 2026082999 \
   --optimizer-seeds 7 \
   --arms no_prior \
@@ -177,7 +182,7 @@ root. Keep that directory on durable storage. Never add `--resume`.
 When the writer ends, package once outside the study directory:
 
 ```bash
-python tools/package_uifo_study.py \
+uv run --no-sync python tools/package_uifo_study.py \
   "$L2D_RESULTS/study/<plan-id>" \
   --output "$L2D_RESULTS/coverage-triage-screen-v1.zip"
 ```
@@ -216,7 +221,7 @@ $totalProviderCharge = [double](Read-Host "Observed total Runpod charge in USD")
 Create the bounded post-cleanup receipt from the observed provider values:
 
 ```powershell
-python tools/create_coverage_triage_billing_receipt.py `
+uv run --no-sync python tools/create_coverage_triage_billing_receipt.py `
   --plan $plan `
   --provider-hours $providerHours `
   --gpu-charge $gpuCharge `
@@ -234,7 +239,7 @@ signature.
 Create the six-file source lock outside Git:
 
 ```powershell
-python tools/create_coverage_triage_source_lock.py `
+uv run --no-sync python tools/create_coverage_triage_source_lock.py `
   --archive $archive `
   --checksum $checksum `
   --package-manifest $packageManifest `
@@ -254,7 +259,7 @@ replays the raw histories before calling the release gate. The detached file is
 plaintext, not encrypted; a trusted operator must refrain from opening it.
 
 ```powershell
-python tools/analyze_coverage_triage.py `
+uv run --no-sync python tools/analyze_coverage_triage.py `
   --archive $archive `
   --checksum $checksum `
   --package-manifest $packageManifest `
