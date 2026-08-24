@@ -93,6 +93,10 @@ def build_archive(source_dir: Path, output_path: Path) -> dict[str, object]:
         for path in files:
             relative = path.relative_to(source_dir).as_posix()
             info = zipfile.ZipInfo(relative, FIXED_ZIP_TIME)
+            # Pin the creator platform so Windows and POSIX builders emit the
+            # same central-directory bytes.  Zero preserves the exact archive
+            # format used by the evaluated candidate.
+            info.create_system = 0
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
             archive.writestr(info, archive_bytes(path))

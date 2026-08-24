@@ -35,23 +35,36 @@ are the evidence record, not a competing task list.
   the archived summary agree at `1e-12` absolute and relative tolerance. The
   frozen operational action is
   `candidate_evidence_complete_for_submission_review`.
+- The private history-only trajectory diagnostic is complete. At the last
+  common 6,312-evaluation checkpoint, seed-31/second-sweep minus
+  seed-29/first-sweep mean loss was `+0.35777353288148966`; the corresponding
+  matched-wall-time contrast was `+0.2955358367854244`. The direction agreed
+  on five of six comparable progress fractions. This weakens a
+  throughput-only explanation but cannot separate seed from sweep/session
+  order.
+- The deterministic builder now pins the ZIP creator platform. Windows and
+  Linux builds reproduce evaluated candidate SHA-256
+  `4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b`.
 - Private source and generated artifacts remain outside Git. This host holds
-  the authenticated durable evidence bundle.
+  the only verified durable evidence bundle. The old provider volumes were
+  inventoried, unique pilot evidence was evacuated and hash-verified, and all
+  provider pods, endpoints, templates, and volumes were removed.
 
 ## Next decision
 
 Do not run `confirmation-v1`, tune patience further on an observed panel, or
 interpret the submission-like operational pass as a competitiveness claim.
-Retain the packaged patience-600/no-prior candidate and complete final
-package/evidence review.
+Retain the packaged patience-600/no-prior candidate; its final package/evidence
+review is complete.
 
-The next research gate is local and unpaid: use only the authenticated private
-histories to diagnose the observed seed/sweep-phase divergence, comparing
-progress at matched evaluation counts separately from progress at matched wall
-times. Seed 29 was always the first sweep and seed 31 the second, so the current
-screen cannot identify a causal seed or session-order effect. If the diagnostic
-motivates an algorithm change, freeze that change before results and evaluate it
-on a new disjoint panel. No new paid study is authorized yet.
+Before more GPU work, create an encrypted second copy of the external evidence
+bundle; this host is currently the only verified durable copy. Then prepare one
+pre-result search-robustness gate on a new disjoint panel. The leading narrow
+change is antithetic or otherwise coverage-balanced random starts, intended to
+reduce sensitivity to the initial population without adding an optimizer or
+model. Freeze the exact code revision, panel, paired randomness, budget, stop
+conditions, and decision rule before launch. The history-only result motivates
+that test but does not promote the change or identify a causal seed effect.
 
 ## What can contribute now
 
@@ -60,9 +73,9 @@ in [`DEVELOPMENT_V2_RESULTS_HANDOFF.md`](DEVELOPMENT_V2_RESULTS_HANDOFF.md). The
 durable aggregate result and exploratory evidence boundaries are in
 [`2026-08-21-development-v2-a100-results.md`](../research/2026-08-21-development-v2-a100-results.md).
 
-Useful unpaid work now includes final package/evidence review, the bounded
-history-only seed-divergence diagnostic, ingestion hardening, and contract
-checks. The validated restart result and exact private reproduction command are in
+Useful unpaid work now includes the pre-result robustness plan, backup
+verification, ingestion hardening, and contract checks. The validated restart
+result and exact private reproduction command are in
 [`2026-08-21-patience-200-a100-results.md`](../research/2026-08-21-patience-200-a100-results.md).
 Do not claim an order-of-magnitude gain: no restart target supplied a complete
 eight-topology comparison.
@@ -71,5 +84,7 @@ The exact pre-result profile is in
 [`2026-08-22-submission-like-screen-plan.md`](../research/2026-08-22-submission-like-screen-plan.md).
 The validated aggregate result and limitations are in
 [`2026-08-23-submission-like-screen-a100-results.md`](../research/2026-08-23-submission-like-screen-a100-results.md).
+The package, private-data provenance, and provider-cleanup ledger is in
+[`2026-08-23-final-submission-review.md`](../research/2026-08-23-final-submission-review.md).
 The sealed operating and replay commands are in
 [`SUBMISSION_LIKE_SCREEN_RUNBOOK.md`](SUBMISSION_LIKE_SCREEN_RUNBOOK.md).

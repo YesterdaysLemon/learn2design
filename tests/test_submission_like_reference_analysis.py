@@ -34,6 +34,9 @@ from experiments.uifo_paired.submission_like_posthoc_analysis import (
     create_submission_like_plots,
     safe_submission_like_posthoc,
 )
+from experiments.uifo_paired.submission_like_trajectory_analysis import (
+    analyze_submission_like_trajectories,
+)
 
 
 ROOT = Path(__file__).parents[1]
@@ -504,6 +507,19 @@ def test_posthoc_uses_topology_blocks_and_preserves_censor_bounds() -> None:
         in posthoc["serial_drift"]
     )
     assert posthoc["serial_drift"]["causal_effect_identified"] is False
+    trajectory = posthoc["trajectory_alignment"]
+    assert trajectory["inference_unit"] == "topology (n=10)"
+    assert trajectory["seed_and_sweep_phase_confounded"] is True
+    assert trajectory["changes_frozen_decision"] is False
+    assert trajectory["evaluation_aligned"]["checkpoints"][-1][
+        "complete_topologies"
+    ] == 10
+    assert trajectory["wall_time_aligned"]["checkpoints"][-1][
+        "complete_topologies"
+    ] == 10
+    assert trajectory["evaluation_aligned"]["checkpoints"][-1][
+        "topology_mean_seed_31_minus_seed_29_loss"
+    ] == pytest.approx(0.2)
 
     target = posthoc["target_hitting"]["4"]
     assert target["topology_categories"] == {
@@ -529,6 +545,26 @@ def test_posthoc_distinguishes_seed_31_only_target_topology() -> None:
     target = posthoc["target_hitting"]["4"]
     assert target["seed_29_only_topologies"] == 0
     assert target["seed_31_only_topologies"] == 1
+
+
+def test_trajectory_diagnostic_rejects_duplicate_candidate_rows() -> None:
+    study = _study()
+    run_id = next(iter(study.history_rows))
+    duplicate = copy.deepcopy(study.history_rows[run_id][0])
+    study.history_rows[run_id].insert(1, duplicate)
+
+    with pytest.raises(StudyValidationError, match="candidate indexes"):
+        analyze_submission_like_trajectories(study)
+
+
+def test_trajectory_diagnostic_requires_common_evaluation_support() -> None:
+    study = _study()
+    run_id = next(iter(study.history_rows))
+    study.history_rows[run_id][0]["eval_count_after_call"] = 7
+    study.history_rows[run_id][1]["eval_count_after_call"] = 15
+
+    with pytest.raises(StudyValidationError, match="no common evaluation count"):
+        analyze_submission_like_trajectories(study)
 
 
 @pytest.mark.parametrize(
@@ -641,12 +677,14 @@ def test_safe_posthoc_allowlist_excludes_private_rows_and_identifiers() -> None:
         assert forbidden not in serialized
     assert safe["no_new_action_authorized"] is True
     assert safe["leave_one_topology_out"]["omissions"] == 10
+    assert "private_topology_checkpoint_rows" not in serialized
+    assert safe["trajectory_alignment"]["changes_frozen_decision"] is False
     assert "recommended_next_evidence_gate" not in serialized
     for topology in SUBMISSION_LIKE_TOPOLOGIES:
         assert topology not in serialized
 
 
-def test_posthoc_plots_are_the_four_private_diagnostics(tmp_path: Path) -> None:
+def test_posthoc_plots_are_the_five_private_diagnostics(tmp_path: Path) -> None:
     pytest.importorskip("matplotlib", reason="submission-like plot dependency")
     posthoc, _production = _posthoc()
     paths = create_submission_like_plots(posthoc, tmp_path)
@@ -655,5 +693,6 @@ def test_posthoc_plots_are_the_four_private_diagnostics(tmp_path: Path) -> None:
         "run_order_and_throughput.png",
         "target_hitting_outcomes.png",
         "leave_one_topology_out.png",
+        "trajectory_alignment.png",
     ]
     assert all(path.stat().st_size > 10_000 for path in paths)
