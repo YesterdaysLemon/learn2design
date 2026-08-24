@@ -139,14 +139,14 @@ def test_builder_normalizes_cross_platform_text_newlines(tmp_path: Path) -> None
     assert archive_lf.read_bytes() == archive_crlf.read_bytes()
 
 
-def test_builder_pins_creator_platform_without_changing_evaluated_hash(
+def test_builder_pins_creator_platform_for_current_candidate(
     tmp_path: Path,
 ) -> None:
     archive = tmp_path / "submission.zip"
     manifest = build_archive(ROOT / "submission", archive)
 
     assert manifest["archive_sha256"] == (
-        "4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b"
+        "4b7384dd6d401918b9b46ace4e65c3f116c34feeeca825ae25745dfb9e7908bd"
     )
     with zipfile.ZipFile(archive) as bundle:
         assert {info.create_system for info in bundle.infolist()} == {0}

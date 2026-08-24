@@ -68,6 +68,17 @@ operational evidence completeness, not an optimizer comparison or
 official-budget claim. The terminal receipt forbids another attempt. See
 [`SUBMISSION_LIKE_SCREEN_RUNBOOK.md`](../../docs/SUBMISSION_LIKE_SCREEN_RUNBOOK.md).
 
+The unlaunched `coverage-robustness-screen-v1` profile compares the submitted
+random suffix with a midpoint Latin-hypercube transform of the identical
+pre-transform draw. It uses 12 fresh disjoint topologies, seeds 37/41, exact
+H100/CUDA-13 provenance, and 48 serial 1,200-second runs. Records bind the raw
+draw hashes; the archive validator independently checks the control suffix,
+treatment levels, paired anchor, and exact 249-member package. The production
+summary and a no-import history-first reference replay must agree before
+`summary.json` can be opened. See
+[`H100_COVERAGE_RUNBOOK.md`](../../docs/H100_COVERAGE_RUNBOOK.md). No paid run is
+authorized by the checked-in profile.
+
 For an unaudited smoke panel, pass a JSON list through `--topologies-file`. A named panel can use the object form:
 
 ```json
@@ -98,7 +109,7 @@ Runs are serial and arm order rotates between pairs. A frozen study profile vali
 
 The summary collapses optimizer seeds within topology before inference. The predeclared decision has two explicit routes: strict topology-level finite-feasibility dominance, guarded against every reverse seed/topology outcome and harmful observed p90 regret; otherwise, the complete paired-loss gate. Frozen target-loss hits are paired in both wall time and Objective evaluations; unreached thresholds remain explicit censoring. A semantic-only hit can contribute a conservative ratio upper bound using the no-prior arm's last logged time and evaluation count. An order-of-magnitude flag can become true only when every predeclared pair supplies an observed ratio or that conservative upper bound and both topology-bootstrap upper bounds for the log10 ratios are at most -1. No-prior-only and neither-reached pairs cannot pass.
 
-Scored runs launch every isolated worker with persistent JAX compilation caching disabled. The effective cache policy is bound into the manifest, while the inherited host settings are preserved in per-session preflight artifacts. This is required because compilation currently occurs inside the Objective clock. The rental flags can additionally require exactly one A100, disabled MIG mode, minimum physical GPU memory and free disk, maximum idle memory/utilization, a shorter worker timeout, and a total session wall limit. Use the canonical paid-machine procedure in [`docs/A100_RENTAL_RUNBOOK.md`](../../docs/A100_RENTAL_RUNBOOK.md).
+Scored runs launch every isolated worker with persistent JAX compilation caching disabled. The effective cache policy is bound into the manifest, while the inherited host settings are preserved in per-session preflight artifacts. Historical and packaged-default paths still compile inside the Objective clock. The explicitly opt-in H100 coverage profile applies the same public preclock warmup and population-ready boundary to both arms; it does not change the Round-1 default timing path. The rental flags can additionally require exactly one A100 or H100, disabled MIG mode, minimum physical GPU memory and free disk, maximum idle memory/utilization, a shorter worker timeout, and a total session wall limit. The H100 profile also rejects any non-CUDA-13 JAX wheel stack. Use the historical A100 procedure in [`docs/A100_RENTAL_RUNBOOK.md`](../../docs/A100_RENTAL_RUNBOOK.md) or the current coverage procedure in [`docs/H100_COVERAGE_RUNBOOK.md`](../../docs/H100_COVERAGE_RUNBOOK.md).
 
 For memory-limited deployment diagnostics, `--evaluation-chunk-size 1` evaluates population members through the scalar public Objective API while preserving the same optimizer state and initial-population pairing. This is not the packaged default and cannot support a competition-throughput claim; use the default vmap path on A100-class hardware for confirmation.
 

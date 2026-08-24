@@ -1,11 +1,17 @@
 # Current handoff
 
-Updated: 2026-08-23
+Updated: 2026-08-24
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
 
 ## Current state
+
+- The owner reports that the Round-1 candidate was uploaded on 2026-08-24. The
+  repository cannot independently verify the portal receipt. The submitted
+  baseline remains revision `5ce3cdb2ddf4c505622a0aeef805936a4ea607d7`
+  and ZIP SHA-256
+  `4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b`.
 
 - The submission candidate is deterministic and packages successfully.
 - The topology-conditioned neural initializer failed its offline control gate.
@@ -49,6 +55,27 @@ are the evidence record, not a competing task list.
   the only verified durable evidence bundle. The old provider volumes were
   inventoried, unique pilot evidence was evacuated and hash-verified, and all
   provider pods, endpoints, templates, and volumes were removed.
+- The next local candidate adds an opt-in midpoint Latin-hypercube transform of
+  the seven random non-anchor starts. The packaged default remains the submitted
+  random initializer unless and until evidence promotes the treatment.
+- A new 12-topology `coverage-robustness-v1` panel is disjoint from the official
+  archive and every prior named panel. The frozen paired screen uses seeds
+  37/41, 48 serial 1,200-second runs, exact H100/CUDA-13 provenance, a 22-hour
+  provider ceiling, and a `$75` maximum charge.
+- The coverage path now has source-lock authentication, exact 249-member archive
+  validation, exact used-suffix raw-draw-to-treatment rank binding,
+  objective/worker/session chronology checks, independent history-first replay
+  with no project imports,
+  and an opaque summary unlock that only the replay comparator can issue.
+  Synthetic full-archive, forged-chronology, unrelated-LHS, terminal-partial,
+  and end-to-end CLI tests pass. Whole-repository verification also passes;
+  launch-time clean packaging and real-H100 mechanics evidence remain open.
+- The public `dfbench==0.3.3` warmup helpers dispatch before logging but return
+  no arrays. Because JAX is asynchronous, this is documented as common
+  best-effort compilation warmup, not a proven pre-clock completion barrier.
+  Both arms do explicitly block their completed population initialization
+  before logging, removing the treatment-only transform timing asymmetry.
+- No paid H100 resource has been created.
 
 ## Next decision
 
@@ -57,14 +84,20 @@ interpret the submission-like operational pass as a competitiveness claim.
 Retain the packaged patience-600/no-prior candidate; its final package/evidence
 review is complete.
 
-Before more GPU work, create an encrypted second copy of the external evidence
-bundle; this host is currently the only verified durable copy. Then prepare one
-pre-result search-robustness gate on a new disjoint panel. The leading narrow
-change is antithetic or otherwise coverage-balanced random starts, intended to
-reduce sensitivity to the initial population without adding an optimizer or
-model. Freeze the exact code revision, panel, paired randomness, budget, stop
-conditions, and decision rule before launch. The history-only result motivates
-that test but does not promote the change or identify a causal seed effect.
+Before paid GPU work, create and verify an encrypted second copy of the external
+evidence bundle, commit the exact candidate, rebuild its separate package from
+that clean revision, rerun the whole suite, and freeze the external plan. Then
+ask the owner for explicit approval of a maximum `$75` total secure-cloud
+charge. Do not provision from the general budget offer alone.
+
+If approved, provision one exact H100 and run the cold mechanics smoke first.
+The smoke must prove exact provider/JAX device identity, the CUDA-13 wheel stack,
+cache policy, memory fit, and one admitted history; it is not optimizer evidence.
+Any smoke failure stops the paid attempt. Only a passing smoke permits the
+unchanged `coverage-robustness-screen-v1` plan to continue. A terminal partial
+or worker failure is preserved as `not_evaluable` and is not rerun. See
+[`H100_COVERAGE_RUNBOOK.md`](H100_COVERAGE_RUNBOOK.md). The treatment is not
+promoted unless every frozen topology-level criterion passes.
 
 ## What can contribute now
 

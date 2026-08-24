@@ -161,6 +161,51 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         )
 
     @staticmethod
+    def _coverage_balance_unbounded(params):
+        """Map each random column onto midpoint Latin-hypercube levels."""
+        member_count = int(params.shape[0])
+        if member_count < 2:
+            return params
+
+        order = jnp.argsort(params, axis=0, stable=True)
+        ranks = jnp.argsort(order, axis=0, stable=True)
+        unit = (
+            ranks.astype(params.dtype)
+            + jnp.asarray(0.5, dtype=params.dtype)
+        ) / jnp.asarray(float(member_count), dtype=params.dtype)
+        return jnp.log(unit) - jnp.log1p(-unit)
+
+    @staticmethod
+    def _warmup_population_evaluation(
+        objective: Objective,
+        population_size: int,
+        evaluation_chunk_size: int | None,
+    ) -> None:
+        """Dispatch public warmups for every evaluation shape used by this run.
+
+        ``dfbench==0.3.3`` deliberately returns ``None`` from its public
+        ``warmup_*`` helpers.  JAX device execution is asynchronous, so this
+        is a best-effort compilation warmup rather than a completion barrier.
+        Both arms in paired studies use the identical policy.
+        """
+        if (
+            evaluation_chunk_size is None
+            or evaluation_chunk_size >= population_size
+        ):
+            objective.warmup_vmap_value_and_grad_aux(population_size)
+            return
+
+        batch_sizes = {
+            min(evaluation_chunk_size, population_size - start)
+            for start in range(0, population_size, evaluation_chunk_size)
+        }
+        for batch_size in sorted(batch_sizes):
+            if batch_size == 1:
+                objective.warmup_value_and_grad_aux()
+            else:
+                objective.warmup_vmap_value_and_grad_aux(batch_size)
+
+    @staticmethod
     def _adam_step(
         params,
         grads,
@@ -208,11 +253,21 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         batch_time_window: int = 8,
         use_semantic_prior: bool = False,
         evaluation_chunk_size: int | None = None,
+        initial_population_mode: str = "random",
+        preclock_warmup: bool = False,
+        raw_initial_population_callback=None,
         initial_population_callback=None,
         optimizer_telemetry_callback=None,
         **kwargs,
     ) -> None:
         del kwargs
+        if initial_population_mode not in {"random", "coverage_balanced"}:
+            raise ValueError(
+                "initial_population_mode must be 'random' or "
+                "'coverage_balanced'"
+            )
+        if not isinstance(preclock_warmup, bool):
+            raise ValueError("preclock_warmup must be a boolean")
         obj = objective
         self.prepare(obj, unbounded=True, random_seed=random_seed)
 
@@ -238,6 +293,8 @@ class BatchedRestartAdam(OptimizationAlgorithm):
                     "evaluation_chunk_size must be between one and population_size"
                 )
         params = obj.random_params_unbounded(population_size)
+        if raw_initial_population_callback is not None:
+            raw_initial_population_callback(params)
         next_index = 0
 
         if init_params is not None:
@@ -254,6 +311,19 @@ class BatchedRestartAdam(OptimizationAlgorithm):
         semantic_prior = self._semantic_prior(obj) if use_semantic_prior else None
         if semantic_prior is not None and next_index < population_size:
             params = params.at[next_index].set(semantic_prior)
+            next_index += 1
+        if (
+            initial_population_mode == "coverage_balanced"
+            and next_index < population_size
+        ):
+            params = params.at[next_index:].set(
+                self._coverage_balance_unbounded(params[next_index:])
+            )
+
+        if preclock_warmup:
+            # The frozen coverage screen opts both arms into this boundary.
+            # Keep the packaged/default Round-1 timing path unchanged.
+            params = jax.block_until_ready(params)
 
         learning_rates = jnp.geomspace(
             learning_rate_low, learning_rate_high, population_size
@@ -275,11 +345,12 @@ class BatchedRestartAdam(OptimizationAlgorithm):
             else None
         )
 
-        # dfbench 0.3.3's public warmup helper discards asynchronous outputs,
-        # so it cannot provide a guaranteed device barrier. Count compilation
-        # inside the scored wall clock until the public helper is synchronous.
         if initial_population_callback is not None:
             initial_population_callback(params)
+        if preclock_warmup:
+            self._warmup_population_evaluation(
+                obj, population_size, evaluation_chunk_size
+            )
         obj.start_logging()
 
         while not obj.budget_exceeded:

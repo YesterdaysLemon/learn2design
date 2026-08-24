@@ -43,6 +43,18 @@ The optimizer still has no hidden-leaderboard or official-budget multi-topology
 performance claim. No new paid comparison should start until that narrow change,
 budget, panel, and decision rule are frozen.
 
+The owner reports that the Round-1 ZIP was uploaded on 2026-08-24. The next
+unpaid work is the pre-result `coverage-robustness-screen-v1` gate: an opt-in
+midpoint Latin-hypercube transform of the seven non-anchor starts, tested on 12
+new disjoint topologies with paired seeds 37/41. Its H100/CUDA-13 profile,
+source-lock, exact 249-member archive validator, independent history-first
+replay, exact chronology and raw-transform checks, and comparator-issued
+sealed-summary workflow are implemented and pass the whole local suite. No paid
+H100 has been created; launch-revision packaging, an encrypted evidence backup,
+a cold provider smoke, and explicit approval of the `$75` cap remain required. See
+[`research/2026-08-24-h100-coverage-robustness-plan.md`](research/2026-08-24-h100-coverage-robustness-plan.md)
+and [`docs/H100_COVERAGE_RUNBOOK.md`](docs/H100_COVERAGE_RUNBOOK.md).
+
 New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
 
 ## Build the current candidate

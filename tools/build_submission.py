@@ -14,7 +14,7 @@ from pathlib import Path
 
 REQUIRED_FILES = ("submission.py", "requirements.txt")
 FIXED_ZIP_TIME = (2026, 1, 1, 0, 0, 0)
-UPSTREAM_REFERENCE = "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
+UPSTREAM_REFERENCE = "1bb7f54737dec6a08b59879a8831d125f08f8a0b"
 TEXT_SUFFIXES = {".json", ".md", ".py", ".toml", ".txt", ".yaml", ".yml"}
 
 

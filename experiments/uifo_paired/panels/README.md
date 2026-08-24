@@ -9,11 +9,16 @@ later, explicitly post-hoc follow-up with a separate evidence boundary.
 - `submission-like-v1.json`: 10 disjoint topologies originally reserved for an
   official-budget rehearsal; the current cost-bounded screen does not make that
   claim;
+- `coverage-robustness-v1.json`: 12 archive-disjoint and prior-panel-disjoint
+  topologies frozen for the midpoint Latin-hypercube initialization screen;
 - `restart-mechanics-v1.json`: one outcome-selected restart mechanics case whose
   loss is excluded from inference;
 - `restart-screen-v1.json`: eight development topologies selected by a committed
   outcome-blind SHA-256 rank after excluding the mechanics case;
 - `audit.json`: source hashes, exact archive-overlap results, panel-overlap results, and coarse balance summaries.
+
+The audit records the historical default upstream revision and the explicit
+newer override used for `coverage-robustness-v1`.
 
 The original panel generator resolves topology metadata only. It does not
 construct `UIFOProblem`, run the simulator, or inspect losses. Its selection
@@ -28,4 +33,9 @@ Rebuild and verify against the pinned official archive:
 uv run --group integration python tools/build_topology_panels.py /path/to/dataset.h5
 ```
 
-Confirmation must also pass the prior development panel to the run harness with `--exclude-prior-panel`; the harness recomputes exclusion from the actual dataset and panel bytes rather than trusting `audit.json`.
+Confirmation must also pass the prior development panel to the run harness with
+`--exclude-prior-panel`. The coverage screen must pass every prior named panel
+(`development-v1`, `confirmation-v1`, `submission-like-v1`,
+`restart-mechanics-v1`, and `restart-screen-v1`). The harness recomputes
+exclusion from the actual dataset and panel bytes rather than trusting
+`audit.json`.

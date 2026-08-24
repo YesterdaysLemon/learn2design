@@ -1,0 +1,133 @@
+{
+  "format_version": 1,
+  "generation": {
+    "method": "round-robin over readout/squeezer/directional strata",
+    "seed_start": 2026081900,
+    "upstream_reference": "1bb7f54737dec6a08b59879a8831d125f08f8a0b"
+  },
+  "members": [
+    {
+      "directional_bin": "low",
+      "directional_interior_count": 1,
+      "readout": "D",
+      "squeezer_bin": "low",
+      "squeezer_count": 4,
+      "topology": "BBBBDAABE-SLLLLSSLLSLD",
+      "topology_seed": 2026082196
+    },
+    {
+      "directional_bin": "low",
+      "directional_interior_count": 1,
+      "readout": "H",
+      "squeezer_bin": "low",
+      "squeezer_count": 4,
+      "topology": "BCABDCDED-LLSSLSLLSHLL",
+      "topology_seed": 2026082039
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 5,
+      "readout": "D",
+      "squeezer_bin": "middle",
+      "squeezer_count": 5,
+      "topology": "CEFGCHFCC-SDSLSLLSLLSL",
+      "topology_seed": 2026081917
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 4,
+      "readout": "H",
+      "squeezer_bin": "middle",
+      "squeezer_count": 6,
+      "topology": "DBCDFGEED-SLLSSSLHLLSS",
+      "topology_seed": 2026081967
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 8,
+      "readout": "D",
+      "squeezer_bin": "high",
+      "squeezer_count": 8,
+      "topology": "EEHGFAEFE-SSSLSLSSLDSS",
+      "topology_seed": 2026082075
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 8,
+      "readout": "H",
+      "squeezer_bin": "high",
+      "squeezer_count": 7,
+      "topology": "DEFHFGHFG-HSSLLSLSSSSL",
+      "topology_seed": 2026081926
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 5,
+      "readout": "D",
+      "squeezer_bin": "low",
+      "squeezer_count": 3,
+      "topology": "GEEDDECFA-LLSSDLLLLLLS",
+      "topology_seed": 2026081935
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 5,
+      "readout": "H",
+      "squeezer_bin": "low",
+      "squeezer_count": 4,
+      "topology": "CHFDEAFBF-SLSLSSLLLHLL",
+      "topology_seed": 2026081933
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 6,
+      "readout": "D",
+      "squeezer_bin": "middle",
+      "squeezer_count": 6,
+      "topology": "GGEDDEEAE-LSSLSLLSSSLD",
+      "topology_seed": 2026081964
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 7,
+      "readout": "H",
+      "squeezer_bin": "middle",
+      "squeezer_count": 6,
+      "topology": "GHHDHFGHA-SSLSHLLSLSSL",
+      "topology_seed": 2026081953
+    },
+    {
+      "directional_bin": "low",
+      "directional_interior_count": 3,
+      "readout": "D",
+      "squeezer_bin": "high",
+      "squeezer_count": 7,
+      "topology": "DAAGHDCAH-LSLSSLSSLSSD",
+      "topology_seed": 2026082046
+    },
+    {
+      "directional_bin": "low",
+      "directional_interior_count": 3,
+      "readout": "H",
+      "squeezer_bin": "high",
+      "squeezer_count": 7,
+      "topology": "EHCBECACA-SSLLHLSSSSLS",
+      "topology_seed": 2026081941
+    }
+  ],
+  "panel_id": "coverage-robustness-v1",
+  "topologies": [
+    "BBBBDAABE-SLLLLSSLLSLD",
+    "BCABDCDED-LLSSLSLLSHLL",
+    "CEFGCHFCC-SDSLSLLSLLSL",
+    "DBCDFGEED-SLLSSSLHLLSS",
+    "EEHGFAEFE-SSSLSLSSLDSS",
+    "DEFHFGHFG-HSSLLSLSSSSL",
+    "GEEDDECFA-LLSSDLLLLLLS",
+    "CHFDEAFBF-SLSLSSLLLHLL",
+    "GGEDDEEAE-LSSLSLLSSSLD",
+    "GHHDHFGHA-SSLSHLLSLSSL",
+    "DAAGHDCAH-LSLSSLSSLSSD",
+    "EHCBECACA-SSLLHLSSSSLS"
+  ]
+}

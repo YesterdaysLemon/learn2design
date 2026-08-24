@@ -14,10 +14,14 @@ OFFICIAL_DATASET_SHA256 = (
     "149f6aac17aff2e33750b4e1b6cebd3cef1c39d47ae49a3a7ed77315cb7838a7"
 )
 UPSTREAM_REFERENCE = "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
+PANEL_UPSTREAM_REFERENCES = {
+    "coverage-robustness-v1": "1bb7f54737dec6a08b59879a8831d125f08f8a0b",
+}
 DEFAULT_COUNTS = {
     "development-v1": 16,
     "confirmation-v1": 12,
     "submission-like-v1": 10,
+    "coverage-robustness-v1": 12,
 }
 
 
@@ -193,7 +197,9 @@ def panel_payload(
         "generation": {
             "method": "round-robin over readout/squeezer/directional strata",
             "seed_start": seed_start,
-            "upstream_reference": UPSTREAM_REFERENCE,
+            "upstream_reference": PANEL_UPSTREAM_REFERENCES.get(
+                panel_id, UPSTREAM_REFERENCE
+            ),
         },
         "members": members,
         "topologies": [str(member["topology"]) for member in members],
@@ -265,6 +271,7 @@ def build_panels(
             "seed_start": seed_start,
             "candidate_attempts": attempts,
             "upstream_reference": UPSTREAM_REFERENCE,
+            "panel_upstream_reference_overrides": PANEL_UPSTREAM_REFERENCES,
         },
         "official_dataset": archive_metadata,
         "panels": panel_records,

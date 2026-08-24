@@ -13,7 +13,14 @@ from experiments.uifo_paired.optimizer_telemetry import OPTIMIZER_TELEMETRY_MODE
 from experiments.uifo_paired.study_profiles import bind_study_profile
 
 RESTART_SCREEN_ARMS = ("no_prior_p600", "no_prior_p200")
-VALID_ARMS = ("adam", "no_prior", "semantic_prior", *RESTART_SCREEN_ARMS)
+COVERAGE_SCREEN_ARMS = ("no_prior", "coverage_balanced")
+VALID_ARMS = (
+    "adam",
+    "no_prior",
+    "semantic_prior",
+    "coverage_balanced",
+    *RESTART_SCREEN_ARMS,
+)
 TOPOLOGY_PATTERN = re.compile(r"^[A-H]{9}-[LSDH]{12}$")
 
 
@@ -33,6 +40,9 @@ def build_plan(
     topology_panel: dict[str, object] | None = None,
     evaluation_chunk_size: int | None = None,
     require_a100: bool = False,
+    require_h100: bool = False,
+    required_gpu_name: str | None = None,
+    preclock_warmup: bool = False,
     minimum_gpu_memory_mib: int | None = None,
     max_idle_gpu_memory_mib: int | None = None,
     max_idle_gpu_utilization_percent: int | None = None,
@@ -82,8 +92,18 @@ def build_plan(
         )
     if n_frequencies < 1:
         raise ValueError("n_frequencies must be positive")
-    if require_a100 and allow_cpu:
-        raise ValueError("require_a100 and allow_cpu are mutually exclusive")
+    if require_a100 and require_h100:
+        raise ValueError("require_a100 and require_h100 are mutually exclusive")
+    if (require_a100 or require_h100) and allow_cpu:
+        raise ValueError("required GPU hardware and allow_cpu are mutually exclusive")
+    if required_gpu_name is not None and (
+        not isinstance(required_gpu_name, str) or not required_gpu_name.strip()
+    ):
+        raise ValueError("required_gpu_name must be a non-empty string")
+    if required_gpu_name is not None and not (require_a100 or require_h100):
+        raise ValueError("required_gpu_name requires an exact GPU model")
+    if not isinstance(preclock_warmup, bool):
+        raise ValueError("preclock_warmup must be a boolean")
     if minimum_gpu_memory_mib is not None and minimum_gpu_memory_mib <= 0:
         raise ValueError("minimum_gpu_memory_mib must be positive")
     if max_idle_gpu_memory_mib is not None and max_idle_gpu_memory_mib < 0:
@@ -111,6 +131,14 @@ def build_plan(
         )
     if optimizer_telemetry is not None and "adam" in arms:
         raise ValueError("optimizer telemetry is only supported for batched arms")
+    if (
+        "coverage_balanced" in arms
+        and study_profile != "coverage-robustness-screen-v1"
+    ):
+        raise ValueError(
+            "coverage_balanced is only valid for "
+            "coverage-robustness-screen-v1"
+        )
     if pair_order_policy not in ("rotate_pairs", "alternate_topology_and_seed"):
         raise ValueError("unknown pair_order_policy")
     if pair_order_policy == "alternate_topology_and_seed" and len(arms) != 2:
@@ -127,10 +155,11 @@ def build_plan(
         )
     if (
         candidate_package_evidence is not None
-        and study_profile != "submission-like-screen-v1"
+        and study_profile
+        not in {"submission-like-screen-v1", "coverage-robustness-screen-v1"}
     ):
         raise ValueError(
-            "candidate_package_evidence is only valid for submission-like-screen-v1"
+            "candidate_package_evidence is only valid for package-bound profiles"
         )
     if (provider_stop_utc is None) != (
         provider_evacuation_reserve_seconds is None
@@ -187,7 +216,11 @@ def build_plan(
         if arm_patience is not None:
             raise ValueError("arm_patience is only valid for restart-screen arms")
         arm_optimizer_settings = None
-    if not require_a100 and any(
+    if "coverage_balanced" in arms and set(arms) != set(COVERAGE_SCREEN_ARMS):
+        raise ValueError(
+            "coverage_balanced must be paired only with the no_prior control"
+        )
+    if not (require_a100 or require_h100) and any(
         value is not None
         for value in (
             minimum_gpu_memory_mib,
@@ -195,7 +228,7 @@ def build_plan(
             max_idle_gpu_utilization_percent,
         )
     ):
-        raise ValueError("GPU rental constraints require require_a100")
+        raise ValueError("GPU rental constraints require an exact GPU model")
     targets = [float(target) for target in (target_losses or [])]
     if any(not math.isfinite(target) for target in targets):
         raise ValueError("target losses must be finite")
@@ -296,6 +329,12 @@ def build_plan(
         "worker_timeout_seconds": float(worker_timeout_seconds),
         "study_profile": study_profile,
     }
+    if require_h100:
+        configuration["require_h100"] = True
+    if required_gpu_name is not None:
+        configuration["required_gpu_name"] = required_gpu_name.strip()
+    if preclock_warmup:
+        configuration["preclock_warmup"] = True
     if optimizer_telemetry is not None:
         configuration["optimizer_telemetry"] = optimizer_telemetry
     if arm_optimizer_settings is not None:
@@ -328,6 +367,19 @@ def build_plan(
             "maximum_provider_hours": 10.0,
             "planned_runs": 20,
             "scored_objective_seconds": 24_000,
+        }
+    elif study_profile == "coverage-robustness-screen-v1":
+        configuration["execution_mode"] = "serial"
+        configuration["resource_budget"] = {
+            "cloud_type": "SECURE",
+            "currency": "USD",
+            "gpu_count": 1,
+            "gpu_type_id": "NVIDIA H100 80GB HBM3",
+            "maximum_gpu_hourly_price": 3.29,
+            "maximum_provider_charge": 75.00,
+            "maximum_provider_hours": 22.0,
+            "planned_runs": 48,
+            "scored_objective_seconds": 57_600,
         }
     configuration["decision_policy"] = bind_study_profile(study_profile, configuration)
     primary_order = primary_pair_order_counts(runs)
@@ -376,7 +428,11 @@ def _pair_id(topology_spec: dict[str, object], optimizer_seed: int) -> str:
 def primary_pair_order_counts(runs: list[dict[str, object]]) -> dict[str, int]:
     """Count the pairwise order of the causal arms, ignoring optional arms."""
     run_arms = {str(run["arm"]) for run in runs}
-    if set(RESTART_SCREEN_ARMS) <= run_arms:
+    if "coverage_balanced" in run_arms:
+        comparison_arms = COVERAGE_SCREEN_ARMS
+        first_key = "no_prior_first"
+        second_key = "coverage_balanced_first"
+    elif set(RESTART_SCREEN_ARMS) <= run_arms:
         comparison_arms = RESTART_SCREEN_ARMS
         first_key = "no_prior_p600_first"
         second_key = "no_prior_p200_first"

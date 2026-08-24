@@ -1,7 +1,10 @@
 {
   "format_version": 1,
   "generator": {
-    "candidate_attempts": 760,
+    "candidate_attempts": 1000,
+    "panel_upstream_reference_overrides": {
+      "coverage-robustness-v1": "1bb7f54737dec6a08b59879a8831d125f08f8a0b"
+    },
     "path": "tools/build_topology_panels.py",
     "seed_start": 2026081900,
     "upstream_reference": "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
@@ -91,6 +94,34 @@
       "source_name": "submission-like-v1.json",
       "source_sha256": "d85227f216528d635e56a93094e661721f62f379808707f310bf4da60d8fa57b",
       "topology_count": 10
+    },
+    {
+      "archive_overlap_count": 0,
+      "distribution": {
+        "directional_bin": {
+          "high": 4,
+          "low": 4,
+          "middle": 4
+        },
+        "readout": {
+          "D": 6,
+          "H": 6
+        },
+        "squeezer_bin": {
+          "high": 4,
+          "low": 4,
+          "middle": 4
+        }
+      },
+      "panel_id": "coverage-robustness-v1",
+      "previous_panel_overlap_counts": {
+        "confirmation-v1": 0,
+        "development-v1": 0,
+        "submission-like-v1": 0
+      },
+      "source_name": "coverage-robustness-v1.json",
+      "source_sha256": "e3385a6f4939445e869d71dbf7f1bd5119aa25eebbb89e083b1ec9be336f7309",
+      "topology_count": 12
     }
   ]
 }
