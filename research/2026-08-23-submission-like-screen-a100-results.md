@@ -138,6 +138,24 @@ contrast had `rho=0.23636363636363633` (`p=0.5108853175152002`). The one-arm
 screen has no arm-first contrast. These diagnostics do not identify causal
 drift.
 
+The subsequent history-only matched-resource diagnostic found the same broad
+direction after controlling evaluation progress. At the last checkpoint shared
+by all histories, 6,312 evaluations, the topology-level seed-31-minus-seed-29
+mean difference was `+0.35777353288148966` and the median was
+`+0.2017395070749819`; seed 29 was lower on eight topologies and seed 31 on two.
+At the last common wall-time checkpoint, `1197.446573973` seconds, the mean
+difference was `+0.2955358367854244`, the median was
+`+0.16334283552654782`, and the lower counts were again 8/2. The contrast
+direction agreed on five of six comparable progress fractions, and the mean
+absolute contrast difference between axes was `0.0457895698453755`.
+
+Persistence at matched evaluation count is inconsistent with a simple
+throughput-only explanation. It does not establish that seed 29 is better:
+seed 29 was always the first sweep and seed 31 always the second. Random-start
+sensitivity, sweep/session order, and topology heterogeneity remain confounded.
+No value was imputed before a run first achieved finite feasibility, and the
+diagnostic did not alter the frozen action.
+
 ## 4. Limitations
 
 - There are ten independent topology units and only two repeated optimizer
@@ -152,30 +170,23 @@ drift.
   both-reached summaries do not describe the full panel.
 - No equivalence or non-inferiority margin was preregistered. Failure to find a
   difference would not establish equivalence.
-- Same-host package rebuilding reproduces the evaluated candidate exactly, but
-  a hostile audit found that the ZIP creator-platform field is not explicitly
-  pinned. The current result remains byte- and member-bound; cross-platform
-  packaging portability should be hardened separately without rebuilding or
-  substituting the evaluated artifact.
+- The matched-resource diagnostic is post hoc. Its checkpoints and the proposed
+  search-robustness direction were not part of the frozen operational decision.
 
 ## 5. Recommended next experiment
 
-Do not buy another comparison yet. First run a private, history-only diagnostic
-on these authenticated trajectories that compares seed trajectories at matched
-evaluation counts separately from matched wall times:
+The history-only diagnostic is complete and weakens a throughput-only
+explanation. The next useful gate is a separately frozen, small
+search-robustness change on a new disjoint panel. A leading candidate is to
+replace unconstrained random starts with antithetic or coverage-balanced starts
+while keeping the same optimizer, population size, patience, and resource
+budget. That hypothesis targets the observed initial-population sensitivity
+without adding an optimizer or model.
 
-- if the divergence remains at matched evaluation count, investigate search
-  stochasticity and candidate/initial-population robustness;
-- if it appears mainly at matched wall time, investigate runtime, compilation,
-  or evaluation-throughput drift;
-- if neither view is stable across topology blocks, treat the observed phase
-  difference as underpowered heterogeneity rather than an optimization lead.
-
-This diagnostic must remain topology-blocked and exploratory. If it motivates a
-specific algorithm change, freeze the change and its decision rule before using
-a new disjoint panel. Do not reuse the submission-like screen as confirmation,
-run `confirmation-v1`, add an optimizer/model, or tune patience again on an
-observed panel.
+Freeze the implementation, paired randomness, topology units, resource cap,
+stop conditions, and decision rule before launch. Do not reuse this screen as
+confirmation, run `confirmation-v1`, or tune a new rule against the observed
+panel.
 
 ## Evidence ledger
 
@@ -191,13 +202,15 @@ Confirmatory conclusion: the no-prior/patience-600 candidate has complete
 operational evidence for final submission review under this bounded profile.
 
 Exploratory finding: final loss was worse in the later sweep on eight of ten
-topologies, but seed and sweep phase are confounded and throughput was nearly
-unchanged. The effect is a diagnostic lead, not an algorithm decision.
+topologies and the direction persisted at matched evaluation count. This
+weakens a throughput-only explanation, but seed and sweep phase remain
+confounded. The effect is a search-robustness lead, not an algorithm decision.
 
 Unresolved: official-budget performance, leaderboard competitiveness, causal
-session drift, and whether evaluation-matched trajectories show a reproducible
-seed-robustness weakness. Cross-platform outer-ZIP reproducibility also needs a
-separate packaging-only fix; it does not alter this result.
+session drift, and whether a frozen coverage-balanced initial population
+improves a new disjoint panel. Cross-platform outer-ZIP reproducibility is now
+closed: Windows and Linux builds both reproduce evaluated candidate SHA-256
+`4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b`.
 
 Exact analysis and focused verification commands:
 
@@ -219,5 +232,5 @@ uv run --frozen --group dev --group integration --group analysis pytest -q `
 ```
 
 The generated Markdown/HTML report, normalized tables, safe aggregate JSON,
-private diagnostics, and four figures stay in the external analysis directory.
-All four figures and the rendered report were visually inspected.
+private diagnostics, and five figures stay in the external analysis directory.
+All five figures and the rendered report were visually inspected.

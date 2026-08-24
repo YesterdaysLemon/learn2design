@@ -18,6 +18,10 @@ from experiments.uifo_paired.results_ingestion import (
     StudyValidationError,
     ValidatedStudy,
 )
+from experiments.uifo_paired.submission_like_trajectory_analysis import (
+    analyze_submission_like_trajectories,
+    safe_submission_like_trajectories,
+)
 
 
 EXPLORATORY_SEED = 20260823
@@ -370,6 +374,7 @@ def analyze_submission_like_posthoc(
     labels = _topology_label_map(reference)
     run_rows = _terminal_run_rows(study, reference, labels)
     topology_rows = _topology_rows(run_rows, reference, labels)
+    trajectory_alignment = analyze_submission_like_trajectories(study)
     means = [float(row["topology_mean_best_feasible_loss"]) for row in topology_rows]
     gaps = [float(row["absolute_seed_gap"]) for row in topology_rows]
     seed_29 = [float(row["seed_29_best_feasible_loss"]) for row in topology_rows]
@@ -505,6 +510,7 @@ def analyze_submission_like_posthoc(
             "time_and_evaluation_counts_reported_separately": True,
             "changes_frozen_decision": False,
         },
+        "trajectory_alignment": trajectory_alignment,
         "target_hitting": _target_hitting(reference, labels, run_rows),
     }
 
@@ -561,6 +567,9 @@ def safe_submission_like_posthoc(posthoc: dict[str, object]) -> dict[str, object
         },
         "serial_drift": posthoc["serial_drift"],
         "evaluation_throughput": posthoc["evaluation_throughput"],
+        "trajectory_alignment": safe_submission_like_trajectories(
+            posthoc["trajectory_alignment"]
+        ),
         "target_hitting": targets,
     }
 
@@ -568,7 +577,7 @@ def safe_submission_like_posthoc(posthoc: dict[str, object]) -> dict[str, object
 def create_submission_like_plots(
     posthoc: dict[str, object], output_dir: Path
 ) -> list[Path]:
-    """Render the four private aggregate diagnostic figures."""
+    """Render the five private aggregate diagnostic figures."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -721,4 +730,43 @@ def create_submission_like_plots(
     fig.savefig(drift_path, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
 
-    return [topology_path, drift_path, target_path, loo_path]
+    trajectory = posthoc["trajectory_alignment"]
+    fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.8))
+    for axis, basis, x_label in (
+        (axes[0], trajectory["evaluation_aligned"], "Matched evaluation count"),
+        (axes[1], trajectory["wall_time_aligned"], "Matched wall time (seconds)"),
+    ):
+        checkpoints = [
+            row
+            for row in basis["checkpoints"]
+            if row["complete_topologies"] > 0
+        ]
+        x_values = [row["checkpoint"] for row in checkpoints]
+        axis.plot(
+            x_values,
+            [row["topology_macro_seed_29_mean_loss"] for row in checkpoints],
+            marker="o",
+            color="#2563eb",
+            label="seed 29 / first sweep",
+        )
+        axis.plot(
+            x_values,
+            [row["topology_macro_seed_31_mean_loss"] for row in checkpoints],
+            marker="o",
+            color="#dc2626",
+            label="seed 31 / second sweep",
+        )
+        axis.axhline(4.0, color="#64748b", linestyle="--", linewidth=1.0)
+        axis.set_xlabel(x_label)
+        axis.set_ylabel("Topology-macro best feasible loss")
+        axis.grid(alpha=0.2)
+    axes[0].set_title("Evaluation-aligned progress")
+    axes[1].set_title("Wall-time-aligned progress")
+    axes[0].legend(fontsize=8)
+    fig.suptitle("History-only trajectory alignment; seed and sweep remain confounded")
+    fig.tight_layout()
+    trajectory_path = figures_dir / "trajectory_alignment.png"
+    fig.savefig(trajectory_path, dpi=180, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+    return [topology_path, drift_path, target_path, loo_path, trajectory_path]

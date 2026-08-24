@@ -29,12 +29,19 @@ historical experiment replay; the paired harness supplies that flag per arm.
 The current submission remains patience 600. The cost-bounded, one-arm
 submission-like screen is now complete and independently validated, but it is
 not an official-budget performance claim or evidence of leaderboard
-competitiveness. The next gate is an unpaid, history-only seed-divergence
-diagnostic that separates progress by evaluation count from progress by wall
-time. See the aggregate results and limitations in
+competitiveness. The unpaid history-only diagnostic is also complete: the
+later-sweep loss gap remains after matching evaluation counts, so simple
+throughput drift is unlikely to explain it. Seed and sweep order remain
+confounded, making this a search-robustness lead rather than a causal result.
+The next research gate is to freeze one small initial-population robustness
+change before testing it on a new disjoint panel. See the aggregate results and
+limitations in
 [`research/2026-08-23-submission-like-screen-a100-results.md`](research/2026-08-23-submission-like-screen-a100-results.md).
+The final package, private-data provenance, and provider-cleanup ledger is in
+[`research/2026-08-23-final-submission-review.md`](research/2026-08-23-final-submission-review.md).
 The optimizer still has no hidden-leaderboard or official-budget multi-topology
-performance claim, and no new paid comparison is authorized by this result.
+performance claim. No new paid comparison should start until that narrow change,
+budget, panel, and decision rule are frozen.
 
 New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
 

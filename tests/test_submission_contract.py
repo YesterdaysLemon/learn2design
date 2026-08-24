@@ -105,6 +105,7 @@ def test_builder_creates_flat_deterministic_archive(tmp_path: Path) -> None:
             "submission.py",
         }
         assert bundle.getinfo("submission.py").date_time == (2026, 1, 1, 0, 0, 0)
+        assert all(info.create_system == 0 for info in bundle.infolist())
 
     recorded = json.loads(manifest.read_text(encoding="utf-8"))
     assert len(recorded["archive_sha256"]) == 64
@@ -136,3 +137,16 @@ def test_builder_normalizes_cross_platform_text_newlines(tmp_path: Path) -> None
     build_archive(source_crlf, archive_crlf)
 
     assert archive_lf.read_bytes() == archive_crlf.read_bytes()
+
+
+def test_builder_pins_creator_platform_without_changing_evaluated_hash(
+    tmp_path: Path,
+) -> None:
+    archive = tmp_path / "submission.zip"
+    manifest = build_archive(ROOT / "submission", archive)
+
+    assert manifest["archive_sha256"] == (
+        "4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b"
+    )
+    with zipfile.ZipFile(archive) as bundle:
+        assert {info.create_system for info in bundle.infolist()} == {0}

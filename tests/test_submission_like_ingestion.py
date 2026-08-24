@@ -687,7 +687,7 @@ def test_complete_analysis_writes_safe_aggregates_and_private_diagnostics(
 
     assert result["raw_replay"] == "matched"
     assert result["archived_summary"] == "matched"
-    assert result["figures"] == 4
+    assert result["figures"] == 5
     assert (output / "private_posthoc_diagnostics.json").is_file()
     assert (output / "posthoc_analysis.json").is_file()
     assert (output / "analysis_report.md").is_file()
@@ -698,6 +698,7 @@ def test_complete_analysis_writes_safe_aggregates_and_private_diagnostics(
         "run_order_and_throughput.png",
         "target_hitting_outcomes.png",
         "topology_seed_outcomes.png",
+        "trajectory_alignment.png",
     ]
     safe_serialized = (output / "posthoc_analysis.json").read_text(
         encoding="utf-8"

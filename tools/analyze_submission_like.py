@@ -99,6 +99,20 @@ def _report(
     seed = posthoc["seed_consistency"]
     drift = posthoc["serial_drift"]
     throughput = posthoc["evaluation_throughput"]
+    trajectory = posthoc["trajectory_alignment"]
+    evaluation_checkpoints = trajectory["evaluation_aligned"]["checkpoints"]
+    wall_time_checkpoints = trajectory["wall_time_aligned"]["checkpoints"]
+    evaluation_final = next(
+        row
+        for row in reversed(evaluation_checkpoints)
+        if row["complete_topologies"] == 10
+    )
+    wall_time_final = next(
+        row
+        for row in reversed(wall_time_checkpoints)
+        if row["complete_topologies"] == 10
+    )
+    axis_comparison = trajectory["axis_comparison"]
     mirrored = drift["mirrored_topology_contrasts"]
     loo = posthoc["leave_one_topology_out"]
     loo_ranges = loo["ranges"]
@@ -241,6 +255,29 @@ run timestamps were validated within the completed session and actual start
 gaps include controller and compilation intervals. This one-arm screen has no
 arm-first contrast. No causal drift claim is made.
 
+### Matched-resource trajectory diagnostic
+
+The history-only diagnostic is now complete. At the final common evaluation
+checkpoint of `{_fmt(evaluation_final['checkpoint'])}` evaluations, the
+topology-mean seed-31-minus-seed-29 loss contrast was
+`{_fmt(evaluation_final['topology_mean_seed_31_minus_seed_29_loss'])}`; seed 29
+was lower on {evaluation_final['seed_29_lower']} topologies and seed 31 on
+{evaluation_final['seed_31_lower']}. At the final common wall-time checkpoint
+of `{_fmt(wall_time_final['checkpoint'])}` seconds, the corresponding contrast
+was `{_fmt(wall_time_final['topology_mean_seed_31_minus_seed_29_loss'])}` with
+seed-29/seed-31 lower counts {wall_time_final['seed_29_lower']}/
+{wall_time_final['seed_31_lower']}.
+
+The contrast direction agreed across the evaluation and wall-time views at
+{axis_comparison['same_direction_fractions']} of
+{axis_comparison['comparable_fractions']} comparable progress fractions. Their
+mean absolute contrast difference was
+`{_fmt(axis_comparison['mean_absolute_contrast_difference'])}`. Positive
+contrasts mean the second sweep was worse. Persistence after matching
+evaluation count is inconsistent with a throughput-only explanation, but seed
+and sweep phase are still perfectly confounded. This is a diagnostic lead, not
+a causal finding or a new promotion rule.
+
 ## 4. Limitations
 
 There are ten independent topology units and only two repeated optimizer seeds.
@@ -251,12 +288,11 @@ equivalence, non-inferiority, or expected leaderboard rank.
 
 ## 5. Recommended next evidence gate
 
-Before any new paid comparison, run a history-only seed-divergence diagnostic
-on the authenticated trajectories, separating progress by evaluation count
-from progress by wall time. If that motivates an algorithm change, freeze it
-and use a new disjoint panel; do not reuse this screen as confirmation. Do not
-launch confirmation-v1 or a new paid study from these exploratory diagnostics
-alone.
+The history-only seed-divergence diagnostic is complete. It rules out a simple
+evaluation-throughput explanation but cannot distinguish random-seed
+sensitivity from sweep/session order. Finish package review, then formulate one
+pre-result search-robustness change and evaluate it on a new disjoint panel.
+Do not reuse this screen as confirmation or launch `confirmation-v1`.
 """
 
 
@@ -421,6 +457,10 @@ def run_analysis(
         posthoc["leave_one_topology_out"],
     )
     _write_csv(output / "drift_diagnostics.csv", posthoc["topology_rows"])
+    _write_csv(
+        output / "trajectory_diagnostics.csv",
+        posthoc["trajectory_alignment"]["private_topology_checkpoint_rows"],
+    )
     _write_json(
         output / "data_dictionary.json",
         {
@@ -437,6 +477,10 @@ def run_analysis(
             ),
             "drift_diagnostics.csv": (
                 "Ten paired topology rows; seed and sweep phase are confounded."
+            ),
+            "trajectory_diagnostics.csv": (
+                "Private topology/checkpoint rows at matched evaluation counts and "
+                "matched wall times; missing feasible values are not imputed."
             ),
             "posthoc_analysis.json": (
                 "Allowlisted safe aggregates only; no row identifiers or hashes."
