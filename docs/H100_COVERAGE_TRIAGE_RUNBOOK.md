@@ -1,10 +1,15 @@
 # H100 coverage triage runbook
 
-This is the operating guide for `coverage-triage-screen-v1`. It does not
-authorize paid compute. Stop before provisioning until the owner approves the
-reviewed plan hash and the exact `$30` maximum total provider charge.
-A passing Stage A produces only a review request for the candidate Stage-B
-design; it never authorizes, unlocks, or provisions Stage B.
+**Historical closed procedure — do not execute.** The single terminal Stage-A
+attempt completed on 2026-08-25 and failed the frozen promotion rule. Its action
+is `retain_random_start_candidate`; do not rerun this procedure or provision
+the proposed Stage B. The commands below are retained only to reconstruct and
+audit the completed attempt. See
+[`research/2026-08-25-h100-coverage-triage-results.md`](../research/2026-08-25-h100-coverage-triage-results.md).
+
+This was the operating guide for `coverage-triage-screen-v1`. It never
+authorized paid compute by itself. The terminal result closed both this attempt
+and its conditional Stage-B path.
 
 ## Frozen envelope
 
@@ -119,8 +124,9 @@ printed plan SHA-256 independently.
 
 The panel's topology-generation/API metadata is bound to official starter-kit
 revision `1bb7f54737dec6a08b59879a8831d125f08f8a0b`, the explicit override recorded
-by the generator. Archive exclusion is independently bound to the exact
-dataset SHA-256 above; those bytes were first captured at historical revision
+by the generator. Archive exclusion is independently bound to dataset SHA-256
+`149f6aac17aff2e33750b4e1b6cebd3cef1c39d47ae49a3a7ed77315cb7838a7`;
+those bytes were first captured at historical revision
 `d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c`. Do not conflate those provenance
 layers or rewrite older panel bytes.
 

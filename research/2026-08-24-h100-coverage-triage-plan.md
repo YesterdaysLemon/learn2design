@@ -1,6 +1,10 @@
 # H100 coverage triage plan — 2026-08-24
 
-Status: frozen locally, unlaunched, and not yet authorized for paid compute.
+Status: frozen precommitment. The single terminal attempt completed on
+2026-08-25 and failed the promotion rule; see
+[`2026-08-25-h100-coverage-triage-results.md`](2026-08-25-h100-coverage-triage-results.md).
+The design below is preserved as the pre-result record and does not authorize a
+rerun or Stage B.
 
 This Stage-A screen replaces the proposed `$75` first step with a bounded
 reject-or-review gate. It can retain the submitted random-start candidate or
