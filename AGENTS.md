@@ -8,10 +8,13 @@ This repository values reproducible evidence over speculative feature work.
 2. Read [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) for the next decision.
 3. Read the README and dated research record for the area you will change.
 
-The current gate is the frozen, unlaunched H100
-`coverage-triage-screen-v1`. Do not add another optimizer or ML model, launch
-the older 12-topology coverage profile, or spend on Stage B until Stage A is
-outcome-blindly validated and the owner separately approves the next spend.
+The terminal H100 `coverage-triage-screen-v1` completed and failed its frozen
+7-of-8 topology-win rule with 5 wins, so the submitted random-start candidate
+is retained and Stage B is closed. Do not rerun or top up Stage A, launch the
+older 12-topology coverage profile, or spend on the proposed Stage B. Further
+work must be unpaid and mechanism-first, or wait for public-leaderboard
+feedback. Any materially different paid study needs a fresh rationale,
+untouched panel, frozen rule and cost envelope, plus separate owner approval.
 
 ## Working rules
 

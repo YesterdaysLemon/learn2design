@@ -1,13 +1,15 @@
 # H100 coverage-robustness screen — frozen pre-result design
 
-> Superseded as the first paid gate by the lower-cost
+> **Historical frozen plan — do not execute.** It was superseded as the first
+> paid gate by the lower-cost
 > [`2026-08-24-h100-coverage-triage-plan.md`](2026-08-24-h100-coverage-triage-plan.md).
-> This original design remains frozen for provenance; its panel is reserved by
-> the Stage-A policy for a separately approved independent Stage B.
+> That Stage A subsequently completed and failed its frozen promotion rule, so
+> Stage B is closed. This original design remains only as a provenance record;
+> its unobserved panel was never unlocked and must not be launched.
 
 ## Status and evidence boundary
 
-This document defines a pre-result development screen. It contains no UIFO
+This document defined a pre-result development screen. It contains no UIFO
 outcomes for the treatment below and does not authorize paid compute.
 
 The owner-reported Round-1 submission remains the immutable baseline:

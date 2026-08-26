@@ -10,10 +10,11 @@ later, explicitly post-hoc follow-up with a separate evidence boundary.
   official-budget rehearsal; the current cost-bounded screen does not make that
   claim;
 - `coverage-robustness-v1.json`: 12 archive-disjoint and prior-panel-disjoint
-  topologies preserved for an independent midpoint Latin-hypercube
-  confirmation;
+  topologies from the historical conditional confirmation design; Stage A
+  failed, so this still-unobserved panel was never unlocked and must not run;
 - `coverage-triage-v1.json`: 8 archive-disjoint and all-prior-panel-disjoint
-  topologies frozen for the lower-cost Stage-A coverage screen;
+  topologies used by the completed, terminal lower-cost Stage-A coverage
+  screen; that failed gate is closed and cannot be rerun or topped up;
 - `restart-mechanics-v1.json`: one outcome-selected restart mechanics case whose
   loss is excluded from inference;
 - `restart-screen-v1.json`: eight development topologies selected by a committed

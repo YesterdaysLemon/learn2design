@@ -1,12 +1,13 @@
 # H100 coverage screen runbook
 
-> Superseded as the next launch path by
-> [`H100_COVERAGE_TRIAGE_RUNBOOK.md`](H100_COVERAGE_TRIAGE_RUNBOOK.md). Preserve
-> this 12-topology contract for provenance; do not launch it directly.
+> **Historical closed procedure — do not execute.** The later
+> [`coverage-triage-screen-v1`](H100_COVERAGE_TRIAGE_RUNBOOK.md) Stage A
+> completed and failed its frozen 7-of-8 topology-win rule with 5 wins. This
+> 12-topology profile was never unlocked, remains unobserved, and must not be
+> launched.
 
-This is a pre-launch operating guide for `coverage-robustness-screen-v1`. It
-does not authorize paid compute. The owner must explicitly approve the exact
-maximum charge after every local and provider gate below passes.
+This was the pre-launch operating guide for `coverage-robustness-screen-v1`.
+It is retained only for provenance and does not authorize paid compute.
 
 ## Frozen envelope
 
