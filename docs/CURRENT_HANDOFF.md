@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-26
+Updated: 2026-08-27
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -94,6 +94,14 @@ are the evidence record, not a competing task list.
   sanitizer or state violations. The private result SHA-256 is
   `95c1b979e70c6bc29c25901beb528a4ce184e06b4e6add842c7285f47bbab68e`.
   This is software-mechanics evidence only.
+- The second autonomous checkpoint, `feasible-progress-clock-v1`, passed all
+  seven frozen CPU cases. Across 32 finite-but-infeasible descending
+  observations, all 32 reset their member clocks and no restart occurred. The
+  plateau and delayed-plateau controls restarted every member exactly at their
+  declared boundaries; the mixed case restarted exactly members 1, 3, 5, and
+  7. The private immutable result SHA-256 is
+  `d256572c0b67ff107ffca253f25e720175806912b3fe94c87f54478a6c98956e`.
+  This confirms clock semantics only, not an optimizer improvement.
 
 ## Next decision
 
@@ -113,16 +121,17 @@ aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
 
 Unpaid mechanism work now follows the guarded
-[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first frozen checkpoint
-is the synthetic CPU-only
-[`anchor-lane-stability-v1`](../research/2026-08-26-anchor-lane-stability-plan.md)
-study. That checkpoint passed. The next admissible question is a new synthetic
-counterexample study of whether improving finite-but-infeasible loss can keep
-the current restart clock alive without feasible progress. Freeze a unique
-study ID, cases, full result contract, and failure action before running it.
-This cannot change the candidate, reopen a closed panel, or authorize paid
-compute. The private controller is `awaiting_study` and will not rerun the
-terminal anchor-lane study.
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first two frozen
+checkpoints passed. The next admissible question is the online-information
+boundary exposed by the second result: a forever-infeasible improving path and
+a path that becomes feasible one batch later have identical observable
+prefixes. Determine, with a separately frozen analytic statement and hostile
+finite reference cases, whether any deterministic restart rule can both force
+a bounded restart on the former and preserve every possible late crossing.
+Do not implement a submission treatment or select a tenure threshold from the
+observed mechanics result. This question cannot change the candidate, reopen a
+closed panel, or authorize paid compute. The private controller is
+`awaiting_study` and will not rerun either terminal study.
 
 ## Public deadlines
 
@@ -144,6 +153,9 @@ durable aggregate result and exploratory evidence boundaries are in
 Useful unpaid work now includes reviewing public-leaderboard feedback when it
 arrives, profiling the retained candidate locally, and developing a genuinely
 new mechanism without selecting against the observed Stage-A panel. The
+finite-infeasible clock result and its online-information boundary are in
+[`2026-08-27-feasible-progress-clock-results.md`](../research/2026-08-27-feasible-progress-clock-results.md).
+The
 validated anchor-lane mechanics result and its narrow claim boundary are in
 [`2026-08-26-anchor-lane-stability-results.md`](../research/2026-08-26-anchor-lane-stability-results.md). The
 validated Stage-A aggregate result, cost boundary, and exact terminal action
