@@ -3,10 +3,62 @@
   "studies": {
     "anchor-lane-stability-v1": {
       "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
         "fixture_source": "eaadb83eb9c1be8724ae4892b4dd199325d18e139b248af7df8f72fe2b54ade0",
         "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
         "study_plan": "aab1b647d24904233693b7ffd99cefb8eac39a60f187c9871c0e4c1cfe763a99",
         "worker_source": "cb4e2b5c6acc74c123b3830ee2d1f7441ff856889cd0f1273b37a85101f6c484"
+      },
+      "case_contract": {
+        "diagnostics_disabled_control": {
+          "initial_variants": [
+            "suffix-a",
+            "suffix-a"
+          ],
+          "max_evals": 18,
+          "mode": "quadratic",
+          "patience": 100
+        },
+        "exact_twin": {
+          "initial_variants": [
+            null,
+            null
+          ],
+          "max_evals": 24,
+          "mode": "quadratic",
+          "patience": 100
+        },
+        "exceptional_arithmetic_partial_tail": {
+          "initial_variants": [
+            "exceptional-a",
+            "exceptional-b"
+          ],
+          "max_evals": 18,
+          "mode": "exceptional",
+          "patience": 100
+        },
+        "forced_shared_state_boundary": {
+          "initial_variants": [
+            "boundary-a",
+            "boundary-b"
+          ],
+          "max_evals": 32,
+          "mode": "shared-boundary",
+          "patience": 2
+        },
+        "process_isolation": {
+          "source_case": "exact_twin",
+          "workers": 2
+        },
+        "suffix_invariance": {
+          "initial_variants": [
+            "suffix-a",
+            "suffix-b"
+          ],
+          "max_evals": 24,
+          "mode": "quadratic",
+          "patience": 100
+        }
       },
       "case_required_fields": {
         "diagnostics_disabled_control": [
@@ -55,8 +107,157 @@
       },
       "plan_path": "research/2026-08-26-anchor-lane-stability-plan.md",
       "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/anchor_lane_stability.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-26-anchor-lane-stability-plan.md",
+        "worker_source": "experiments/local_lab/worker.py"
+      },
       "success_action": "anchor_lane_mechanics_confirmed",
-      "worker_mode": "anchor-lane-stability-v1"
+      "worker_mode": "anchor-lane-stability-v1",
+      "worker_module": "experiments.local_lab.worker"
+    },
+    "feasible-progress-clock-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "42034a57542eecffa90394e0317b0a229fae628d3f4268764455524f4d85703f",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "7617a6047127c8f4aa9cb18072e98460538fc5682e7d65062c30b6c4e4def4d7",
+        "worker_source": "279323d6121f25515bb8344f2eb954513109ac856bde0cc8477671c7d31162ba"
+      },
+      "case_contract": {
+        "diagnostics_disabled_control": {
+          "max_evals": 32,
+          "mode": "mixed",
+          "patience": 2,
+          "telemetry_variants": [
+            false,
+            true
+          ]
+        },
+        "finite_infeasible_descent": {
+          "feasible_batches": [],
+          "max_evals": 32,
+          "mode": "descent",
+          "patience": 2
+        },
+        "finite_infeasible_improve_then_plateau": {
+          "feasible_batches": [],
+          "improvement_batches": [
+            0,
+            1
+          ],
+          "max_evals": 40,
+          "mode": "improve-then-plateau",
+          "patience": 2
+        },
+        "finite_infeasible_plateau_control": {
+          "feasible_batches": [],
+          "max_evals": 32,
+          "mode": "plateau",
+          "patience": 2
+        },
+        "late_feasibility_crossing": {
+          "feasible_member": 0,
+          "first_feasible_batch": 3,
+          "max_evals": 32,
+          "mode": "late-crossing",
+          "patience": 2
+        },
+        "mixed_member_clock": {
+          "descending_members": [
+            0,
+            2,
+            4,
+            6
+          ],
+          "max_evals": 32,
+          "mode": "mixed",
+          "patience": 2,
+          "plateau_members": [
+            1,
+            3,
+            5,
+            7
+          ]
+        },
+        "process_isolation": {
+          "source_case": "mixed_member_clock",
+          "workers": 2
+        }
+      },
+      "case_required_fields": {
+        "diagnostics_disabled_control": [
+          "passed",
+          "trace_sha256"
+        ],
+        "finite_infeasible_descent": [
+          "finite_infeasible_observations",
+          "improved_rows",
+          "nonfinite_derivative_values",
+          "passed",
+          "restart_events",
+          "stalled_steps_by_member",
+          "trace_sha256"
+        ],
+        "finite_infeasible_improve_then_plateau": [
+          "changed_members_after_restart",
+          "passed",
+          "restart_events",
+          "restart_state_reset_members",
+          "stalled_steps_by_member"
+        ],
+        "finite_infeasible_plateau_control": [
+          "changed_members_after_restart",
+          "passed",
+          "restart_events",
+          "restart_state_reset_members",
+          "stalled_steps_by_member"
+        ],
+        "late_feasibility_crossing": [
+          "first_feasible_batch",
+          "global_improvement_events",
+          "passed",
+          "restart_events",
+          "stalled_steps_by_member"
+        ],
+        "mixed_member_clock": [
+          "changed_members_after_boundary",
+          "passed",
+          "restart_events",
+          "restart_state_reset_members",
+          "stalled_steps_by_member"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ]
+      },
+      "failure_action": "park_feasible_progress_clock_research",
+      "fixture_identity": {
+        "claim_boundary": "mechanics_only_no_candidate_or_performance_claim",
+        "initial_population_sha256": "a80d3cd61f8075c3874169bfbc49000a1341a9ac50c209c913aa7d0be27a6eee",
+        "learning_rate": 0.05,
+        "loss_dtype": "float32",
+        "minimum_improvement": 1e-07,
+        "n_params": 3,
+        "patience": 2,
+        "population_size": 8,
+        "seed": 20260826
+      },
+      "plan_path": "research/2026-08-26-feasible-progress-clock-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/feasible_progress_clock.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-26-feasible-progress-clock-plan.md",
+        "worker_source": "experiments/local_lab/feasible_progress_clock_worker.py"
+      },
+      "success_action": "finite_infeasible_progress_resets_clock_confirmed",
+      "worker_mode": "feasible-progress-clock-v1",
+      "worker_module": "experiments.local_lab.feasible_progress_clock_worker"
     }
   }
 }

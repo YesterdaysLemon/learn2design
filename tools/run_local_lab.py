@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -13,14 +15,14 @@ import sys
 import time
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 
 ROOT = Path(__file__).parents[1].resolve()
 PRIVATE_ROOT = ROOT.with_name(f"{ROOT.name}-local-lab").resolve()
 STUDY_REGISTRY_PATH = ROOT / "experiments" / "local_lab" / "studies.json"
 EXPECTED_STUDY_REGISTRY_SHA256 = (
-    "2dd92f798494108bb52d85fb72d5708c823b28769af531099dd01f7e5d871003"
+    "3d36db7d32d9d431ded03f696b7ec4bb184a8f0026c98a61fcecbfc81f2a3d75"
 )
 EXPECTED_SUBMISSION_SOURCE_SHA256 = (
     "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
@@ -34,14 +36,20 @@ PROTECTED_LOCAL_ARTIFACTS = {
         "4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b"
     ),
 }
-PROVENANCE_PATHS = {
-    "dependency_lock": "uv.lock",
-    "fixture_source": "experiments/local_lab/anchor_lane_stability.py",
-    "lab_protocol": "docs/AUTONOMOUS_LAB.md",
-    "study_registry": "experiments/local_lab/studies.json",
-    "study_plan": "research/2026-08-26-anchor-lane-stability-plan.md",
-    "worker_source": "experiments/local_lab/worker.py",
+REQUIRED_SOURCE_KEYS = {
+    "dependency_lock",
+    "fixture_source",
+    "lab_protocol",
+    "study_plan",
+    "worker_source",
 }
+WORKER_MODULE_PATHS = {
+    "experiments.local_lab.feasible_progress_clock_worker": (
+        "experiments/local_lab/feasible_progress_clock_worker.py"
+    ),
+    "experiments.local_lab.worker": "experiments/local_lab/worker.py",
+}
+SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 ALLOWED_BRANCH = "codex/autonomous-local-lab"
 ALLOWED_BRANCH_PREFIX = "codex/lab-"
 CYCLE_TIMEOUT_SECONDS = 60 * 60
@@ -49,6 +57,10 @@ HEARTBEAT_SECONDS = 30
 MAX_WORKER_OUTPUT_BYTES = 5 * 1024 * 1024
 OUTPUT_POLL_SECONDS = 1
 STATE_SCHEMA_VERSION = 1
+
+
+class DuplicateStudyError(RuntimeError):
+    """A terminal study was requested again; refuse without parking state."""
 
 
 def _utc_now() -> str:
@@ -116,7 +128,31 @@ def _protected_artifact_snapshot() -> dict[str, dict[str, object]]:
     return snapshot
 
 
-def _repository_snapshot() -> dict[str, object]:
+def _source_paths(entry: dict[str, object]) -> dict[str, str]:
+    source_paths = entry.get("source_paths")
+    if not isinstance(source_paths, dict) or set(source_paths) != REQUIRED_SOURCE_KEYS:
+        raise RuntimeError("study source paths do not match the frozen source set")
+    validated = {}
+    for name, relative_path in source_paths.items():
+        if not isinstance(name, str) or not isinstance(relative_path, str):
+            raise RuntimeError("malformed approved study source path")
+        pure_path = PurePosixPath(relative_path)
+        if (
+            pure_path.is_absolute()
+            or ".." in pure_path.parts
+            or relative_path != pure_path.as_posix()
+        ):
+            raise RuntimeError(f"unsafe approved study source path: {name}")
+        validated[name] = relative_path
+    worker_module = entry.get("worker_module")
+    if not isinstance(worker_module, str) or worker_module not in WORKER_MODULE_PATHS:
+        raise RuntimeError("study worker module is not allowlisted")
+    if validated["worker_source"] != WORKER_MODULE_PATHS[worker_module]:
+        raise RuntimeError("study worker module disagrees with its frozen source")
+    return validated
+
+
+def _repository_snapshot(entry: dict[str, object]) -> dict[str, object]:
     if _git("status", "--porcelain=v1", "--untracked-files=all"):
         raise RuntimeError("the local lab refuses a dirty worktree")
     branch = _git("branch", "--show-current")
@@ -131,13 +167,15 @@ def _repository_snapshot() -> dict[str, object]:
     if _sha256_bytes(committed_source) != EXPECTED_SUBMISSION_SOURCE_SHA256:
         raise RuntimeError("the protected submission source digest changed")
 
+    source_paths = _source_paths(entry)
     committed_hashes = {
         name: _sha256_bytes(_git_bytes("show", f"HEAD:{relative_path}"))
-        for name, relative_path in sorted(PROVENANCE_PATHS.items())
+        for name, relative_path in sorted(source_paths.items())
     }
     return {
         "branch": branch,
         "committed_file_sha256": committed_hashes,
+        "committed_source_paths": source_paths,
         "protected_local_artifacts": _protected_artifact_snapshot(),
         "revision": revision,
         "submission_source_sha256": EXPECTED_SUBMISSION_SOURCE_SHA256,
@@ -163,9 +201,21 @@ def _validate_study_approval(
 ) -> None:
     approved = entry.get("approved_file_sha256")
     committed = snapshot.get("committed_file_sha256")
-    if not isinstance(approved, dict) or not isinstance(committed, dict):
+    committed_paths = snapshot.get("committed_source_paths")
+    if (
+        not isinstance(approved, dict)
+        or not isinstance(committed, dict)
+        or not isinstance(committed_paths, dict)
+    ):
         raise RuntimeError("malformed approved study source manifest")
+    if set(approved) != set(committed) or set(approved) != set(committed_paths):
+        raise RuntimeError("approved study source manifest is incomplete")
     for name, expected_digest in approved.items():
+        if (
+            not isinstance(expected_digest, str)
+            or SHA256_PATTERN.fullmatch(expected_digest) is None
+        ):
+            raise RuntimeError(f"malformed approved study source digest: {name}")
         if committed.get(name) != expected_digest:
             raise RuntimeError(f"approved study source changed: {name}")
 
@@ -175,6 +225,18 @@ def _validate_study_result(
     entry: dict[str, object],
     result: dict[str, object],
 ) -> None:
+    expected_top_level = {
+        "action",
+        "cases",
+        "environment",
+        "fixture",
+        "schema_version",
+        "status",
+        "study_id",
+    }
+    if set(result) != expected_top_level:
+        raise RuntimeError("worker returned an unexpected top-level result field")
+    _validate_sanitized_value(result)
     if result.get("study_id") != study:
         raise RuntimeError("worker returned the wrong study identity")
     if result.get("schema_version") != entry.get("result_schema_version"):
@@ -192,8 +254,10 @@ def _validate_study_result(
         case = cases.get(case_name)
         if not isinstance(case, dict) or not isinstance(required_fields, list):
             raise RuntimeError(f"worker returned malformed case: {case_name}")
-        if not set(required_fields).issubset(case):
-            raise RuntimeError(f"worker omitted frozen fields for case: {case_name}")
+        if set(case) != set(required_fields):
+            raise RuntimeError(
+                f"worker returned the wrong frozen fields for case: {case_name}"
+            )
         if not isinstance(case.get("passed"), bool):
             raise RuntimeError(f"worker returned non-terminal case: {case_name}")
         case_passes.append(case["passed"])
@@ -212,15 +276,77 @@ def _validate_study_result(
     expected_fixture = entry.get("fixture_identity")
     if not isinstance(fixture, dict) or not isinstance(expected_fixture, dict):
         raise RuntimeError("worker returned malformed fixture identity")
+    if set(fixture) != set(expected_fixture) | {"case_contract"}:
+        raise RuntimeError("worker returned unexpected fixture fields")
     if any(fixture.get(name) != value for name, value in expected_fixture.items()):
         raise RuntimeError("worker returned the wrong frozen fixture identity")
     case_contract = fixture.get("case_contract")
-    if not isinstance(case_contract, dict) or set(case_contract) != set(cases):
-        raise RuntimeError("worker returned a malformed frozen case contract")
+    expected_case_contract = entry.get("case_contract")
+    if (
+        not isinstance(case_contract, dict)
+        or not isinstance(expected_case_contract, dict)
+        or case_contract != expected_case_contract
+        or set(case_contract) != set(cases)
+    ):
+        raise RuntimeError("worker returned the wrong frozen case contract")
 
     environment = result.get("environment")
-    if not isinstance(environment, dict) or environment.get("platform") != "cpu":
+    if (
+        not isinstance(environment, dict)
+        or set(environment) != {"device_kind", "jax_version", "platform", "python"}
+        or environment.get("platform") != "cpu"
+    ):
         raise RuntimeError("worker did not authenticate the CPU backend")
+
+
+def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
+    if depth > 8:
+        raise RuntimeError("worker result exceeded the sanitized nesting limit")
+    if value is None or isinstance(value, (bool, int)):
+        return
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise RuntimeError("worker result contained a non-finite number")
+        return
+    if isinstance(value, str):
+        if len(value) > 512:
+            raise RuntimeError("worker result contained an oversized string")
+        if str(ROOT).lower() in value.lower():
+            raise RuntimeError("worker result exposed a repository path")
+        return
+    if isinstance(value, list):
+        if len(value) > 64:
+            raise RuntimeError("worker result contained an oversized list")
+        for item in value:
+            _validate_sanitized_value(item, depth=depth + 1)
+        return
+    if isinstance(value, dict):
+        if len(value) > 64:
+            raise RuntimeError("worker result contained an oversized object")
+        for key, item in value.items():
+            if not isinstance(key, str) or len(key) > 128:
+                raise RuntimeError("worker result contained a malformed key")
+            lowered = key.lower()
+            if any(
+                fragment in lowered
+                for fragment in (
+                    "credential",
+                    "history",
+                    "parameter_values",
+                    "raw_gradient",
+                    "secret",
+                    "topology",
+                )
+            ):
+                raise RuntimeError("worker result contained a forbidden field")
+            if lowered.endswith("sha256") and (
+                not isinstance(item, str)
+                or SHA256_PATTERN.fullmatch(item) is None
+            ):
+                raise RuntimeError("worker result contained a malformed SHA-256")
+            _validate_sanitized_value(item, depth=depth + 1)
+        return
+    raise RuntimeError("worker result contained a non-JSON value")
 
 
 def _validate_output(output: Path) -> tuple[Path, Path]:
@@ -436,11 +562,14 @@ def _run_worker(
     *,
     cycle_id: str,
     heartbeat,
+    worker_module: str = "experiments.local_lab.worker",
 ) -> tuple[dict[str, object], dict[str, object]]:
+    if worker_module not in WORKER_MODULE_PATHS:
+        raise RuntimeError("local-lab worker module is not allowlisted")
     command = [
         sys.executable,
         "-m",
-        "experiments.local_lab.worker",
+        worker_module,
         "--mode",
         worker_mode,
     ]
@@ -535,7 +664,9 @@ def _begin_cycle(
     completed = state["completed_studies"]
     assert isinstance(completed, dict)
     if study in completed:
-        raise RuntimeError(f"the frozen study already has a terminal record: {study}")
+        raise DuplicateStudyError(
+            f"the frozen study already has a terminal record: {study}"
+        )
     state["active_cycle"] = {
         "cycle_id": cycle_id,
         "output": output.relative_to(private_root).as_posix(),
@@ -636,7 +767,7 @@ def main() -> None:
     try:
         registry = _load_study_registry()
         entry = _study_entry(registry, args.study)
-        snapshot = _repository_snapshot()
+        snapshot = _repository_snapshot(entry)
         if snapshot["revision"] != prelease_revision:
             raise RuntimeError("repository revision changed while acquiring the lease")
         _validate_study_approval(entry, snapshot)
@@ -666,13 +797,17 @@ def main() -> None:
         worker_mode = entry.get("worker_mode")
         if not isinstance(worker_mode, str):
             raise RuntimeError("approved study has no worker mode")
+        worker_module = entry.get("worker_module")
+        if not isinstance(worker_module, str):
+            raise RuntimeError("approved study has no worker module")
         result, worker_receipt = _run_worker(
             worker_mode,
             cycle_id=cycle_id,
             heartbeat=heartbeat,
+            worker_module=worker_module,
         )
         _validate_study_result(args.study, entry, result)
-        post_snapshot = _repository_snapshot()
+        post_snapshot = _repository_snapshot(entry)
         if post_snapshot != snapshot:
             raise RuntimeError(
                 "repository or protected-artifact drift during the cycle"
@@ -743,7 +878,7 @@ def main() -> None:
                 error=error,
                 study=args.study,
             )
-        elif state is None:
+        elif state is None and not isinstance(error, DuplicateStudyError):
             _park_preflight(
                 PRIVATE_ROOT,
                 cycle_id=cycle_id,
