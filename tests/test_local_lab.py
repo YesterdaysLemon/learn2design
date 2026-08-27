@@ -140,7 +140,7 @@ def test_result_validator_requires_exact_sanitized_contract() -> None:
 
     _validate_study_result("feasible-progress-clock-v1", entry, result)
     result["cases"]["mixed_member_clock"]["parameter_values"] = [[1.0]]
-    with pytest.raises(RuntimeError, match="wrong frozen fields"):
+    with pytest.raises(RuntimeError, match="forbidden field"):
         _validate_study_result("feasible-progress-clock-v1", entry, result)
 
 
