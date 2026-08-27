@@ -23,9 +23,10 @@ uv run --frozen --no-sync `
 
 The terminal follow-on studies are `feasible-progress-clock-v1`,
 `infeasible-prefix-indistinguishability-v1`, and
-`public-signal-surface-v1`. Their sanitized conclusions live under
-`research/`; terminal study IDs must never be reused even though the controller
-remains available for a newly frozen registry entry.
+`public-signal-surface-v1`, followed by
+`full-surface-prefix-indistinguishability-v1`. Their sanitized conclusions
+live under `research/`; terminal study IDs must never be reused even though the
+controller remains available for a newly frozen registry entry.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,

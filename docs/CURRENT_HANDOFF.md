@@ -143,27 +143,33 @@ aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
 
 Unpaid mechanism work now follows the guarded
-[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first four frozen
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first five frozen
 checkpoints passed. The third resolves the scalar/Boolean online-information
 question; the fourth closes the public aux inventory and confirms that richer
 current constraint diagnostics exist. It does not establish that any such
-diagnostic predicts a future feasibility crossing.
+diagnostic predicts a future feasibility crossing. The fifth closes the
+full-surface universal-certificate question: its two protected synthetic paths
+were byte-identical through `B = 8` across the exact allowed typed snapshot and
+differed at the next primary feasibility leaf. This shows only that finite
+current observations are not a universal certificate without added
+assumptions; it does not show that they lack distributional value or that any
+policy improves performance.
 
-The next admissible question is a full-surface prefix audit. Freeze an explicit
-adapter limited to the current optimizer's normal logged evaluation path and
-ask whether two deterministic synthetic paths can remain identical through a
-finite bound across candidate parameters, loss, total gradient, every aux leaf,
-deterministic optimizer state, RNG transcript, budget counters, and incumbent
-state, while differing at the next feasibility observation. Include negative
-controls in which perturbing each signal class breaks snapshot identity. Do
-not admit unlogged callables, extra evaluations, Hessians, manual logging,
-private attributes, saved histories, structural metadata, official/private
-evidence, or a submission treatment. A full-surface twin would show only that
-the current diagnostics are not a universal future-feasibility certificate
-without added assumptions; it would not show that they lack distributional
-value or that any policy improves performance. This question cannot change the
-candidate, reopen a closed panel, or authorize paid compute. The private
-controller is `awaiting_study` and will not rerun any terminal study.
+The next admissible question is a systems-mechanics inventory. Freeze one
+synthetic normal-path batch and identify the exact compilation, dispatch, host
+conversion, host-device synchronization, callback, RNG, budget, and timing
+boundaries. Then ask whether an experiment-only pure-JAX transition can
+reproduce the same typed public observations without changing the protected
+submission. Local CPU timings are diagnostic mechanics only, not accelerator
+or competition-performance evidence.
+
+After that checkpoint, a learning lane must first freeze the topology,
+observation, action, reward, trajectory, split, and leakage contract and pass
+toy controls. Test a supervised or surrogate baseline before a contextual
+bandit or meta-RL controller. A native rewrite, official-data training,
+candidate integration, accelerator benchmark, or paid run remains a separate
+owner gate. The private controller is `awaiting_study` and will not rerun any
+terminal study.
 
 ## Public deadlines
 
@@ -185,7 +191,9 @@ durable aggregate result and exploratory evidence boundaries are in
 Useful unpaid work now includes reviewing public-leaderboard feedback when it
 arrives, profiling the retained candidate locally, and developing a genuinely
 new mechanism without selecting against the observed Stage-A panel. The
-validated public signal-surface inventory and claim boundary are in
+validated full-surface information-boundary result and next systems rung are in
+[`2026-08-27-full-surface-prefix-results.md`](../research/2026-08-27-full-surface-prefix-results.md).
+The validated public signal-surface inventory and claim boundary are in
 [`2026-08-27-public-signal-surface-results.md`](../research/2026-08-27-public-signal-surface-results.md).
 The validated scalar/Boolean information-boundary result is in
 [`2026-08-27-infeasible-prefix-indistinguishability-results.md`](../research/2026-08-27-infeasible-prefix-indistinguishability-results.md).
