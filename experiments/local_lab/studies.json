@@ -388,7 +388,7 @@
     "public-signal-surface-v1": {
       "approved_file_sha256": {
         "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
-        "fixture_source": "01209bcb82556ef15d43dbea14086d0fecdc486daee289a317e7d9820d0a91ec",
+        "fixture_source": "c98bd04e7e305b16855feb6b79edd7a307b90cccfcd8ef07d58fe216a7669639",
         "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
         "study_plan": "d0c6500b6a71022bdb92bdb5fe823775f1fe1880a3970f1338d34d24392d010a",
         "worker_source": "f2b260c301f3cc981afeb0f4573f55d465aa0a7c4148e846b697d0762146609b"

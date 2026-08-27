@@ -131,6 +131,10 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _normalized_text_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
 def _array_bytes(value: object) -> bytes:
     array = np.ascontiguousarray(np.asarray(jax.device_get(value)))
     header = json.dumps(
@@ -538,7 +542,7 @@ def _aux_subscript_fields(function: ast.FunctionDef) -> list[str]:
 
 def _consumer_projection() -> dict[str, object]:
     source_path = REPOSITORY_ROOT / "submission" / "submission.py"
-    if _sha256(source_path) != SUBMISSION_SOURCE_SHA256:
+    if _normalized_text_sha256(source_path) != SUBMISSION_SOURCE_SHA256:
         raise RuntimeError("protected optimizer source identity changed")
     tree = ast.parse(source_path.read_text(encoding="utf-8"))
     optimize = _class_method(tree, "BatchedRestartAdam", "optimize")
