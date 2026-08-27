@@ -64,7 +64,7 @@ the frozen
 [`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
 and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
-The guarded autonomous local laboratory has completed seven unpaid CPU
+The guarded autonomous local laboratory has completed eight unpaid CPU
 checkpoints. `anchor-lane-stability-v1` confirmed its narrow lane-local/shared-
 boundary mechanics; `feasible-progress-clock-v1` confirmed that finite
 infeasible loss improvements reset the current member clock; and
@@ -85,7 +85,12 @@ package. `supervised-toy-signal-v1` then established the first learning
 contract: a deterministic ridge surrogate recovered one deliberately exposed
 signal on held-out generator regimes, while frozen label-shuffle and
 signal-ablation controls stayed at chance. This validates the toy harness, not
-an optimizer policy or competition gain. See the sanitized
+an optimizer policy or competition gain. `contextual-bandit-toy-signal-v1`
+then learned the deliberately exposed online sign signal from chosen-action
+reward, kept its train state frozen across held-out regimes, and returned to
+chance under context-shuffle and signal-ablation controls. This validates only
+the immediate-reward bandit harness, not delayed credit, production RL, or a
+candidate treatment. See the sanitized
 [`anchor result`](research/2026-08-26-anchor-lane-stability-results.md),
 [`clock result`](research/2026-08-27-feasible-progress-clock-results.md),
 [`information-boundary result`](research/2026-08-27-infeasible-prefix-indistinguishability-results.md),
@@ -93,9 +98,10 @@ an optimizer policy or competition gain. See the sanitized
 [`full-surface result`](research/2026-08-27-full-surface-prefix-results.md),
 [`JAX-boundary result`](research/2026-08-27-normal-path-jax-boundary-results.md),
 [`supervised toy-signal result`](research/2026-08-27-supervised-toy-signal-results.md),
+[`contextual-bandit result`](research/2026-08-27-contextual-bandit-toy-signal-results.md),
 and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting
-a newly frozen contextual-bandit mechanics study and will not repeat a
-terminal fixture.
+a newly frozen delayed-credit mechanics study and will not repeat a terminal
+fixture.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

@@ -25,16 +25,20 @@ The terminal follow-on studies are `feasible-progress-clock-v1`,
 `infeasible-prefix-indistinguishability-v1`, and
 `public-signal-surface-v1`, followed by
 `full-surface-prefix-indistinguishability-v1` and
-`normal-path-jax-boundary-v1`, then `supervised-toy-signal-v1`. Their sanitized
-conclusions live under `research/`; terminal study IDs must never be reused even
-though the controller remains available for a newly frozen registry entry.
+`normal-path-jax-boundary-v1`, `supervised-toy-signal-v1`, and
+`contextual-bandit-toy-signal-v1`. Their sanitized conclusions live under
+`research/`; terminal study IDs must never be reused even though the controller
+remains available for a newly frozen registry entry.
 
 The JAX-boundary checkpoint passed its one-batch CPU systems contract. It is
 not a candidate treatment or timing benchmark. The supervised toy-signal
 checkpoint then passed its frozen held-out, baseline, label-shuffle,
 attribution, leakage, and process-isolation controls. It validates only the
-synthetic supervised harness. The next registry entry may freeze a narrow
-contextual-bandit mechanics question; production RL and candidate integration
+synthetic supervised harness. The contextual-bandit checkpoint then passed its
+frozen online-update, held-out, baseline, context-shuffle, attribution,
+leakage, and process-isolation controls. It validates only the synthetic
+immediate-reward bandit harness. The next registry entry may freeze a narrow
+delayed-credit mechanics question; production RL and candidate integration
 remain outside this laboratory's authority.
 
 The controller refuses a dirty or unapproved branch, an output outside the
