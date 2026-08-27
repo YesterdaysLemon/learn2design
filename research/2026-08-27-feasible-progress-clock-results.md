@@ -50,6 +50,20 @@ The worker reported zero nonfinite derivative values and zero sanitizer
 violations. The result JSON and its SHA-256 sidecar matched. The controller
 returned to `awaiting_study` with failure streak zero and released its lease.
 
+## Repository verification
+
+The focused local-lab suite passed after correcting one test's expected
+sanitizer error message; no frozen fixture, invariant, threshold, source pin,
+or decision action changed. The single full `dev` plus `integration` repository
+test pass then completed successfully with two expected skips.
+
+A clean scratch build produced current instrumented-source archive SHA-256
+`4b7384dd6d401918b9b46ace4e65c3f116c34feeeca825ae25745dfb9e7908bd`,
+matching the repository's pinned builder test. This is distinct from the
+protected owner-uploaded ZIP SHA-256
+`4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b`.
+The protected artifact and `submission/` tree were not edited or overwritten.
+
 ## Interpretation
 
 The current optimizer has two distinct progress predicates. A global incumbent

@@ -155,8 +155,7 @@ arrives, profiling the retained candidate locally, and developing a genuinely
 new mechanism without selecting against the observed Stage-A panel. The
 finite-infeasible clock result and its online-information boundary are in
 [`2026-08-27-feasible-progress-clock-results.md`](../research/2026-08-27-feasible-progress-clock-results.md).
-The
-validated anchor-lane mechanics result and its narrow claim boundary are in
+The validated anchor-lane mechanics result and its narrow claim boundary are in
 [`2026-08-26-anchor-lane-stability-results.md`](../research/2026-08-26-anchor-lane-stability-results.md). The
 validated Stage-A aggregate result, cost boundary, and exact terminal action
 are in
