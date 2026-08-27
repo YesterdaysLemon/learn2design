@@ -64,6 +64,15 @@ the frozen
 [`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
 and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
+The guarded autonomous local laboratory has also completed its first unpaid
+CPU checkpoint. `anchor-lane-stability-v1` passed all six frozen deterministic
+mechanics cases at population eight. This confirms only the lane-local/shared-
+boundary behavior of the implementation; it is not competition-performance
+evidence and does not change the submitted package. See the
+[`sanitized result`](research/2026-08-26-anchor-lane-stability-results.md) and
+[`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting a
+new versioned analytic study and will not repeat the terminal fixture.
+
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and
 [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow

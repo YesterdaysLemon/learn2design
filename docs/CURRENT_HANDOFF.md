@@ -86,6 +86,14 @@ are the evidence record, not a competing task list.
   `$23.416081577539444` GPU charge, and `$23.44330380158499` all-in, below the
   `$30` cap. After local hash verification, the pod and network volume were
   deleted. Live inventory is zero pods, endpoints, templates, and volumes.
+- The first autonomous local mechanics checkpoint,
+  `anchor-lane-stability-v1`, passed all six frozen CPU cases at the submitted
+  population of eight. Exact and fresh-process traces matched; lane zero stayed
+  invariant to seven changed suffix members until the forced shared-incumbent
+  restart boundary; exceptional arithmetic and the `8,8,2` partial tail had no
+  sanitizer or state violations. The private result SHA-256 is
+  `95c1b979e70c6bc29c25901beb528a4ce184e06b4e6add842c7285f47bbab68e`.
+  This is software-mechanics evidence only.
 
 ## Next decision
 
@@ -108,9 +116,13 @@ Unpaid mechanism work now follows the guarded
 [`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first frozen checkpoint
 is the synthetic CPU-only
 [`anchor-lane-stability-v1`](../research/2026-08-26-anchor-lane-stability-plan.md)
-study. Passing that checkpoint can advance only another analytic mechanics
-question; it cannot change the candidate, reopen a closed panel, or authorize
-paid compute.
+study. That checkpoint passed. The next admissible question is a new synthetic
+counterexample study of whether improving finite-but-infeasible loss can keep
+the current restart clock alive without feasible progress. Freeze a unique
+study ID, cases, full result contract, and failure action before running it.
+This cannot change the candidate, reopen a closed panel, or authorize paid
+compute. The private controller is `awaiting_study` and will not rerun the
+terminal anchor-lane study.
 
 ## Public deadlines
 
@@ -132,6 +144,8 @@ durable aggregate result and exploratory evidence boundaries are in
 Useful unpaid work now includes reviewing public-leaderboard feedback when it
 arrives, profiling the retained candidate locally, and developing a genuinely
 new mechanism without selecting against the observed Stage-A panel. The
+validated anchor-lane mechanics result and its narrow claim boundary are in
+[`2026-08-26-anchor-lane-stability-results.md`](../research/2026-08-26-anchor-lane-stability-results.md). The
 validated Stage-A aggregate result, cost boundary, and exact terminal action
 are in
 [`2026-08-25-h100-coverage-triage-results.md`](../research/2026-08-25-h100-coverage-triage-results.md).
