@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-25
+Updated: 2026-08-26
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -103,6 +103,14 @@ rationale, implementation audit, untouched panel, frozen decision rule and
 cost envelope, then separate owner approval before provisioning. The favorable
 aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
+
+Unpaid mechanism work now follows the guarded
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first frozen checkpoint
+is the synthetic CPU-only
+[`anchor-lane-stability-v1`](../research/2026-08-26-anchor-lane-stability-plan.md)
+study. Passing that checkpoint can advance only another analytic mechanics
+question; it cannot change the candidate, reopen a closed panel, or authorize
+paid compute.
 
 ## Public deadlines
 

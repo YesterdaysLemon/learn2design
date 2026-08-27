@@ -64,7 +64,13 @@ the frozen
 [`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
 and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
-New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
+New contributors should begin with
+[`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and
+[`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow
+[`AGENTS.md`](AGENTS.md). Recurring unpaid mechanics work is governed by the
+[`autonomous local laboratory protocol`](docs/AUTONOMOUS_LAB.md). These are
+compact entrypoints into the detailed experiment and research records, not
+separate evidence ledgers.
 
 ## Build the current candidate
 

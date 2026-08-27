@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "studies": {
+    "anchor-lane-stability-v1": {
+      "approved_file_sha256": {
+        "fixture_source": "eaadb83eb9c1be8724ae4892b4dd199325d18e139b248af7df8f72fe2b54ade0",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "aab1b647d24904233693b7ffd99cefb8eac39a60f187c9871c0e4c1cfe763a99",
+        "worker_source": "cb4e2b5c6acc74c123b3830ee2d1f7441ff856889cd0f1273b37a85101f6c484"
+      },
+      "case_required_fields": {
+        "diagnostics_disabled_control": [
+          "passed",
+          "trace_sha256"
+        ],
+        "exact_twin": [
+          "batches",
+          "passed",
+          "trace_sha256"
+        ],
+        "exceptional_arithmetic_partial_tail": [
+          "batch_sizes",
+          "finite_infeasible_observations",
+          "global_improvement_events",
+          "nonfinite_gradient_values",
+          "partial_events",
+          "partial_state_violations",
+          "passed",
+          "sanitizer_violations"
+        ],
+        "forced_shared_state_boundary": [
+          "first_lane_zero_loss_difference_batch",
+          "first_lane_zero_parameter_difference_batch",
+          "incumbent_events",
+          "passed",
+          "restart_events"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "suffix_invariance": [
+          "anchor_loss_hashes_equal",
+          "anchor_parameter_hashes_equal",
+          "passed",
+          "raw_random_hashes_equal",
+          "suffix_initial_hashes_differ"
+        ]
+      },
+      "failure_action": "park_initializer_and_restart_research",
+      "fixture_identity": {
+        "n_params": 5,
+        "population_size": 8,
+        "seed": 20260826
+      },
+      "plan_path": "research/2026-08-26-anchor-lane-stability-plan.md",
+      "result_schema_version": 1,
+      "success_action": "anchor_lane_mechanics_confirmed",
+      "worker_mode": "anchor-lane-stability-v1"
+    }
+  }
+}
