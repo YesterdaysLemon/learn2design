@@ -1510,6 +1510,540 @@
       "success_action": "synthetic_supervised_toy_signal_recovered_for_harness",
       "worker_mode": "supervised-toy-signal-v1",
       "worker_module": "experiments.local_lab.supervised_toy_signal_worker"
+    },
+    "contextual-bandit-toy-signal-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "5fef69cd9b73c8fce4f12557d8b492f3cebf9df2e17a41b1181efd67ac1e8096",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "b1ac9bd6853aff06856c8a3537748471a685e0f524b69c3e9facb8121a31904e",
+        "worker_source": "f523386e4abf6488402cf530a42e6de92f7f688a28fe1d6f3c6f42d6fe5e69be"
+      },
+      "case_contract": {
+        "typed_bandit_contract": {
+          "action_dtype": "int8",
+          "action_values": [
+            0,
+            1
+          ],
+          "context_dtype": "float64",
+          "context_fields": [
+            "signal",
+            "nuisance_pair",
+            "nuisance_cycle"
+          ],
+          "context_shape": [
+            3
+          ],
+          "done_dtype": "bool",
+          "done_pattern": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ],
+          "horizon": 8,
+          "logging_event_order": [
+            "context",
+            "select",
+            "reward",
+            "update",
+            "log"
+          ],
+          "policy_input_fields": [
+            "context"
+          ],
+          "preferred_action_dtype": "int8",
+          "preferred_action_values": [
+            0,
+            1
+          ],
+          "reward_dtype": "float64",
+          "reward_values": [
+            0.0,
+            1.0
+          ],
+          "structure_kind": "none"
+        },
+        "generator_partition": {
+          "expected_dataset_sha256": "ca1258a1f297b6bca16f6e42ab18e53743aa518a3e9d22f3ba361ac688de6628",
+          "regime_counts": {
+            "test": 2,
+            "train": 4,
+            "validation": 2
+          },
+          "regimes": [
+            {
+              "code": 401,
+              "nuisance_scale": 0.85,
+              "nuisance_shift": -0.9,
+              "signal_scale": 0.75,
+              "split": "train"
+            },
+            {
+              "code": 409,
+              "nuisance_scale": 1.15,
+              "nuisance_shift": -0.3,
+              "signal_scale": 0.9,
+              "split": "train"
+            },
+            {
+              "code": 419,
+              "nuisance_scale": 0.8,
+              "nuisance_shift": 0.3,
+              "signal_scale": 1.1,
+              "split": "train"
+            },
+            {
+              "code": 421,
+              "nuisance_scale": 1.2,
+              "nuisance_shift": 0.9,
+              "signal_scale": 1.25,
+              "split": "train"
+            },
+            {
+              "code": 503,
+              "nuisance_scale": 0.7,
+              "nuisance_shift": -1.4,
+              "signal_scale": 0.65,
+              "split": "validation"
+            },
+            {
+              "code": 509,
+              "nuisance_scale": 1.3,
+              "nuisance_shift": 1.4,
+              "signal_scale": 1.35,
+              "split": "validation"
+            },
+            {
+              "code": 601,
+              "nuisance_scale": 0.6,
+              "nuisance_shift": -1.9,
+              "signal_scale": 0.55,
+              "split": "test"
+            },
+            {
+              "code": 607,
+              "nuisance_scale": 1.4,
+              "nuisance_shift": 1.9,
+              "signal_scale": 1.45,
+              "split": "test"
+            }
+          ],
+          "split_counts": {
+            "test": 512,
+            "train": 1024,
+            "validation": 512
+          },
+          "steps_per_trajectory": 8,
+          "trajectories_per_regime": 32,
+          "trajectory_counts": {
+            "test": 64,
+            "train": 128,
+            "validation": 64
+          }
+        },
+        "online_update_order": {
+          "event_order": [
+            "context",
+            "select",
+            "reward",
+            "update",
+            "log"
+          ],
+          "exploration_schedule": [
+            0,
+            0,
+            1,
+            1,
+            0,
+            0,
+            1,
+            1
+          ],
+          "exploration_trajectories": "even",
+          "exploitation_trajectories": "odd",
+          "tie_action": 0,
+          "train_updates": 1024
+        },
+        "leakage_guards": {
+          "forbidden_policy_fields": [
+            "preferred_action",
+            "reward",
+            "regime_code",
+            "split",
+            "sample_key",
+            "trajectory_id",
+            "step",
+            "done",
+            "next_context",
+            "counterfactual_reward"
+          ],
+          "heldout_updates": 0,
+          "policy_input_fields": [
+            "context"
+          ],
+          "reorder": "reverse_completed_heldout_log",
+          "train_split": "train_only"
+        },
+        "baseline_replay": {
+          "constant_actions": [
+            0,
+            1
+          ],
+          "random_seed": 2026082713,
+          "scoring": "macro_mean_reward_equal_weight_by_regime"
+        },
+        "contextual_recovery": {
+          "model": "two_context_bin_two_action_empirical_reward_table",
+          "thresholds": {
+            "maximum_attribution_test_macro_reward": 0.55,
+            "maximum_shuffle_test_macro_reward": 0.55,
+            "maximum_shuffle_validation_macro_reward": 0.55,
+            "maximum_train_regret": 264,
+            "minimum_heldout_regime_reward": 0.98,
+            "minimum_test_gain_constant": 0.3,
+            "minimum_test_gain_random": 0.25,
+            "minimum_test_macro_reward": 0.99,
+            "minimum_train_mean_reward": 0.74,
+            "minimum_true_shuffle_gap": 0.4,
+            "minimum_validation_gain_constant": 0.3,
+            "minimum_validation_macro_reward": 0.99
+          },
+          "tie_action": 0
+        },
+        "shuffled_context_control": {
+          "permutation": [
+            0,
+            2,
+            4,
+            6,
+            1,
+            3,
+            5,
+            7
+          ],
+          "scope": "train_contexts_within_each_eight_step_trajectory",
+          "thresholds": {
+            "maximum_test_macro_reward": 0.55,
+            "maximum_validation_macro_reward": 0.55,
+            "minimum_true_shuffle_gap": 0.4
+          }
+        },
+        "signal_attribution_control": {
+          "maximum_test_macro_reward": 0.55,
+          "signal_index": 0,
+          "variants": [
+            "refit_without_signal",
+            "true_policy_without_signal"
+          ]
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        }
+      },
+      "case_required_fields": {
+        "baseline_replay": [
+          "best_constant_test_macro_reward",
+          "best_constant_validation_macro_reward",
+          "constant_one_test_macro_reward",
+          "constant_one_validation_macro_reward",
+          "constant_zero_test_macro_reward",
+          "constant_zero_validation_macro_reward",
+          "finite_metrics",
+          "passed",
+          "random_seed",
+          "random_test_macro_reward",
+          "random_validation_macro_reward",
+          "replay_exact",
+          "same_evaluation_rows",
+          "trace_sha256"
+        ],
+        "contextual_recovery": [
+          "exploitation_count",
+          "exploration_count",
+          "learned_projection_sha256",
+          "min_heldout_regime_reward",
+          "passed",
+          "test_gain_over_constant",
+          "test_gain_over_random",
+          "test_macro_reward",
+          "train_cumulative_regret",
+          "train_mean_reward",
+          "validation_gain_over_constant",
+          "validation_macro_reward"
+        ],
+        "generator_partition": [
+          "balanced_regimes",
+          "context_overlap_count",
+          "contexts_disjoint",
+          "dataset_sha256",
+          "deterministic_replay",
+          "done_pattern_exact",
+          "exact_key_order",
+          "exact_regime_order",
+          "expected_dataset_commitment",
+          "finite_contexts",
+          "passed",
+          "regime_counts",
+          "regimes_disjoint",
+          "sample_keys_disjoint",
+          "split_counts",
+          "trajectories_per_regime",
+          "trajectory_counts",
+          "validated_trajectories",
+          "within_split_keys_unique"
+        ],
+        "leakage_guards": [
+          "canonical_reorder_exact",
+          "duplicate_key_sentinel_rejected",
+          "forbidden_fields_checked",
+          "forbidden_fields_rejected",
+          "heldout_state_unchanged",
+          "heldout_updates",
+          "passed",
+          "policy_input_fields",
+          "swapped_action_score_changed",
+          "trace_sha256",
+          "train_scope_sentinels_checked",
+          "train_scope_sentinels_rejected",
+          "wrong_reward_sentinel_rejected"
+        ],
+        "online_update_order": [
+          "chosen_cell_only_checks",
+          "event_order_exact",
+          "exploitation_count",
+          "exploration_count",
+          "final_update_count",
+          "log_count",
+          "passed",
+          "reward_count",
+          "select_count",
+          "sentinels_checked",
+          "sentinels_rejected",
+          "terminal_rewards_incorporated",
+          "trace_sha256",
+          "update_count"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "shuffled_context_control": [
+          "context_multiset_unchanged",
+          "heldout_commitment_unchanged",
+          "independence_table_exact",
+          "metadata_commitment_unchanged",
+          "nonidentity_permutation",
+          "passed",
+          "positive_gate_rejected",
+          "rowwise_context_commitment_changed",
+          "test_macro_reward",
+          "trace_sha256",
+          "true_reward_gap",
+          "validation_macro_reward"
+        ],
+        "signal_attribution_control": [
+          "evaluator_metadata_unchanged",
+          "only_signal_changed",
+          "passed",
+          "refit_test_macro_reward",
+          "trace_sha256",
+          "true_policy_zeroed_test_macro_reward"
+        ],
+        "typed_bandit_contract": [
+          "action_dtype",
+          "action_values",
+          "context_dtype",
+          "context_fields",
+          "context_immutable",
+          "context_shape",
+          "done_dtype",
+          "done_pattern_exact",
+          "horizon",
+          "logging_event_order",
+          "passed",
+          "policy_input_fields",
+          "preferred_action_dtype",
+          "preferred_action_values",
+          "reward_dtype",
+          "reward_values",
+          "structure_kind"
+        ]
+      },
+      "failure_action": "park_contextual_bandit_research",
+      "fixture_identity": {
+        "action_dtype": "int8",
+        "action_values": [
+          0,
+          1
+        ],
+        "baseline_seed": 2026082713,
+        "claim_boundary": "synthetic_cpu_contextual_bandit_harness_only",
+        "context_dtype": "float64",
+        "context_fields": [
+          "signal",
+          "nuisance_pair",
+          "nuisance_cycle"
+        ],
+        "context_shape": [
+          3
+        ],
+        "expected_dataset_sha256": "ca1258a1f297b6bca16f6e42ab18e53743aa518a3e9d22f3ba361ac688de6628",
+        "forced_action_pattern": [
+          0,
+          0,
+          1,
+          1,
+          0,
+          0,
+          1,
+          1
+        ],
+        "generator_regimes": [
+          {
+            "code": 401,
+            "nuisance_scale": 0.85,
+            "nuisance_shift": -0.9,
+            "signal_scale": 0.75,
+            "split": "train"
+          },
+          {
+            "code": 409,
+            "nuisance_scale": 1.15,
+            "nuisance_shift": -0.3,
+            "signal_scale": 0.9,
+            "split": "train"
+          },
+          {
+            "code": 419,
+            "nuisance_scale": 0.8,
+            "nuisance_shift": 0.3,
+            "signal_scale": 1.1,
+            "split": "train"
+          },
+          {
+            "code": 421,
+            "nuisance_scale": 1.2,
+            "nuisance_shift": 0.9,
+            "signal_scale": 1.25,
+            "split": "train"
+          },
+          {
+            "code": 503,
+            "nuisance_scale": 0.7,
+            "nuisance_shift": -1.4,
+            "signal_scale": 0.65,
+            "split": "validation"
+          },
+          {
+            "code": 509,
+            "nuisance_scale": 1.3,
+            "nuisance_shift": 1.4,
+            "signal_scale": 1.35,
+            "split": "validation"
+          },
+          {
+            "code": 601,
+            "nuisance_scale": 0.6,
+            "nuisance_shift": -1.9,
+            "signal_scale": 0.55,
+            "split": "test"
+          },
+          {
+            "code": 607,
+            "nuisance_scale": 1.4,
+            "nuisance_shift": 1.9,
+            "signal_scale": 1.45,
+            "split": "test"
+          }
+        ],
+        "horizon": 8,
+        "logging_event_order": [
+          "context",
+          "select",
+          "reward",
+          "update",
+          "log"
+        ],
+        "policy_input_fields": [
+          "context"
+        ],
+        "preferred_action_pattern": [
+          0,
+          1,
+          0,
+          1,
+          0,
+          1,
+          0,
+          1
+        ],
+        "regime_counts": {
+          "test": 2,
+          "train": 4,
+          "validation": 2
+        },
+        "reward_dtype": "float64",
+        "reward_values": [
+          0.0,
+          1.0
+        ],
+        "shuffle_permutation": [
+          0,
+          2,
+          4,
+          6,
+          1,
+          3,
+          5,
+          7
+        ],
+        "split_counts": {
+          "test": 512,
+          "train": 1024,
+          "validation": 512
+        },
+        "steps_per_trajectory": 8,
+        "structure_kind": "none",
+        "thresholds": {
+          "maximum_attribution_test_macro_reward": 0.55,
+          "maximum_shuffle_test_macro_reward": 0.55,
+          "maximum_shuffle_validation_macro_reward": 0.55,
+          "maximum_train_regret": 264,
+          "minimum_heldout_regime_reward": 0.98,
+          "minimum_test_gain_constant": 0.3,
+          "minimum_test_gain_random": 0.25,
+          "minimum_test_macro_reward": 0.99,
+          "minimum_train_mean_reward": 0.74,
+          "minimum_true_shuffle_gap": 0.4,
+          "minimum_validation_gain_constant": 0.3,
+          "minimum_validation_macro_reward": 0.99
+        },
+        "trajectories_per_regime": 32,
+        "trajectory_counts": {
+          "test": 64,
+          "train": 128,
+          "validation": 64
+        }
+      },
+      "plan_path": "research/2026-08-27-contextual-bandit-toy-signal-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/contextual_bandit_toy_signal.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-contextual-bandit-toy-signal-plan.md",
+        "worker_source": "experiments/local_lab/contextual_bandit_toy_signal_worker.py"
+      },
+      "success_action": "synthetic_contextual_bandit_signal_recovered_for_harness",
+      "worker_mode": "contextual-bandit-toy-signal-v1",
+      "worker_module": "experiments.local_lab.contextual_bandit_toy_signal_worker"
     }
   }
 }
