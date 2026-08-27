@@ -25,6 +25,11 @@ from experiments.local_lab.feasible_progress_clock import (
 from experiments.local_lab.infeasible_prefix_indistinguishability import (
     run_study as run_prefix_boundary_study,
 )
+from experiments.local_lab.public_signal_surface import (
+    AUX_LEAF_PATHS,
+    DFBENCH_WHEEL_SHA256,
+    run_study as run_public_signal_surface_study,
+)
 from tools.run_local_lab import (
     DuplicateStudyError,
     EXPECTED_SUBMISSION_SOURCE_SHA256,
@@ -190,6 +195,65 @@ def test_infeasible_prefix_boundary_result_is_sanitized() -> None:
     assert all(value not in encoded for value in forbidden)
 
 
+def test_public_signal_surface_frozen_study_passes() -> None:
+    result = run_public_signal_surface_study(include_process_isolation=True)
+
+    assert result["study_id"] == "public-signal-surface-v1"
+    assert result["status"] == "passed"
+    assert result["action"] == "public_current_constraint_signals_confirmed"
+    assert set(result["cases"]) == {
+        "candidate_passthrough_modes",
+        "consumer_boundary",
+        "dependency_source_identity",
+        "infeasible_magnitude_control",
+        "no_aux_negative_control",
+        "process_isolation",
+        "scalar_batch_roundtrip",
+        "uifo_aux_schema",
+    }
+    assert all(case["passed"] for case in result["cases"].values())
+    assert result["cases"]["dependency_source_identity"][
+        "dfbench_wheel_sha256"
+    ] == DFBENCH_WHEEL_SHA256
+    assert result["cases"]["uifo_aux_schema"]["top_level_fields"] == [
+        "is_feasible",
+        "penalty",
+        "power_values",
+        "sensitivity_loss",
+        "violations",
+    ]
+    assert result["cases"]["candidate_passthrough_modes"]["aux_leaf_paths"] == (
+        AUX_LEAF_PATHS
+    )
+    assert result["cases"]["consumer_boundary"]["consumed_aux_fields"] == [
+        "is_feasible"
+    ]
+    assert result["cases"]["infeasible_magnitude_control"][
+        "same_infeasible_boolean"
+    ]
+    assert not result["cases"]["no_aux_negative_control"][
+        "rich_aux_universal"
+    ]
+    assert result["environment"]["platform"] == "cpu"
+
+
+def test_public_signal_surface_result_is_sanitized() -> None:
+    result = run_public_signal_surface_study(include_process_isolation=False)
+    encoded = json.dumps(result, allow_nan=False, sort_keys=True)
+
+    assert result["status"] == "incomplete"
+    assert result["action"] == "no_decision_incomplete_study"
+    assert result["cases"]["process_isolation"]["passed"] is None
+    forbidden = (
+        str(REPOSITORY_ROOT),
+        "optimization_pairs",
+        "parameter_values",
+        "raw_gradient",
+        "topology",
+    )
+    assert all(value not in encoded for value in forbidden)
+
+
 def test_result_validator_requires_exact_sanitized_contract() -> None:
     registry = lab_controller._load_study_registry()
     entry = lab_controller._study_entry(registry, "feasible-progress-clock-v1")
@@ -228,6 +292,23 @@ def test_prefix_boundary_validator_requires_exact_fixture_identity() -> None:
         _validate_study_result(
             "infeasible-prefix-indistinguishability-v1", entry, result
         )
+
+
+def test_public_signal_surface_validator_requires_exact_contract() -> None:
+    registry = lab_controller._load_study_registry()
+    entry = lab_controller._study_entry(registry, "public-signal-surface-v1")
+    result = run_public_signal_surface_study(include_process_isolation=False)
+    result["cases"]["process_isolation"] = {
+        "passed": True,
+        "trace_sha256": "0" * 64,
+    }
+    result["status"] = "passed"
+    result["action"] = "public_current_constraint_signals_confirmed"
+
+    _validate_study_result("public-signal-surface-v1", entry, result)
+    result["fixture"]["dfbench_wheel_sha256"] = "1" * 64
+    with pytest.raises(RuntimeError, match="wrong frozen fixture identity"):
+        _validate_study_result("public-signal-surface-v1", entry, result)
 
 
 def test_protected_submission_canonical_digest_matches_pin() -> None:
@@ -458,7 +539,7 @@ def test_second_study_end_to_end_leaves_third_study_pending(
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_third_study_end_to_end_closes_pending_registry(
+def test_third_study_end_to_end_leaves_fourth_study_pending(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = lab_controller._load_study_registry()
@@ -512,13 +593,80 @@ def test_third_study_end_to_end_closes_pending_registry(
     payload = json.loads(output.read_text(encoding="utf-8"))
     state = _load_state(tmp_path)
     assert payload["result"]["status"] == "passed"
-    assert state["status"] == "awaiting_study"
-    assert state["stop_reason"] == "no_approved_study_pending"
+    assert state["status"] == "idle"
+    assert state["stop_reason"] is None
     assert state["completed_studies"]["anchor-lane-stability-v1"] == prior_anchor
     assert state["completed_studies"]["feasible-progress-clock-v1"] == prior_clock
     assert set(state["completed_studies"]) == {
         "anchor-lane-stability-v1",
         "feasible-progress-clock-v1",
         "infeasible-prefix-indistinguishability-v1",
+    }
+    assert not (tmp_path / "lab.lock").exists()
+
+
+def test_fourth_study_end_to_end_closes_pending_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = lab_controller._load_study_registry()
+    entry = lab_controller._study_entry(registry, "public-signal-surface-v1")
+    snapshot = {
+        "committed_file_sha256": entry["approved_file_sha256"],
+        "committed_source_paths": entry["source_paths"],
+        "revision": "f" * 40,
+    }
+    initial_state = lab_controller._default_state()
+    initial_state["status"] = "idle"
+    initial_state["completed_studies"] = {
+        "anchor-lane-stability-v1": {
+            "cycle_id": "anchor-cycle",
+            "result_sha256": "a" * 64,
+            "revision": "b" * 40,
+            "status": "passed",
+        },
+        "feasible-progress-clock-v1": {
+            "cycle_id": "clock-cycle",
+            "result_sha256": "c" * 64,
+            "revision": "d" * 40,
+            "status": "passed",
+        },
+        "infeasible-prefix-indistinguishability-v1": {
+            "cycle_id": "prefix-cycle",
+            "result_sha256": "e" * 64,
+            "revision": "f" * 40,
+            "status": "passed",
+        },
+    }
+    lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
+    output = tmp_path / "cycles" / "fourth-study-test" / "result.json"
+    monkeypatch.setattr(lab_controller, "PRIVATE_ROOT", tmp_path)
+    monkeypatch.setattr(
+        lab_controller, "_repository_snapshot", lambda _entry: snapshot
+    )
+    monkeypatch.setattr(lab_controller, "_git", lambda *_args: "f" * 40)
+    monkeypatch.setattr(
+        lab_controller.sys,
+        "argv",
+        [
+            "run_local_lab.py",
+            "--study",
+            "public-signal-surface-v1",
+            "--output",
+            str(output),
+        ],
+    )
+
+    lab_controller.main()
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    state = _load_state(tmp_path)
+    assert payload["result"]["status"] == "passed"
+    assert state["status"] == "awaiting_study"
+    assert state["stop_reason"] == "no_approved_study_pending"
+    assert set(state["completed_studies"]) == {
+        "anchor-lane-stability-v1",
+        "feasible-progress-clock-v1",
+        "infeasible-prefix-indistinguishability-v1",
+        "public-signal-surface-v1",
     }
     assert not (tmp_path / "lab.lock").exists()
