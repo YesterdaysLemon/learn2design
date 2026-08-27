@@ -21,6 +21,12 @@ uv run --frozen --no-sync `
   --output $output
 ```
 
+The terminal follow-on studies are `feasible-progress-clock-v1`,
+`infeasible-prefix-indistinguishability-v1`, and
+`public-signal-surface-v1`. Their sanitized conclusions live under
+`research/`; terminal study IDs must never be reused even though the controller
+remains available for a newly frozen registry entry.
+
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,
 existing output, concurrent lease, protected artifact drift, or any change to
