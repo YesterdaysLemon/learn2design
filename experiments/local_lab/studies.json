@@ -1094,6 +1094,422 @@
       "success_action": "synthetic_normal_path_jax_boundary_equivalent",
       "worker_mode": "normal-path-jax-boundary-v1",
       "worker_module": "experiments.local_lab.normal_path_jax_boundary_worker"
+    },
+    "supervised-toy-signal-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "6e8e3565e8b4bcab53b7bbab95d582faf48c187fbf6535e8f2ad9a333ccc5699",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "e04e7acb97f9aa8689918cff744d8bcc305c1a953c8c3c82a678be1002f40fb0",
+        "worker_source": "ec569a7f1f8680bbac40e8f210bcfe912ab0b5468a2993b9f8ac7c4a20256db7"
+      },
+      "case_contract": {
+        "baseline_replay": {
+          "constant_action": 0,
+          "random_seed": 2026082707,
+          "scoring": "macro_accuracy_equal_weight_by_regime"
+        },
+        "generator_partition": {
+          "blocks_per_regime": 32,
+          "expected_dataset_sha256": "f6af01db64aab94363e964f73b8e46b9341b680f63338f9fdff059ed14f1a38e",
+          "regime_counts": {
+            "test": 2,
+            "train": 4,
+            "validation": 2
+          },
+          "regimes": [
+            {
+              "code": 101,
+              "nuisance_scale": 0.9,
+              "nuisance_shift": -0.75,
+              "signal_scale": 0.8,
+              "split": "train"
+            },
+            {
+              "code": 103,
+              "nuisance_scale": 1.1,
+              "nuisance_shift": -0.25,
+              "signal_scale": 0.95,
+              "split": "train"
+            },
+            {
+              "code": 107,
+              "nuisance_scale": 0.8,
+              "nuisance_shift": 0.25,
+              "signal_scale": 1.05,
+              "split": "train"
+            },
+            {
+              "code": 109,
+              "nuisance_scale": 1.2,
+              "nuisance_shift": 0.75,
+              "signal_scale": 1.2,
+              "split": "train"
+            },
+            {
+              "code": 211,
+              "nuisance_scale": 0.7,
+              "nuisance_shift": -1.25,
+              "signal_scale": 0.7,
+              "split": "validation"
+            },
+            {
+              "code": 223,
+              "nuisance_scale": 1.3,
+              "nuisance_shift": 1.25,
+              "signal_scale": 1.3,
+              "split": "validation"
+            },
+            {
+              "code": 307,
+              "nuisance_scale": 0.6,
+              "nuisance_shift": -1.75,
+              "signal_scale": 0.6,
+              "split": "test"
+            },
+            {
+              "code": 331,
+              "nuisance_scale": 1.4,
+              "nuisance_shift": 1.75,
+              "signal_scale": 1.4,
+              "split": "test"
+            }
+          ],
+          "rows_per_block": 4,
+          "split_counts": {
+            "test": 256,
+            "train": 512,
+            "validation": 256
+          },
+          "trajectories_per_regime": 128
+        },
+        "label_shuffle_control": {
+          "permutation": [
+            0,
+            2,
+            1,
+            3
+          ],
+          "scope": "train_labels_within_each_four_row_block",
+          "thresholds": {
+            "maximum_shuffle_macro_accuracy": 0.55,
+            "minimum_true_shuffle_gap": 0.4
+          }
+        },
+        "leakage_guards": {
+          "forbidden_policy_fields": [
+            "target",
+            "reward",
+            "regime_code",
+            "split",
+            "sample_key"
+          ],
+          "overlap_sentinels": [
+            "regime",
+            "sample_key",
+            "observation"
+          ],
+          "policy_input_fields": [
+            "observation"
+          ],
+          "reorder": "reverse_each_heldout_split"
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        },
+        "signal_attribution_control": {
+          "maximum_macro_accuracy": 0.55,
+          "signal_index": 0,
+          "variants": [
+            "refit_without_signal",
+            "true_policy_without_signal"
+          ]
+        },
+        "supervised_recovery": {
+          "fit_split": "train_only",
+          "model": "float64_linear_ridge_score",
+          "ridge_coefficient": 1e-06,
+          "thresholds": {
+            "maximum_attribution_macro_accuracy": 0.55,
+            "maximum_shuffle_macro_accuracy": 0.55,
+            "minimum_heldout_regime_accuracy": 0.98,
+            "minimum_test_gain_constant": 0.3,
+            "minimum_test_gain_random": 0.25,
+            "minimum_test_macro_accuracy": 0.99,
+            "minimum_train_macro_accuracy": 0.99,
+            "minimum_true_shuffle_gap": 0.4,
+            "minimum_validation_gain_constant": 0.3,
+            "minimum_validation_macro_accuracy": 0.99
+          },
+          "tie_action": 0
+        },
+        "typed_task_contract": {
+          "action_dtype": "int8",
+          "action_values": [
+            0,
+            1
+          ],
+          "done": true,
+          "horizon": 1,
+          "observation_dtype": "float64",
+          "observation_fields": [
+            "signal",
+            "nuisance_pair",
+            "nuisance_regime",
+            "nuisance_cycle"
+          ],
+          "observation_shape": [
+            4
+          ],
+          "policy_input_fields": [
+            "observation"
+          ],
+          "reward_dtype": "float64",
+          "reward_values": [
+            0.0,
+            1.0
+          ],
+          "structure_kind": "none",
+          "target_dtype": "int8",
+          "target_values": [
+            0,
+            1
+          ]
+        }
+      },
+      "case_required_fields": {
+        "baseline_replay": [
+          "constant_test_macro_accuracy",
+          "constant_validation_macro_accuracy",
+          "passed",
+          "random_seed",
+          "random_test_macro_accuracy",
+          "random_validation_macro_accuracy",
+          "replay_exact",
+          "same_evaluation_rows",
+          "trace_sha256"
+        ],
+        "generator_partition": [
+          "balanced_regimes",
+          "dataset_sha256",
+          "deterministic_replay",
+          "exact_regime_order",
+          "exact_sample_key_order",
+          "expected_dataset_commitment",
+          "finite_observations",
+          "observation_overlap_count",
+          "passed",
+          "regime_counts",
+          "regimes_disjoint",
+          "sample_keys_disjoint",
+          "split_counts",
+          "trajectories_per_regime",
+          "validated_blocks",
+          "within_split_keys_unique"
+        ],
+        "label_shuffle_control": [
+          "feature_commitment_unchanged",
+          "heldout_commitment_unchanged",
+          "label_marginal_preserved",
+          "nonidentity_permutation",
+          "passed",
+          "positive_gate_rejected",
+          "shuffled_block_pattern_exact",
+          "test_macro_accuracy",
+          "trace_sha256",
+          "true_accuracy_gap"
+        ],
+        "leakage_guards": [
+          "canonical_reorder_exact",
+          "fit_scope_sentinels_checked",
+          "fit_scope_sentinels_rejected",
+          "fit_scopes",
+          "forbidden_fields_checked",
+          "forbidden_fields_rejected",
+          "overlap_sentinels_checked",
+          "overlap_sentinels_rejected",
+          "passed",
+          "policy_input_fields"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "signal_attribution_control": [
+          "heldout_commitment_unchanged",
+          "nuisance_only_test_macro_accuracy",
+          "only_signal_changed",
+          "passed",
+          "signal_zeroed_true_policy_test_macro_accuracy",
+          "trace_sha256"
+        ],
+        "supervised_recovery": [
+          "learned_projection_sha256",
+          "min_heldout_regime_accuracy",
+          "passed",
+          "test_gain_over_constant",
+          "test_gain_over_random",
+          "test_macro_accuracy",
+          "train_macro_accuracy",
+          "validation_gain_over_constant",
+          "validation_macro_accuracy"
+        ],
+        "typed_task_contract": [
+          "action_dtype",
+          "action_values",
+          "done",
+          "horizon",
+          "observation_dtype",
+          "observation_fields",
+          "observation_shape",
+          "passed",
+          "policy_input_fields",
+          "reward_dtype",
+          "reward_values",
+          "structure_kind",
+          "target_dtype",
+          "target_values"
+        ]
+      },
+      "failure_action": "park_learning_contract_research",
+      "fixture_identity": {
+        "action_dtype": "int8",
+        "action_values": [
+          0,
+          1
+        ],
+        "baseline_seed": 2026082707,
+        "blocks_per_regime": 32,
+        "claim_boundary": "synthetic_cpu_supervised_harness_only",
+        "expected_dataset_sha256": "f6af01db64aab94363e964f73b8e46b9341b680f63338f9fdff059ed14f1a38e",
+        "generator_regimes": [
+          {
+            "code": 101,
+            "nuisance_scale": 0.9,
+            "nuisance_shift": -0.75,
+            "signal_scale": 0.8,
+            "split": "train"
+          },
+          {
+            "code": 103,
+            "nuisance_scale": 1.1,
+            "nuisance_shift": -0.25,
+            "signal_scale": 0.95,
+            "split": "train"
+          },
+          {
+            "code": 107,
+            "nuisance_scale": 0.8,
+            "nuisance_shift": 0.25,
+            "signal_scale": 1.05,
+            "split": "train"
+          },
+          {
+            "code": 109,
+            "nuisance_scale": 1.2,
+            "nuisance_shift": 0.75,
+            "signal_scale": 1.2,
+            "split": "train"
+          },
+          {
+            "code": 211,
+            "nuisance_scale": 0.7,
+            "nuisance_shift": -1.25,
+            "signal_scale": 0.7,
+            "split": "validation"
+          },
+          {
+            "code": 223,
+            "nuisance_scale": 1.3,
+            "nuisance_shift": 1.25,
+            "signal_scale": 1.3,
+            "split": "validation"
+          },
+          {
+            "code": 307,
+            "nuisance_scale": 0.6,
+            "nuisance_shift": -1.75,
+            "signal_scale": 0.6,
+            "split": "test"
+          },
+          {
+            "code": 331,
+            "nuisance_scale": 1.4,
+            "nuisance_shift": 1.75,
+            "signal_scale": 1.4,
+            "split": "test"
+          }
+        ],
+        "horizon": 1,
+        "label_shuffle_permutation": [
+          0,
+          2,
+          1,
+          3
+        ],
+        "observation_dtype": "float64",
+        "observation_fields": [
+          "signal",
+          "nuisance_pair",
+          "nuisance_regime",
+          "nuisance_cycle"
+        ],
+        "observation_shape": [
+          4
+        ],
+        "policy_input_fields": [
+          "observation"
+        ],
+        "regime_counts": {
+          "test": 2,
+          "train": 4,
+          "validation": 2
+        },
+        "reward_dtype": "float64",
+        "reward_values": [
+          0.0,
+          1.0
+        ],
+        "ridge_coefficient": 1e-06,
+        "rows_per_block": 4,
+        "split_counts": {
+          "test": 256,
+          "train": 512,
+          "validation": 256
+        },
+        "target_dtype": "int8",
+        "target_values": [
+          0,
+          1
+        ],
+        "thresholds": {
+          "maximum_attribution_macro_accuracy": 0.55,
+          "maximum_shuffle_macro_accuracy": 0.55,
+          "minimum_heldout_regime_accuracy": 0.98,
+          "minimum_test_gain_constant": 0.3,
+          "minimum_test_gain_random": 0.25,
+          "minimum_test_macro_accuracy": 0.99,
+          "minimum_train_macro_accuracy": 0.99,
+          "minimum_true_shuffle_gap": 0.4,
+          "minimum_validation_gain_constant": 0.3,
+          "minimum_validation_macro_accuracy": 0.99
+        },
+        "trajectories_per_regime": 128,
+        "structure_kind": "none"
+      },
+      "plan_path": "research/2026-08-27-supervised-toy-signal-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/supervised_toy_signal.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-supervised-toy-signal-plan.md",
+        "worker_source": "experiments/local_lab/supervised_toy_signal_worker.py"
+      },
+      "success_action": "synthetic_supervised_toy_signal_recovered_for_harness",
+      "worker_mode": "supervised-toy-signal-v1",
+      "worker_module": "experiments.local_lab.supervised_toy_signal_worker"
     }
   }
 }
