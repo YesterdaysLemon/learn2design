@@ -22,7 +22,7 @@ ROOT = Path(__file__).parents[1].resolve()
 PRIVATE_ROOT = ROOT.with_name(f"{ROOT.name}-local-lab").resolve()
 STUDY_REGISTRY_PATH = ROOT / "experiments" / "local_lab" / "studies.json"
 EXPECTED_STUDY_REGISTRY_SHA256 = (
-    "3d36db7d32d9d431ded03f696b7ec4bb184a8f0026c98a61fcecbfc81f2a3d75"
+    "ba94bbcd36c5c113f12eaf0c8857b064c5fa8358c29d6e09f5016ee370f85bab"
 )
 EXPECTED_SUBMISSION_SOURCE_SHA256 = (
     "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
@@ -46,6 +46,9 @@ REQUIRED_SOURCE_KEYS = {
 WORKER_MODULE_PATHS = {
     "experiments.local_lab.feasible_progress_clock_worker": (
         "experiments/local_lab/feasible_progress_clock_worker.py"
+    ),
+    "experiments.local_lab.infeasible_prefix_indistinguishability_worker": (
+        "experiments/local_lab/infeasible_prefix_indistinguishability_worker.py"
     ),
     "experiments.local_lab.worker": "experiments/local_lab/worker.py",
 }

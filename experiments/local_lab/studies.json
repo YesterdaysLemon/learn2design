@@ -258,6 +258,132 @@
       "success_action": "finite_infeasible_progress_resets_clock_confirmed",
       "worker_mode": "feasible-progress-clock-v1",
       "worker_module": "experiments.local_lab.feasible_progress_clock_worker"
+    },
+    "infeasible-prefix-indistinguishability-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "03635e7246ef523d7c85d59919becd3a16cd4de5d59c1cf26ddc7b0bd824f2ef",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "fe4667d9d08141dcc97832661cdf42615e076108ad342267673d35be7d697008",
+        "worker_source": "fe57f21c96281cd98bc9d49fca2d42b8cfc097574d2c35c021c0dc8962a5b3c3"
+      },
+      "case_contract": {
+        "boundary_sweep": {
+          "bounds": [
+            1,
+            2,
+            3,
+            5,
+            8,
+            13
+          ],
+          "crossing_offset": 1
+        },
+        "extra_signal_positive_control": {
+          "bound": 13,
+          "certificate_step": 13,
+          "late_crossing_step": 14
+        },
+        "action_vector_exhaustion": {
+          "action_vector_count": 8192,
+          "bound": 13,
+          "policy_projection": "actions_on_one_shared_prefix"
+        },
+        "process_isolation": {
+          "source_case": "boundary_sweep",
+          "workers": 2
+        },
+        "shared_prefix_identity": {
+          "bound": 13,
+          "decision_timing": "observe_then_decide",
+          "initial_rule_state": "identical",
+          "late_crossing_step": 14,
+          "observable_fields": [
+            "loss",
+            "is_feasible"
+          ],
+          "restart_scope": "one_target_lane_state_change"
+        },
+        "witness_partition": {
+          "bound": 13,
+          "bounded_restart_required": true,
+          "preserve_before_crossing_required": true
+        }
+      },
+      "case_required_fields": {
+        "boundary_sweep": [
+          "bounds_checked",
+          "joint_satisfiers_by_bound",
+          "passed",
+          "policy_counts_by_bound"
+        ],
+        "extra_signal_positive_control": [
+          "forever_restarted_by_bound",
+          "late_crossing_preserved",
+          "passed",
+          "prefixes_identical"
+        ],
+        "action_vector_exhaustion": [
+          "bound",
+          "joint_satisfiers",
+          "passed",
+          "total_action_vectors"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "shared_prefix_identity": [
+          "forever_prefix_sha256",
+          "late_prefix_sha256",
+          "next_observations_differ",
+          "passed",
+          "prefixes_identical",
+          "rule_inputs_identical",
+          "strictly_improving_prefix"
+        ],
+        "witness_partition": [
+          "bounded_only_policies",
+          "joint_satisfiers",
+          "partition_total",
+          "passed",
+          "preserve_only_policies"
+        ]
+      },
+      "failure_action": "park_infeasible_prefix_boundary_research",
+      "fixture_identity": {
+        "bounds": [
+          1,
+          2,
+          3,
+          5,
+          8,
+          13
+        ],
+        "claim_boundary": "abstract_deterministic_one_lane_identical_prefix_only",
+        "decision_timing": "observe_then_decide",
+        "initial_rule_state": "identical_deterministic",
+        "late_crossing_offset": 1,
+        "max_bound": 13,
+        "observable_fields": [
+          "loss",
+          "is_feasible"
+        ],
+        "policy_projection": "actions_on_one_shared_prefix",
+        "restart_scope": "one_target_lane_state_change"
+      },
+      "plan_path": "research/2026-08-27-infeasible-prefix-indistinguishability-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/infeasible_prefix_indistinguishability.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-infeasible-prefix-indistinguishability-plan.md",
+        "worker_source": "experiments/local_lab/infeasible_prefix_indistinguishability_worker.py"
+      },
+      "success_action": "synthetic_identical_prefix_obstruction_confirmed",
+      "worker_mode": "infeasible-prefix-indistinguishability-v1",
+      "worker_module": "experiments.local_lab.infeasible_prefix_indistinguishability_worker"
     }
   }
 }
