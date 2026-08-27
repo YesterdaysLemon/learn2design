@@ -32,6 +32,8 @@ _BASE_STUDY_MEMBERS = {
     "session.json",
     "summary.json",
 }
+DETACHED_SUMMARY_PROFILE = "coverage-triage-screen-v1"
+SUMMARY_COMMITMENT_MEMBER = "summary.commitment.json"
 _RECOVERY_RECEIPT = re.compile(r"^recovery/stale-study-lock-([0-9a-f]{12})\.json$")
 
 
@@ -60,6 +62,12 @@ def _collect_regular_files(study_dir: Path) -> dict[str, Path]:
             relative = candidate.relative_to(study_dir).as_posix()
             files[relative] = candidate
     return files
+
+
+def _atomic_bytes(path: Path, content: bytes) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_bytes(content)
+    os.replace(temporary, path)
 
 
 def _expected_complete_members(
@@ -207,6 +215,7 @@ def package_study(
         output_path,
         output_path.with_suffix(output_path.suffix + ".manifest.json"),
         output_path.with_suffix(output_path.suffix + ".sha256"),
+        output_path.with_suffix(output_path.suffix + ".summary.json"),
     )
     existing = [path for path in sidecars if path.exists()]
     if existing:
@@ -222,6 +231,11 @@ def package_study(
     )
     manifest = validation["manifest"]
     assert isinstance(manifest, dict)
+    configuration = manifest.get("configuration")
+    assert isinstance(configuration, dict)
+    detached_summary = (
+        configuration.get("study_profile") == DETACHED_SUMMARY_PROFILE
+    )
     files_by_name = _collect_regular_files(study_dir)
     if not files_by_name:
         raise RuntimeError("study contains no files to package")
@@ -244,7 +258,21 @@ def package_study(
         unexpected = sorted(observed_members - expected_members - recovery_receipts)
         if unexpected:
             raise RuntimeError(f"study contains unexpected package input: {unexpected[0]}")
-    files = [files_by_name[name] for name in sorted(files_by_name)]
+    summary_bytes = files_by_name["summary.json"].read_bytes()
+    summary_commitment = {
+        "format_version": 1,
+        "study_profile": DETACHED_SUMMARY_PROFILE,
+        "summary_sha256": hashlib.sha256(summary_bytes).hexdigest(),
+        "size_bytes": len(summary_bytes),
+    }
+    summary_commitment_bytes = (
+        json.dumps(summary_commitment, indent=2, sort_keys=True) + "\n"
+    ).encode()
+    files = [
+        files_by_name[name]
+        for name in sorted(files_by_name)
+        if not (detached_summary and name == "summary.json")
+    ]
     package_state = {
         "format_version": 1,
         "study_complete": validation["study_complete"],
@@ -272,6 +300,18 @@ def package_study(
                 else:
                     info.compress_type = zipfile.ZIP_DEFLATED
                     archive.writestr(info, path.read_bytes(), compresslevel=6)
+            if detached_summary:
+                commitment_info = zipfile.ZipInfo(
+                    SUMMARY_COMMITMENT_MEMBER,
+                    date_time=(1980, 1, 1, 0, 0, 0),
+                )
+                commitment_info.external_attr = 0o100644 << 16
+                commitment_info.compress_type = zipfile.ZIP_DEFLATED
+                archive.writestr(
+                    commitment_info,
+                    summary_commitment_bytes,
+                    compresslevel=6,
+                )
             state_info = zipfile.ZipInfo(
                 "package-state.json", date_time=(1980, 1, 1, 0, 0, 0)
             )
@@ -301,9 +341,20 @@ def package_study(
             "path": output_path.name,
             "sha256": sha256(output_path),
             "size_bytes": output_path.stat().st_size,
-            "files": len(files) + 1,
+            "files": len(files) + 1 + int(detached_summary),
         },
     }
+    if detached_summary:
+        summary_release_path = output_path.with_suffix(
+            output_path.suffix + ".summary.json"
+        )
+        _atomic_bytes(summary_release_path, summary_bytes)
+        result["summary_release"] = {
+            "path": summary_release_path.name,
+            "sha256": summary_commitment["summary_sha256"],
+            "size_bytes": summary_commitment["size_bytes"],
+            "archive_member": SUMMARY_COMMITMENT_MEMBER,
+        }
     atomic_json(output_path.with_suffix(output_path.suffix + ".manifest.json"), result)
     atomic_text(
         output_path.with_suffix(output_path.suffix + ".sha256"),

@@ -1,0 +1,93 @@
+{
+  "format_version": 1,
+  "generation": {
+    "method": "round-robin over readout/squeezer/directional strata",
+    "seed_start": 2026081900,
+    "upstream_reference": "1bb7f54737dec6a08b59879a8831d125f08f8a0b"
+  },
+  "members": [
+    {
+      "directional_bin": "low",
+      "directional_interior_count": 2,
+      "readout": "D",
+      "squeezer_bin": "low",
+      "squeezer_count": 4,
+      "topology": "DBDDECBBF-LSSLLSSDLLLL",
+      "topology_seed": 2026082199
+    },
+    {
+      "directional_bin": "low",
+      "directional_interior_count": 3,
+      "readout": "H",
+      "squeezer_bin": "low",
+      "squeezer_count": 4,
+      "topology": "EDCDADGDF-LSHSSLLLSLLL",
+      "topology_seed": 2026082068
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 5,
+      "readout": "D",
+      "squeezer_bin": "middle",
+      "squeezer_count": 5,
+      "topology": "GCBEAFHEC-SLLSLSSLDLSL",
+      "topology_seed": 2026081920
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 4,
+      "readout": "H",
+      "squeezer_bin": "middle",
+      "squeezer_count": 5,
+      "topology": "CCHBCCFEH-LSLLHSSSLLSL",
+      "topology_seed": 2026081972
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 6,
+      "readout": "D",
+      "squeezer_bin": "high",
+      "squeezer_count": 7,
+      "topology": "DCGHHFDEF-SSDLSSLSLSLS",
+      "topology_seed": 2026082094
+    },
+    {
+      "directional_bin": "high",
+      "directional_interior_count": 6,
+      "readout": "H",
+      "squeezer_bin": "high",
+      "squeezer_count": 8,
+      "topology": "GHFDFEGCA-SSLSSLSSLHSS",
+      "topology_seed": 2026081971
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 4,
+      "readout": "D",
+      "squeezer_bin": "low",
+      "squeezer_count": 4,
+      "topology": "EBEABAGHD-DLSSLLSSLLLL",
+      "topology_seed": 2026081942
+    },
+    {
+      "directional_bin": "middle",
+      "directional_interior_count": 4,
+      "readout": "H",
+      "squeezer_bin": "low",
+      "squeezer_count": 4,
+      "topology": "DAEGGFBCC-SSLSLLLHSLLL",
+      "topology_seed": 2026081948
+    }
+  ],
+  "panel_id": "coverage-triage-v1",
+  "topologies": [
+    "DBDDECBBF-LSSLLSSDLLLL",
+    "EDCDADGDF-LSHSSLLLSLLL",
+    "GCBEAFHEC-SLLSLSSLDLSL",
+    "CCHBCCFEH-LSLLHSSSLLSL",
+    "DCGHHFDEF-SSDLSSLSLSLS",
+    "GHFDFEGCA-SSLSSLSSLHSS",
+    "EBEABAGHD-DLSSLLSSLLLL",
+    "DAEGGFBCC-SSLSLLLHSLLL"
+  ]
+}

@@ -1,11 +1,17 @@
 # Current handoff
 
-Updated: 2026-08-23
+Updated: 2026-08-25
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
 
 ## Current state
+
+- The owner reports that the Round-1 candidate was uploaded on 2026-08-24. The
+  repository cannot independently verify the portal receipt. The submitted
+  baseline remains revision `5ce3cdb2ddf4c505622a0aeef805936a4ea607d7`
+  and ZIP SHA-256
+  `4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b`.
 
 - The submission candidate is deterministic and packages successfully.
 - The topology-conditioned neural initializer failed its offline control gate.
@@ -45,26 +51,68 @@ are the evidence record, not a competing task list.
 - The deterministic builder now pins the ZIP creator platform. Windows and
   Linux builds reproduce evaluated candidate SHA-256
   `4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b`.
-- Private source and generated artifacts remain outside Git. This host holds
-  the only verified durable evidence bundle. The old provider volumes were
-  inventoried, unique pilot evidence was evacuated and hash-verified, and all
-  provider pods, endpoints, templates, and volumes were removed.
+- Private source and generated artifacts remain outside Git. The historical
+  evidence bundle received a hash-verified encrypted second copy before the new
+  paid attempt. The completed Stage-A archive and replay outputs are also held
+  on private local storage.
+- The opt-in midpoint Latin-hypercube transform of the seven random non-anchor
+  starts was tested as `coverage_balanced`. The packaged default remained the
+  submitted random initializer throughout.
+- `coverage-triage-v1` contains 8 newly generated topologies with zero exact
+  overlap against the official archive and every earlier generated panel. Its
+  SHA-256 is
+  `f400cdc3a947cd076ce9bd9f48a2dafcb98dfd3f9f938a74ceb11ca88c360972`.
+  All four older generated panels remained byte-identical. The untouched
+  12-topology `coverage-robustness-v1` panel remains unobserved.
+- The single terminal `coverage-triage-screen-v1` attempt completed 32/32
+  serial 600-second runs, 16/16 paired seed comparisons, and 8/8 topology
+  inference blocks on one exact secure H100/CUDA-13 stack. All runs were
+  physically and finite feasible, with zero worker errors or interruptions.
+- Coverage balancing recorded 5 wins, 0 ties, and 3 losses. Its topology macro
+  mean and median differences versus random start were
+  `-0.17491992648617732` and `-0.2051665182256992`. It passed 13/14 frozen
+  criteria but missed the required minimum of 7/8 topology wins. The
+  descriptive 95% topology-bootstrap mean interval was
+  `[-0.40161518941401997, 0.05658467766835468]`.
+- The exact 169-member archive, six-file source lock, terminal-attempt receipt,
+  external plan, and post-cleanup billing receipt authenticated. Production
+  replay, the no-import history-first replay, and the detached summary matched
+  across all runs, topology values, and frozen criteria. The summary remained
+  unopened until both independent replays agreed.
+- The frozen status/action is
+  `failed / retain_random_start_candidate`. This does not unlock the proposed
+  Stage B or the older robustness profile.
+- Settled Runpod billing was `7.11735002356822` equivalent GPU-hours,
+  `$23.416081577539444` GPU charge, and `$23.44330380158499` all-in, below the
+  `$30` cap. After local hash verification, the pod and network volume were
+  deleted. Live inventory is zero pods, endpoints, templates, and volumes.
 
 ## Next decision
 
-Do not run `confirmation-v1`, tune patience further on an observed panel, or
-interpret the submission-like operational pass as a competitiveness claim.
-Retain the packaged patience-600/no-prior candidate; its final package/evidence
-review is complete.
+Retain the packaged patience-600/no-prior random-start candidate. Do not run
+`confirmation-v1`, rerun or top up `coverage-triage-screen-v1`, launch the
+proposed `coverage-confirmation-screen-v1`, or launch the older
+`coverage-robustness-screen-v1`. Do not tune a rescue rule or subgroup on the
+observed triage panel. The terminal Stage-A failure is resolved and Stage B is
+closed.
 
-Before more GPU work, create an encrypted second copy of the external evidence
-bundle; this host is currently the only verified durable copy. Then prepare one
-pre-result search-robustness gate on a new disjoint panel. The leading narrow
-change is antithetic or otherwise coverage-balanced random starts, intended to
-reduce sensitivity to the initial population without adding an optimizer or
-model. Freeze the exact code revision, panel, paired randomness, budget, stop
-conditions, and decision rule before launch. The history-only result motivates
-that test but does not promote the change or identify a causal seed effect.
+No new paid experiment is currently authorized or needed. Further research
+should be local and mechanism-first, or wait for official public-leaderboard
+feedback. A materially different initializer or optimizer change needs a new
+rationale, implementation audit, untouched panel, frozen decision rule and
+cost envelope, then separate owner approval before provisioning. The favorable
+aggregate direction in Stage A is exploratory and cannot override the frozen
+5/8-win failure.
+
+## Public deadlines
+
+The currently published [official competition timeline](https://github.com/artificial-scientist-lab/Learn2Design-2026/blob/main/README.md#timeline)
+lists optional public-leaderboard deadlines on 2026-08-26, 2026-09-12, and
+2026-09-29 Anywhere on Earth, followed by the prize-determining final deadline
+on 2026-10-15 AoE. Recheck it before any schedule-critical launch; the
+owner-reported 2026-08-24 upload means a baseline is already on file before the
+first public deadline. The completed Stage-A failure does not affect that
+submission's eligibility.
 
 ## What can contribute now
 
@@ -73,9 +121,13 @@ in [`DEVELOPMENT_V2_RESULTS_HANDOFF.md`](DEVELOPMENT_V2_RESULTS_HANDOFF.md). The
 durable aggregate result and exploratory evidence boundaries are in
 [`2026-08-21-development-v2-a100-results.md`](../research/2026-08-21-development-v2-a100-results.md).
 
-Useful unpaid work now includes the pre-result robustness plan, backup
-verification, ingestion hardening, and contract checks. The validated restart
-result and exact private reproduction command are in
+Useful unpaid work now includes reviewing public-leaderboard feedback when it
+arrives, profiling the retained candidate locally, and developing a genuinely
+new mechanism without selecting against the observed Stage-A panel. The
+validated Stage-A aggregate result, cost boundary, and exact terminal action
+are in
+[`2026-08-25-h100-coverage-triage-results.md`](../research/2026-08-25-h100-coverage-triage-results.md).
+The validated restart result and exact private reproduction command are in
 [`2026-08-21-patience-200-a100-results.md`](../research/2026-08-21-patience-200-a100-results.md).
 Do not claim an order-of-magnitude gain: no restart target supplied a complete
 eight-topology comparison.

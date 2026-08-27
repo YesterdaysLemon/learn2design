@@ -33,15 +33,36 @@ competitiveness. The unpaid history-only diagnostic is also complete: the
 later-sweep loss gap remains after matching evaluation counts, so simple
 throughput drift is unlikely to explain it. Seed and sweep order remain
 confounded, making this a search-robustness lead rather than a causal result.
-The next research gate is to freeze one small initial-population robustness
-change before testing it on a new disjoint panel. See the aggregate results and
-limitations in
+That initial-population gate is now resolved: the frozen coverage-balanced
+treatment missed its topology-win criterion, so the random-start baseline is
+retained and no confirmation was unlocked. See the preceding aggregate results
+and limitations in
 [`research/2026-08-23-submission-like-screen-a100-results.md`](research/2026-08-23-submission-like-screen-a100-results.md).
 The final package, private-data provenance, and provider-cleanup ledger is in
 [`research/2026-08-23-final-submission-review.md`](research/2026-08-23-final-submission-review.md).
 The optimizer still has no hidden-leaderboard or official-budget multi-topology
-performance claim. No new paid comparison should start until that narrow change,
-budget, panel, and decision rule are frozen.
+performance claim. The owner reports that the Round-1 ZIP was uploaded on
+2026-08-24, before the optional first public-leaderboard deadline on 2026-08-26
+AoE.
+
+The subsequently frozen `coverage-triage-screen-v1` H100 Stage A is complete
+and independently validated: 32/32 runs, 16/16 seed pairs, and 8/8 topology
+blocks completed with finite feasible results. Coverage-balanced initialization
+recorded 5 wins, 0 ties, and 3 losses versus the submitted random-start control;
+its topology macro mean and median differences were
+`-0.17491992648617732` and `-0.2051665182256992`, respectively. It passed 13 of
+14 guards but missed the precommitted requirement of at least 7/8 topology
+wins. Production replay, an independent no-import history-first calculation,
+and the detached summary agree. The frozen action is
+`retain_random_start_candidate`: the submitted package remains unchanged and
+Stage B is not unlocked or authorized. The all-in Runpod charge was
+`$23.44330380158499`, below the `$30` cap; post-cleanup inventory contained no
+pod, network volume, endpoint, or template.
+See
+[`research/2026-08-25-h100-coverage-triage-results.md`](research/2026-08-25-h100-coverage-triage-results.md),
+the frozen
+[`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
+and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
 New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
 

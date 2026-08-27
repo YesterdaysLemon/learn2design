@@ -32,6 +32,8 @@ class AnalyticObjective:
         self._key = jax.random.PRNGKey(0)
         self._started = False
         self.warmup_calls = 0
+        self.warmup_batch_sizes: list[int] = []
+        self.scalar_warmup_calls = 0
         self.feasible_history: list[object] = []
         self.best_feasible_loss = math.inf
         self.first_feasible_loss = math.inf
@@ -85,8 +87,17 @@ class AnalyticObjective:
 
     def warmup_vmap_value_and_grad_aux(self, batch_size: int) -> None:
         self.warmup_calls += 1
+        self.warmup_batch_sizes.append(batch_size)
         batch = jnp.zeros((batch_size, self.n_params))
         values = jax.jit(jax.vmap(jax.value_and_grad(self._value, has_aux=True)))(batch)
+        jax.block_until_ready(values)
+
+    def warmup_value_and_grad_aux(self) -> None:
+        self.warmup_calls += 1
+        self.scalar_warmup_calls += 1
+        values = jax.jit(jax.value_and_grad(self._value, has_aux=True))(
+            jnp.zeros((self.n_params,))
+        )
         jax.block_until_ready(values)
 
     def start_logging(self) -> None:
@@ -130,6 +141,9 @@ def test_paired_harness_records_the_submission_defaults() -> None:
     for name, value in BATCHED_SETTINGS.items():
         assert parameters[name].default == value
     assert parameters["use_semantic_prior"].default is False
+    assert parameters["initial_population_mode"].default == "random"
+    assert parameters["preclock_warmup"].default is False
+    assert parameters["raw_initial_population_callback"].default is None
 
 
 @pytest.mark.integration
@@ -146,6 +160,244 @@ def test_packaged_default_does_not_load_the_semantic_prior(monkeypatch) -> None:
         population_size=2,
         safety_seconds=0.0,
     )
+
+
+@pytest.mark.integration
+def test_explicit_random_initialization_is_the_unchanged_default_path() -> None:
+    class TracedObjective(AnalyticObjective):
+        def __init__(self) -> None:
+            super().__init__(n_params=5, max_evals=12)
+            self.inputs = []
+
+        def vmap_value_and_grad_aux(self, params):
+            self.inputs.append(np.asarray(jax.device_get(params)))
+            return super().vmap_value_and_grad_aux(params)
+
+    implicit = TracedObjective()
+    explicit = TracedObjective()
+    settings = {
+        "random_seed": 11,
+        "population_size": 4,
+        "patience": 10,
+        "safety_seconds": 0.0,
+    }
+
+    BatchedRestartAdam().optimize(implicit, **settings)
+    BatchedRestartAdam().optimize(
+        explicit, initial_population_mode="random", **settings
+    )
+
+    assert len(implicit.inputs) == len(explicit.inputs) == 3
+    for implicit_params, explicit_params in zip(
+        implicit.inputs, explicit.inputs, strict=True
+    ):
+        np.testing.assert_array_equal(implicit_params, explicit_params)
+    assert implicit.best_feasible_loss == explicit.best_feasible_loss
+
+
+@pytest.mark.integration
+def test_coverage_arms_expose_the_identical_pretransform_random_draw() -> None:
+    control_draws = []
+    treatment_draws = []
+    common = {
+        "random_seed": 17,
+        "population_size": 4,
+        "safety_seconds": 0.0,
+    }
+
+    BatchedRestartAdam().optimize(
+        AnalyticObjective(n_params=5, max_evals=4),
+        raw_initial_population_callback=lambda value: control_draws.append(
+            np.asarray(jax.device_get(value))
+        ),
+        **common,
+    )
+    BatchedRestartAdam().optimize(
+        AnalyticObjective(n_params=5, max_evals=4),
+        initial_population_mode="coverage_balanced",
+        raw_initial_population_callback=lambda value: treatment_draws.append(
+            np.asarray(jax.device_get(value))
+        ),
+        **common,
+    )
+
+    assert len(control_draws) == len(treatment_draws) == 1
+    np.testing.assert_array_equal(control_draws[0], treatment_draws[0])
+
+
+@pytest.mark.integration
+def test_coverage_initialization_finishes_before_callback_and_objective_clock(
+    monkeypatch,
+) -> None:
+    events: list[str] = []
+    real_block_until_ready = jax.block_until_ready
+
+    def traced_block_until_ready(value):
+        events.append("initialization_ready")
+        return real_block_until_ready(value)
+
+    monkeypatch.setattr(jax, "block_until_ready", traced_block_until_ready)
+
+    class TracedObjective(AnalyticObjective):
+        def start_logging(self) -> None:
+            events.append("objective_clock_started")
+            super().start_logging()
+
+    BatchedRestartAdam().optimize(
+        TracedObjective(n_params=5, max_evals=4),
+        random_seed=17,
+        population_size=4,
+        initial_population_mode="coverage_balanced",
+        preclock_warmup=True,
+        initial_population_callback=lambda _value: events.append(
+            "initial_population_captured"
+        ),
+        safety_seconds=0.0,
+    )
+
+    assert events[:2] == [
+        "initialization_ready",
+        "initial_population_captured",
+    ]
+    assert events.index("objective_clock_started") > 1
+
+
+@pytest.mark.integration
+def test_default_round1_path_does_not_add_a_preclock_ready_barrier(
+    monkeypatch,
+) -> None:
+    events: list[str] = []
+    real_block_until_ready = jax.block_until_ready
+
+    def traced_block_until_ready(value):
+        events.append("ready_barrier")
+        return real_block_until_ready(value)
+
+    class TracedObjective(AnalyticObjective):
+        def start_logging(self) -> None:
+            events.append("objective_clock_started")
+            super().start_logging()
+
+    monkeypatch.setattr(jax, "block_until_ready", traced_block_until_ready)
+    BatchedRestartAdam().optimize(
+        TracedObjective(n_params=5, max_evals=4),
+        random_seed=17,
+        population_size=4,
+        safety_seconds=0.0,
+    )
+    assert events[0] == "objective_clock_started"
+    assert "ready_barrier" in events[1:]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("member_count", [6, 7])
+def test_coverage_balancing_uses_every_midpoint_latin_hypercube_level(
+    member_count: int,
+) -> None:
+    values = jnp.reshape(
+        jnp.arange(member_count * 5, dtype=jnp.float32),
+        (member_count, 5),
+    )
+
+    balanced = BatchedRestartAdam._coverage_balance_unbounded(values)
+    unit = np.asarray(jax.device_get(jax.nn.sigmoid(balanced)))
+    expected = (np.arange(member_count) + 0.5) / member_count
+
+    assert bool(np.all(np.isfinite(unit)))
+    for column in range(unit.shape[1]):
+        np.testing.assert_allclose(
+            np.sort(unit[:, column]), expected, rtol=1e-6, atol=1e-7
+        )
+
+
+@pytest.mark.integration
+def test_coverage_balancing_preserves_anchor_prior_and_objective_rng_state() -> None:
+    control = AnalyticObjective(n_params=5, max_evals=8)
+    treatment = AnalyticObjective(n_params=5, max_evals=8)
+    control_population = []
+    treatment_population = []
+
+    BatchedRestartAdam().optimize(
+        control,
+        random_seed=11,
+        population_size=8,
+        safety_seconds=0.0,
+        initial_population_callback=control_population.append,
+    )
+    BatchedRestartAdam().optimize(
+        treatment,
+        random_seed=11,
+        population_size=8,
+        safety_seconds=0.0,
+        initial_population_mode="coverage_balanced",
+        initial_population_callback=treatment_population.append,
+    )
+
+    np.testing.assert_array_equal(
+        np.asarray(control_population[0][0]),
+        np.asarray(treatment_population[0][0]),
+    )
+    unit = np.asarray(jax.nn.sigmoid(treatment_population[0][1:]))
+    expected = (np.arange(7) + 0.5) / 7
+    for column in range(unit.shape[1]):
+        np.testing.assert_allclose(
+            np.sort(unit[:, column]), expected, rtol=1e-6, atol=1e-7
+        )
+    np.testing.assert_array_equal(
+        np.asarray(control.random_params_unbounded(3)),
+        np.asarray(treatment.random_params_unbounded(3)),
+    )
+
+    prior_objective = AnalyticObjective(n_params=5, max_evals=8)
+    prior_population = []
+    expected_prior = BatchedRestartAdam._semantic_prior(prior_objective)
+    BatchedRestartAdam().optimize(
+        prior_objective,
+        random_seed=11,
+        population_size=8,
+        safety_seconds=0.0,
+        use_semantic_prior=True,
+        initial_population_mode="coverage_balanced",
+        initial_population_callback=prior_population.append,
+    )
+    np.testing.assert_array_equal(
+        np.asarray(prior_population[0][0]),
+        np.asarray(BatchedRestartAdam._feasibility_anchor(prior_objective)),
+    )
+    np.testing.assert_array_equal(
+        np.asarray(prior_population[0][1]), np.asarray(expected_prior)
+    )
+    prior_unit = np.asarray(jax.nn.sigmoid(prior_population[0][2:]))
+    prior_expected = (np.arange(6) + 0.5) / 6
+    for column in range(prior_unit.shape[1]):
+        np.testing.assert_allclose(
+            np.sort(prior_unit[:, column]),
+            prior_expected,
+            rtol=1e-6,
+            atol=1e-7,
+        )
+
+
+@pytest.mark.integration
+def test_invalid_initialization_mode_fails_before_random_sampling() -> None:
+    class CountingObjective(AnalyticObjective):
+        def __init__(self) -> None:
+            super().__init__(n_params=5, max_evals=2)
+            self.random_calls = 0
+
+        def random_params_unbounded(self, n_samples: int = 1):
+            self.random_calls += 1
+            return super().random_params_unbounded(n_samples)
+
+    objective = CountingObjective()
+    with pytest.raises(ValueError, match="initial_population_mode"):
+        BatchedRestartAdam().optimize(
+            objective,
+            random_seed=11,
+            population_size=2,
+            initial_population_mode="unknown",
+        )
+    assert objective.random_calls == 0
 
 
 @pytest.mark.integration
@@ -289,6 +541,119 @@ def test_candidate_obeys_lifecycle_budget_and_feasibility() -> None:
     assert bool(objective.feasible_history[0].any())
     assert math.isfinite(objective.best_feasible_loss)
     assert objective.best_feasible_loss <= objective.first_feasible_loss
+
+
+@pytest.mark.integration
+def test_preclock_warmup_precedes_logging_without_spending_objective_budget() -> None:
+    class LifecycleObjective(AnalyticObjective):
+        def __init__(self) -> None:
+            super().__init__(n_params=5, max_evals=8)
+            self.events = []
+
+        def warmup_vmap_value_and_grad_aux(self, batch_size: int) -> None:
+            assert not self._started
+            assert self.eval_count == 0
+            assert self.feasible_history == []
+            self.events.append(("warmup_vmap", batch_size))
+            super().warmup_vmap_value_and_grad_aux(batch_size)
+
+        def start_logging(self) -> None:
+            assert self.eval_count == 0
+            assert self.feasible_history == []
+            self.events.append(("start_logging", None))
+            super().start_logging()
+
+        def vmap_value_and_grad_aux(self, params):
+            self.events.append(("evaluate_vmap", int(params.shape[0])))
+            return super().vmap_value_and_grad_aux(params)
+
+    objective = LifecycleObjective()
+    BatchedRestartAdam().optimize(
+        objective,
+        random_seed=11,
+        population_size=4,
+        safety_seconds=0.0,
+        preclock_warmup=True,
+    )
+
+    assert objective.events[:3] == [
+        ("warmup_vmap", 4),
+        ("start_logging", None),
+        ("evaluate_vmap", 4),
+    ]
+    assert objective.warmup_calls == 1
+    assert objective.eval_count == 8
+    assert len(objective.feasible_history) == 2
+
+
+@pytest.mark.integration
+def test_preclock_warmup_covers_every_chunk_evaluation_shape() -> None:
+    objective = AnalyticObjective(n_params=5, max_evals=5)
+
+    BatchedRestartAdam().optimize(
+        objective,
+        random_seed=11,
+        population_size=5,
+        safety_seconds=0.0,
+        evaluation_chunk_size=2,
+        preclock_warmup=True,
+    )
+
+    assert objective.warmup_calls == 2
+    assert objective.scalar_warmup_calls == 1
+    assert objective.warmup_batch_sizes == [2]
+    assert objective.eval_count == 5
+    assert [int(np.asarray(value).size) for value in objective.feasible_history] == [
+        2,
+        2,
+        1,
+    ]
+
+
+@pytest.mark.integration
+def test_coverage_balancing_does_not_change_forced_restart_random_samples() -> None:
+    class ConstantInfeasibleObjective(AnalyticObjective):
+        def __init__(self) -> None:
+            super().__init__(n_params=3, max_evals=9)
+            self.random_batches = []
+
+        def random_params_unbounded(self, n_samples: int = 1):
+            result = super().random_params_unbounded(n_samples)
+            self.random_batches.append(np.asarray(jax.device_get(result)))
+            return result
+
+        def vmap_value_and_grad_aux(self, params):
+            if not self._started:
+                raise RuntimeError("evaluation before start_logging")
+            member_count = int(params.shape[0])
+            self.eval_count += member_count
+            feasible = jnp.zeros((member_count,), dtype=bool)
+            self.feasible_history.append(feasible)
+            return (
+                jnp.ones((member_count,)),
+                jnp.zeros_like(params),
+                {"is_feasible": feasible},
+            )
+
+    control = ConstantInfeasibleObjective()
+    treatment = ConstantInfeasibleObjective()
+    common = {
+        "random_seed": 11,
+        "population_size": 3,
+        "patience": 1,
+        "safety_seconds": 0.0,
+    }
+
+    BatchedRestartAdam().optimize(control, **common)
+    BatchedRestartAdam().optimize(
+        treatment, initial_population_mode="coverage_balanced", **common
+    )
+
+    assert len(control.random_batches) == len(treatment.random_batches) == 2
+    for control_batch, treatment_batch in zip(
+        control.random_batches, treatment.random_batches, strict=True
+    ):
+        np.testing.assert_array_equal(control_batch, treatment_batch)
 
 
 @pytest.mark.integration

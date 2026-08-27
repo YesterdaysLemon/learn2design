@@ -68,6 +68,22 @@ operational evidence completeness, not an optimizer comparison or
 official-budget claim. The terminal receipt forbids another attempt. See
 [`SUBMISSION_LIKE_SCREEN_RUNBOOK.md`](../../docs/SUBMISSION_LIKE_SCREEN_RUNBOOK.md).
 
+The terminal `coverage-triage-screen-v1` H100 Stage A completed 32/32 serial
+600-second runs on 8 archive- and prior-panel-disjoint topologies with seeds
+37/41. Its exact 169-member package replaced plaintext `summary.json` with a
+summary commitment; production and no-import history-first replays agreed
+before the detached summary was released. Coverage balancing recorded 5 wins,
+0 ties, and 3 losses, missing the frozen 7/8-win requirement while passing the
+other 13 guards. The terminal action is `retain_random_start_candidate`. See
+[`2026-08-25-h100-coverage-triage-results.md`](../../research/2026-08-25-h100-coverage-triage-results.md)
+and
+[`H100_COVERAGE_TRIAGE_RUNBOOK.md`](../../docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
+
+The older unlaunched `coverage-robustness-screen-v1` contract remains unchanged
+at 12 topologies, 48 serial 1,200-second runs, and an exact 249-member archive.
+Its panel remains unobserved, but the failed Stage-A gate did not unlock it. Do
+not launch that profile, the proposed Stage B, or another Stage-A attempt.
+
 For an unaudited smoke panel, pass a JSON list through `--topologies-file`. A named panel can use the object form:
 
 ```json
@@ -98,7 +114,7 @@ Runs are serial and arm order rotates between pairs. A frozen study profile vali
 
 The summary collapses optimizer seeds within topology before inference. The predeclared decision has two explicit routes: strict topology-level finite-feasibility dominance, guarded against every reverse seed/topology outcome and harmful observed p90 regret; otherwise, the complete paired-loss gate. Frozen target-loss hits are paired in both wall time and Objective evaluations; unreached thresholds remain explicit censoring. A semantic-only hit can contribute a conservative ratio upper bound using the no-prior arm's last logged time and evaluation count. An order-of-magnitude flag can become true only when every predeclared pair supplies an observed ratio or that conservative upper bound and both topology-bootstrap upper bounds for the log10 ratios are at most -1. No-prior-only and neither-reached pairs cannot pass.
 
-Scored runs launch every isolated worker with persistent JAX compilation caching disabled. The effective cache policy is bound into the manifest, while the inherited host settings are preserved in per-session preflight artifacts. This is required because compilation currently occurs inside the Objective clock. The rental flags can additionally require exactly one A100, disabled MIG mode, minimum physical GPU memory and free disk, maximum idle memory/utilization, a shorter worker timeout, and a total session wall limit. Use the canonical paid-machine procedure in [`docs/A100_RENTAL_RUNBOOK.md`](../../docs/A100_RENTAL_RUNBOOK.md).
+Scored runs launch every isolated worker with persistent JAX compilation caching disabled. The effective cache policy is bound into the manifest, while the inherited host settings are preserved in per-session preflight artifacts. Historical and packaged-default paths still compile inside the Objective clock. The explicitly opt-in H100 coverage profile applies the same public preclock warmup and population-ready boundary to both arms; it does not change the Round-1 default timing path. The rental flags can additionally require exactly one A100 or H100, disabled MIG mode, minimum physical GPU memory and free disk, maximum idle memory/utilization, a shorter worker timeout, and a total session wall limit. The H100 profile also rejects any non-CUDA-13 JAX wheel stack. Use the historical A100 procedure in [`docs/A100_RENTAL_RUNBOOK.md`](../../docs/A100_RENTAL_RUNBOOK.md). The completed H100 triage procedure is closed and preserved only for audit in [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](../../docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
 For memory-limited deployment diagnostics, `--evaluation-chunk-size 1` evaluates population members through the scalar public Objective API while preserving the same optimizer state and initial-population pairing. This is not the packaged default and cannot support a competition-throughput claim; use the default vmap path on A100-class hardware for confirmation.
 
@@ -116,9 +132,9 @@ python tools/run_uifo_candidate_probe.py \
 
 Set the idle thresholds from a clean baseline before the run; do not loosen them after observing a candidate. The probe refuses a dirty tree or existing output directory, samples total-device telemetry throughout each worker, requires an exact parent/worker/telemetry process-ID handshake, and waits for post-worker quiescence. Global memory and utilization thresholds remain mandatory because host-side WDDM processes may not be visible inside WSL. A clean timeout with a validated pre-evaluation candidate milestone is retained as right-censored evidence and does not prevent the reverse-order workers; every other error or provenance failure stops the study. Its two observations per role can diagnose a large candidate-conditioned tail, but they are not optimizer-quality or throughput evidence.
 
-The orchestrator refuses a dirty Git tree and refuses to resume if the revision, plan, upstream reference, semantic-prior bytes, runtime versions, backend, or device identity changed. It also rejects stale/foreign run files and concurrent writers. Commit the harness and configuration before consuming accelerator time.
+The orchestrator refuses a dirty Git tree and refuses to resume if the revision, plan, upstream reference, semantic-prior bytes, runtime versions, backend, or device identity changed. It also rejects stale/foreign run files and concurrent writers. Terminal profiles derive their one-attempt receipt ledger beside the frozen external plan rather than beneath the selectable result root. Commit the harness and configuration before consuming accelerator time.
 
-After a clean completion, `tools/package_uifo_study.py` revalidates every run, history, log, and plan membership before writing a deterministic ZIP, SHA-256 sidecar, and package manifest. If a paid machine must be evacuated after the writer has stopped, `--allow-incomplete` writes an explicitly partial package with missing/error run IDs; it cannot pass as a completed study. A hard-kill lock can be recovered only with the explicit `--resume --recover-stale-lock` combination after the owner process is proven dead; the stale lock is preserved under `recovery/`.
+After a clean completion, `tools/package_uifo_study.py` revalidates every run, history, log, and plan membership before writing a deterministic ZIP, SHA-256 sidecar, and package manifest. If a paid machine must be evacuated after the writer has stopped, run that packager with `--allow-incomplete`; it writes an explicitly partial package with missing/error run IDs and cannot pass as a completed study. Separately, a hard-kill runner lock can be recovered only by `tools/run_uifo_paired.py --resume --recover-stale-lock` after the owner process is proven dead; the stale lock is preserved under `recovery/`.
 
 Equal-evaluation studies are useful for diagnosing initialization and restarts, but competition-performance claims require equal wall-clock budgets on size-3 UIFO problems. Treat topology identity as the statistical unit; optimizer seeds are repeated measurements.
 

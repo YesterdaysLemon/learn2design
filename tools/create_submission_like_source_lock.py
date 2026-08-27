@@ -32,6 +32,7 @@ def build_source_lock(
     package_manifest: Path,
     plan: Path,
     terminal_attempt_receipt: Path,
+    study_profile: str = PROFILE,
 ) -> dict[str, object]:
     paths = (archive, checksum, package_manifest, plan, terminal_attempt_receipt)
     if any(not path.is_file() for path in paths):
@@ -52,7 +53,7 @@ def build_source_lock(
         raise ValueError("package manifest project revision is invalid")
     return {
         "format_version": 1,
-        "study_profile": PROFILE,
+        "study_profile": study_profile,
         "plan_id": plan_id,
         "project_revision": revision,
         "files": {

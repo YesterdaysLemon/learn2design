@@ -23,6 +23,8 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from experiments.uifo_paired.analysis import summarize_records
+from experiments.uifo_paired.coverage_analysis import summarize_coverage_records
+from experiments.uifo_paired.coverage_profiles import coverage_profile_names
 from experiments.uifo_paired.metrics import flatten_histories, summarize_rows
 from experiments.uifo_paired.optimizer_telemetry import (
     OPTIMIZER_TELEMETRY_MODE,
@@ -44,7 +46,7 @@ from experiments.uifo_paired.submission_like_analysis import (
 from experiments.uifo_paired.study_profiles import profile_names
 
 ROOT = Path(__file__).parents[2]
-UPSTREAM_REFERENCE = "d9b1bd7d6f2c4df335bc7725755b02aa5f6f942c"
+UPSTREAM_REFERENCE = "1bb7f54737dec6a08b59879a8831d125f08f8a0b"
 OFFICIAL_DATASET_SHA256 = (
     "149f6aac17aff2e33750b4e1b6cebd3cef1c39d47ae49a3a7ed77315cb7838a7"
 )
@@ -80,6 +82,13 @@ JAX_RUNTIME_ENVIRONMENT_KEYS = (
     "XLA_PYTHON_CLIENT_MEM_FRACTION",
     "XLA_PYTHON_CLIENT_PREALLOCATE",
 )
+H100_CUDA13_PACKAGE_VERSIONS = {
+    "jax": "0.9.0.1",
+    "jaxlib": "0.9.0.1",
+    "jax-cuda13-pjrt": "0.9.0.1",
+    "jax-cuda13-plugin": "0.9.0.1",
+}
+COVERAGE_STUDY_PROFILES = coverage_profile_names()
 
 
 def atomic_json(path: Path, payload: dict[str, object]) -> None:
@@ -149,8 +158,15 @@ def environment_fingerprint() -> dict[str, object]:
         "device_kinds": device_kinds,
         "device_platforms": [str(device.platform) for device in devices],
         "devices": [str(device) for device in devices],
+        "jax_platform_versions": [
+            str(getattr(device.client, "platform_version", "unknown"))
+            for device in devices
+        ],
         "competition_aligned_a100": any(
             "A100" in kind.upper() for kind in device_kinds
+        ),
+        "competition_aligned_h100": any(
+            "H100" in kind.upper() for kind in device_kinds
         ),
         "jax_runtime_environment": {
             name: os.environ.get(name) for name in JAX_RUNTIME_ENVIRONMENT_KEYS
@@ -166,6 +182,12 @@ def environment_fingerprint() -> dict[str, object]:
             "jax": _package_version("jax"),
             "jax-cuda12-pjrt": _package_version("jax-cuda12-pjrt"),
             "jax-cuda12-plugin": _package_version("jax-cuda12-plugin"),
+            "jax-cuda13-pjrt": _package_version("jax-cuda13-pjrt"),
+            "jax-cuda13-plugin": _package_version("jax-cuda13-plugin"),
+            "nvidia-cuda-runtime": _package_version("nvidia-cuda-runtime"),
+            "nvidia-cuda-runtime-cu12": _package_version(
+                "nvidia-cuda-runtime-cu12"
+            ),
             "jaxlib": _package_version("jaxlib"),
             "optax": _package_version("optax"),
         },
@@ -327,7 +349,12 @@ def _rental_preflight(
             f"rental preflight requires at least {minimum_disk} GiB free at "
             f"{output_dir}; found {disk.free / 1024**3:.2f} GiB"
         )
-    if not bool(configuration.get("require_a100")):
+    required_gpu = None
+    if bool(configuration.get("require_a100")):
+        required_gpu = "A100"
+    elif bool(configuration.get("require_h100")):
+        required_gpu = "H100"
+    if required_gpu is None:
         return result
 
     snapshot = result["gpu_idle"]
@@ -337,8 +364,19 @@ def _rental_preflight(
     if not isinstance(gpus, list) or len(gpus) != 1:
         raise RuntimeError("rental preflight requires exactly one visible GPU")
     gpu = gpus[0]
-    if "A100" not in str(gpu.get("name", "")).upper():
-        raise RuntimeError("rental preflight requires an NVIDIA A100")
+    observed_gpu_name = str(gpu.get("name", "")).strip()
+    exact_gpu_name = configuration.get("required_gpu_name")
+    if exact_gpu_name is not None and observed_gpu_name.upper() != str(
+        exact_gpu_name
+    ).strip().upper():
+        raise RuntimeError(
+            f"rental preflight requires exact GPU {exact_gpu_name!r}; "
+            f"found {observed_gpu_name!r}"
+        )
+    if required_gpu not in observed_gpu_name.upper():
+        raise RuntimeError(
+            f"rental preflight requires an NVIDIA {required_gpu}"
+        )
     if str(gpu.get("mig_mode_current", "")).lower() != "disabled":
         raise RuntimeError("rental preflight requires MIG mode disabled")
     minimum_memory = configuration.get("minimum_gpu_memory_mib")
@@ -371,6 +409,62 @@ def _validate_required_a100(runtime_environment: dict[str, object]) -> None:
         or not runtime_environment.get("competition_aligned_a100")
     ):
         raise RuntimeError("this study requires exactly one JAX-visible NVIDIA A100")
+
+
+def _validate_required_h100(
+    runtime_environment: dict[str, object],
+    required_gpu_name: str | None = None,
+) -> None:
+    if (
+        runtime_environment.get("backend") != "gpu"
+        or runtime_environment.get("device_count") != 1
+        or not runtime_environment.get("competition_aligned_h100")
+    ):
+        raise RuntimeError("this study requires exactly one JAX-visible NVIDIA H100")
+    if required_gpu_name is not None:
+        device_kinds = runtime_environment.get("device_kinds")
+        if (
+            not isinstance(device_kinds, list)
+            or len(device_kinds) != 1
+            or str(device_kinds[0]).strip().upper()
+            != required_gpu_name.strip().upper()
+        ):
+            raise RuntimeError(
+                f"this study requires exact JAX device {required_gpu_name!r}"
+            )
+
+
+def _validate_required_cuda13(runtime_environment: dict[str, object]) -> None:
+    """Require the frozen JAX CUDA-13 wheel stack and active CUDA-13 backend."""
+    if not str(runtime_environment.get("python", "")).startswith("3.12."):
+        raise RuntimeError("H100 study requires Python 3.12")
+    versions = runtime_environment.get("versions")
+    if not isinstance(versions, dict):
+        raise RuntimeError("H100 study is missing runtime package versions")
+    for package, expected_version in H100_CUDA13_PACKAGE_VERSIONS.items():
+        if versions.get(package) != expected_version:
+            raise RuntimeError(
+                f"H100 study requires {package}=={expected_version}"
+            )
+    if versions.get("nvidia-cuda-runtime") in {None, "not-installed"}:
+        raise RuntimeError("H100 study requires the CUDA 13 runtime wheel")
+    if versions.get("nvidia-cuda-runtime-cu12") != "not-installed":
+        raise RuntimeError("H100 study rejects the CUDA 12 runtime wheel")
+    for package in ("jax-cuda12-pjrt", "jax-cuda12-plugin"):
+        if versions.get(package) != "not-installed":
+            raise RuntimeError(f"H100 study rejects installed {package}")
+
+    platform_versions = runtime_environment.get("jax_platform_versions")
+    if (
+        not isinstance(platform_versions, list)
+        or len(platform_versions) != 1
+        or re.search(
+            r"\bcuda(?:\s+|_)?13",
+            str(platform_versions[0]).strip().lower(),
+        )
+        is None
+    ):
+        raise RuntimeError("H100 study requires an active JAX CUDA 13 backend")
 
 
 def run_preflight(output_path: Path) -> int:
@@ -454,6 +548,7 @@ class _FirstEvaluationCapture:
 
     def __init__(self) -> None:
         self.params = None
+        self.raw_params = None
 
     def install(self, objective) -> None:
         original_single = objective.value_and_grad
@@ -482,6 +577,10 @@ class _FirstEvaluationCapture:
     def capture_population(self, params) -> None:
         if self.params is None:
             self.params = params
+
+    def capture_raw_population(self, params) -> None:
+        if self.raw_params is None:
+            self.raw_params = params
 
 
 def execute_run(
@@ -569,27 +668,43 @@ def execute_run(
         )
         if arm == "semantic_prior" and algorithm._semantic_prior(objective) is None:
             raise RuntimeError("semantic-prior arm could not load a valid prior")
+        initial_population_mode = str(
+            config.get("initial_population_mode", "random")
+        )
+        preclock_warmup = bool(config.get("preclock_warmup", False))
         algorithm.optimize(
             objective,
             random_seed=optimizer_seed,
             population_size=int(config["population_size"]),
             use_semantic_prior=arm == "semantic_prior",
             evaluation_chunk_size=config.get("evaluation_chunk_size"),
+            initial_population_mode=initial_population_mode,
+            preclock_warmup=preclock_warmup,
+            raw_initial_population_callback=(
+                capture.capture_raw_population
+                if "initial_population_mode" in config
+                else None
+            ),
             initial_population_callback=capture.capture_population,
             optimizer_telemetry_callback=telemetry_capture,
             **optimizer_settings,
         )
+        recorded_kwargs = {
+            **optimizer_settings,
+            "population_size": int(config["population_size"]),
+            "random_seed": optimizer_seed,
+            "use_semantic_prior": arm == "semantic_prior",
+            "evaluation_chunk_size": config.get("evaluation_chunk_size"),
+        }
+        if "initial_population_mode" in config:
+            recorded_kwargs["initial_population_mode"] = initial_population_mode
+        if "preclock_warmup" in config:
+            recorded_kwargs["preclock_warmup"] = preclock_warmup
         algorithm_settings = {
             "module": "submission.submission",
             "class": "BatchedRestartAdam",
             "algorithm_str": "batched_restart_adam",
-            "kwargs": {
-                **optimizer_settings,
-                "population_size": int(config["population_size"]),
-                "random_seed": optimizer_seed,
-                "use_semantic_prior": arm == "semantic_prior",
-                "evaluation_chunk_size": config.get("evaluation_chunk_size"),
-            },
+            "kwargs": recorded_kwargs,
         }
     host_duration = time.perf_counter() - started
     objective_elapsed_snapshot = float(objective.time_elapsed)
@@ -619,6 +734,14 @@ def execute_run(
         raise RuntimeError("run completed without capturing its first evaluation")
     initial_params = np.asarray(jax.device_get(capture.params))
     initial_hashes = _parameter_hashes(initial_params)
+    raw_suffix_hashes = None
+    if "initial_population_mode" in config:
+        if capture.raw_params is None:
+            raise RuntimeError(
+                "run completed without capturing the pre-transform random draw"
+            )
+        raw_population = np.asarray(jax.device_get(capture.raw_params))
+        raw_suffix_hashes = _parameter_hashes(raw_population[1:])
 
     time_grid, eval_grid = _metric_grids(config)
     metrics = summarize_rows(
@@ -741,6 +864,8 @@ def execute_run(
             "sha256": sha256(history_path),
         },
     }
+    if raw_suffix_hashes is not None:
+        result["raw_suffix_parameter_hashes"] = raw_suffix_hashes
     if telemetry_record is not None:
         result["optimizer_telemetry"] = telemetry_record
     return result
@@ -762,7 +887,10 @@ def _initial_population_roles(arm: str, population_size: int) -> list[str]:
     roles = ["anchor"]
     if arm == "semantic_prior":
         roles.append("semantic_prior")
-    return roles + ["random"] * (population_size - len(roles))
+    suffix_role = (
+        "coverage_balanced" if arm == "coverage_balanced" else "random"
+    )
+    return roles + [suffix_role] * (population_size - len(roles))
 
 
 def _parameter_hashes(params) -> list[str]:
@@ -779,6 +907,30 @@ def _parameter_hashes(params) -> list[str]:
         digest.update(contiguous.tobytes())
         result.append(digest.hexdigest())
     return result
+
+
+def _validate_coverage_initial_population(population) -> None:
+    import numpy as np
+
+    members = np.asarray(population)
+    suffix = members[1:]
+    if suffix.shape[0] < 2 or not np.all(np.isfinite(suffix)):
+        raise RuntimeError("coverage-balanced initial population is invalid")
+    floating = suffix.dtype
+    unit = (
+        np.arange(suffix.shape[0], dtype=floating)
+        + np.asarray(0.5, dtype=floating)
+    ) / np.asarray(suffix.shape[0], dtype=floating)
+    canonical = np.log(unit) - np.log1p(-unit)
+    expected = np.broadcast_to(canonical[:, None], suffix.shape)
+    try:
+        np.testing.assert_array_max_ulp(
+            np.sort(suffix, axis=0), expected, maxulp=4
+        )
+    except AssertionError as error:
+        raise RuntimeError(
+            "coverage-balanced initial population violates Latin-hypercube levels"
+        ) from error
 
 
 def validate_history_artifact(
@@ -973,17 +1125,24 @@ def _expected_algorithm_record(
     expected_optimizer_settings = validate_batched_settings(
         expected_config.get("optimizer_settings", BATCHED_SETTINGS)
     )
+    expected_kwargs = {
+        **expected_optimizer_settings,
+        "population_size": expected_config["population_size"],
+        "random_seed": expected_config["optimizer_seed"],
+        "use_semantic_prior": expected_prior,
+        "evaluation_chunk_size": expected_config.get("evaluation_chunk_size"),
+    }
+    if "initial_population_mode" in expected_config:
+        expected_kwargs["initial_population_mode"] = expected_config[
+            "initial_population_mode"
+        ]
+    if "preclock_warmup" in expected_config:
+        expected_kwargs["preclock_warmup"] = expected_config["preclock_warmup"]
     return {
         "module": "submission.submission",
         "class": "BatchedRestartAdam",
         "algorithm_str": "batched_restart_adam",
-        "kwargs": {
-            **expected_optimizer_settings,
-            "population_size": expected_config["population_size"],
-            "random_seed": expected_config["optimizer_seed"],
-            "use_semantic_prior": expected_prior,
-            "evaluation_chunk_size": expected_config.get("evaluation_chunk_size"),
-        },
+        "kwargs": expected_kwargs,
     }
 
 
@@ -1090,6 +1249,27 @@ def validate_completed_record(
         raise RuntimeError("resume initial-population roles are inconsistent")
     if any(not isinstance(value, str) or not value for value in hashes):
         raise RuntimeError("resume initial-parameter hash is invalid")
+    initial_mode = expected_config.get("initial_population_mode", "random")
+    raw_hashes = record.get("raw_suffix_parameter_hashes")
+    if "initial_population_mode" in expected_config:
+        if (
+            not isinstance(raw_hashes, list)
+            or len(raw_hashes) != int(expected_config["population_size"]) - 1
+            or any(
+                not isinstance(value, str)
+                or re.fullmatch(r"[0-9a-f]{64}", value) is None
+                for value in raw_hashes
+            )
+        ):
+            raise RuntimeError("resume raw-suffix-population evidence is invalid")
+    elif raw_hashes is not None:
+        raise RuntimeError("resume record has unsolicited raw-suffix evidence")
+    if expected_config["arm"] == "coverage_balanced":
+        if initial_mode != "coverage_balanced":
+            raise RuntimeError("coverage arm is missing its frozen initialization mode")
+        _validate_coverage_initial_population(
+            arrays["initial_params_unbounded"]
+        )
 
     problem = record.get("problem", {})
     topology_string = str(problem.get("topology_string", ""))
@@ -1225,17 +1405,42 @@ def orchestrate(
     resume: bool,
     subprocess_environment: dict[str, str] | None = None,
     recover_stale_lock: bool = False,
+    terminal_attempt_receipt_path: Path | None = None,
+    approved_plan_output_path: Path | None = None,
+    approved_plan_sha256: str | None = None,
 ) -> int:
     study_profile = plan.get("configuration", {}).get("study_profile")
-    if resume and study_profile in {
+    terminal_profiles = {
         "restart-mechanics-v1",
         "restart-screen-v1",
         "submission-like-screen-v1",
-    }:
+        *COVERAGE_STUDY_PROFILES,
+    }
+    approval_profiles = {
+        "submission-like-screen-v1",
+        *COVERAGE_STUDY_PROFILES,
+    }
+    if resume and study_profile in terminal_profiles:
         raise RuntimeError(
             "terminal-attempt study profiles are non-resumable; preserve and package the "
             "terminal partial attempt"
         )
+    if study_profile in approval_profiles:
+        if approved_plan_output_path is None or approved_plan_sha256 is None:
+            raise RuntimeError(
+                "terminal-attempt orchestration requires an authenticated approved plan"
+            )
+        try:
+            _, plan = freeze_or_authenticate_plan_output(
+                plan,
+                approved_plan_output_path,
+                dry_run=False,
+                approved_sha256=approved_plan_sha256,
+            )
+        except (OSError, TypeError, ValueError) as error:
+            raise RuntimeError(
+                "terminal-attempt orchestration approval validation failed"
+            ) from error
     manifest_path = output_dir / "manifest.json"
     if manifest_path.exists() and not resume:
         raise FileExistsError(
@@ -1247,6 +1452,7 @@ def orchestrate(
             output_dir,
             resume,
             subprocess_environment=subprocess_environment,
+            terminal_attempt_receipt_path=terminal_attempt_receipt_path,
         )
 
 
@@ -1255,6 +1461,7 @@ def _orchestrate_locked(
     output_dir: Path,
     resume: bool,
     subprocess_environment: dict[str, str] | None = None,
+    terminal_attempt_receipt_path: Path | None = None,
 ) -> int:
     session_started = time.perf_counter()
     session_started_utc = datetime.now(UTC).isoformat()
@@ -1321,11 +1528,20 @@ def _orchestrate_locked(
         )
     if bool(common.get("require_a100")):
         _validate_required_a100(runtime_environment)
+    if bool(common.get("require_h100")):
+        _validate_required_h100(
+            runtime_environment,
+            str(common["required_gpu_name"])
+            if common.get("required_gpu_name") is not None
+            else None,
+        )
+        _validate_required_cuda13(runtime_environment)
 
     terminal_attempt = _claim_terminal_attempt(
         plan,
         output_dir,
         revision=revision,
+        receipt_path=terminal_attempt_receipt_path,
     )
 
     prior_path = ROOT / "submission" / "semantic_prior.json"
@@ -1443,6 +1659,7 @@ def _orchestrate_locked(
                 )
                 _rebuild_indexes(output_dir, expected_configs, runtime_environment)
                 return 2
+            worker_started_utc = datetime.now(UTC).isoformat()
             started = time.perf_counter()
             completed = None
             timed_out = None
@@ -1477,6 +1694,7 @@ def _orchestrate_locked(
             except subprocess.TimeoutExpired as error:
                 timed_out = error
             full_wall_seconds = time.perf_counter() - started
+            worker_completed_utc = datetime.now(UTC).isoformat()
             stdout = _process_text(
                 timed_out.stdout if timed_out is not None else completed.stdout
             )
@@ -1491,6 +1709,8 @@ def _orchestrate_locked(
                 None if timed_out is not None else completed.returncode,
                 full_wall_seconds,
                 timed_out is not None,
+                worker_started_utc,
+                worker_completed_utc,
             )
 
             if timed_out is not None:
@@ -1571,15 +1791,27 @@ def _claim_terminal_attempt(
     output_dir: Path,
     *,
     revision: str,
+    receipt_path: Path | None = None,
 ) -> dict[str, object] | None:
     """Atomically consume the one allowed result-bearing attempt for a profile."""
     configuration = plan.get("configuration")
     if not isinstance(configuration, dict):
         raise RuntimeError("study plan has no configuration")
     profile = configuration.get("study_profile")
-    if profile != "submission-like-screen-v1":
+    terminal_profiles = {
+        "submission-like-screen-v1",
+        *COVERAGE_STUDY_PROFILES,
+    }
+    if profile not in terminal_profiles:
         return None
-    receipt_path = output_dir.parent / f"{profile}.terminal-attempt.json"
+    if receipt_path is None:
+        receipt_path = output_dir.parent / f"{profile}.terminal-attempt.json"
+    receipt_path = receipt_path.resolve()
+    if any(
+        (parent / ".git").exists()
+        for parent in (receipt_path.parent, *receipt_path.parent.parents)
+    ):
+        raise RuntimeError("terminal-attempt receipt must remain outside Git")
     payload = {
         "format_version": 1,
         "study_profile": profile,
@@ -1597,8 +1829,8 @@ def _claim_terminal_attempt(
             os.fsync(handle.fileno())
     except FileExistsError as error:
         raise RuntimeError(
-            "submission-like-screen-v1 terminal attempt was already claimed; "
-            "preserve the existing attempt and do not rerun under a new plan ID"
+            f"{profile} terminal attempt was already claimed; preserve the "
+            "existing attempt and do not rerun under a new plan ID"
         ) from error
     return {
         "receipt_name": receipt_path.name,
@@ -1621,6 +1853,18 @@ def _run_config(run: dict[str, object], common: dict[str, object]) -> dict[str, 
         ),
         "target_losses": common["target_losses"],
     }
+    if "require_h100" in common:
+        config["require_h100"] = common["require_h100"]
+    if "required_gpu_name" in common:
+        config["required_gpu_name"] = common["required_gpu_name"]
+    if "preclock_warmup" in common:
+        config["preclock_warmup"] = common["preclock_warmup"]
+    if common.get("study_profile") in COVERAGE_STUDY_PROFILES:
+        config["initial_population_mode"] = (
+            "coverage_balanced"
+            if run["arm"] == "coverage_balanced"
+            else "random"
+        )
     for key in (
         "max_worker_failures",
         "study_profile",
@@ -1772,6 +2016,8 @@ def _persist_worker_process(
     returncode: int | None,
     wall_seconds: float,
     timed_out: bool,
+    started_utc: str,
+    completed_utc: str,
 ) -> dict[str, object]:
     stdout_path = output_dir / "logs" / f"{run_id}.stdout.log"
     stderr_path = output_dir / "logs" / f"{run_id}.stderr.log"
@@ -1780,6 +2026,8 @@ def _persist_worker_process(
     return {
         "returncode": returncode,
         "timed_out": timed_out,
+        "started_utc": started_utc,
+        "completed_utc": completed_utc,
         "full_wall_seconds": wall_seconds,
         "within_official_4h30_container_limit": wall_seconds <= 4.5 * 60 * 60,
         "stdout": {
@@ -1953,6 +2201,12 @@ def _rebuild_indexes(
     } <= restart_profiles
     if profiles == {"submission-like-screen-v1"}:
         summary = summarize_submission_like_records(
+            records,
+            expected_configs,
+            compute_bootstrap=validate_complete_records,
+        )
+    elif len(profiles) == 1 and profiles <= COVERAGE_STUDY_PROFILES:
+        summary = summarize_coverage_records(
             records,
             expected_configs,
             compute_bootstrap=validate_complete_records,
@@ -2301,7 +2555,11 @@ def freeze_or_authenticate_plan_output(
         raise ValueError("--plan-output must remain outside every Git checkout")
     configuration = plan.get("configuration")
     profile = configuration.get("study_profile") if isinstance(configuration, dict) else None
-    approval_required = profile == "submission-like-screen-v1" and not dry_run
+    terminal_profiles = {
+        "submission-like-screen-v1",
+        *COVERAGE_STUDY_PROFILES,
+    }
+    approval_required = profile in terminal_profiles and not dry_run
     if dry_run and approved_sha256 is not None:
         raise ValueError("--approved-plan-sha256 is invalid with --dry-run")
     if approved_sha256 is not None and re.fullmatch(
@@ -2310,19 +2568,19 @@ def freeze_or_authenticate_plan_output(
         raise ValueError("--approved-plan-sha256 must be a lowercase SHA-256")
     if approval_required and approved_sha256 is None:
         raise ValueError(
-            "submission-like execution requires --approved-plan-sha256 for "
-            "the previously reviewed --plan-output"
+            f"{profile} execution requires --approved-plan-sha256 for the "
+            "previously reviewed --plan-output"
         )
     if approval_required:
         if not resolved.is_file():
-            raise ValueError("approved submission-like plan output is missing")
+            raise ValueError("approved terminal plan output is missing")
         observed = sha256(resolved)
         if observed != approved_sha256:
-            raise ValueError("approved submission-like plan SHA-256 mismatch")
+            raise ValueError("approved terminal plan SHA-256 mismatch")
         try:
             approved_plan = json.loads(resolved.read_text(encoding="utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise ValueError("approved submission-like plan is malformed") from error
+            raise ValueError("approved terminal plan is malformed") from error
         if not isinstance(approved_plan, dict) or not isinstance(
             approved_plan.get("created_utc"), str
         ):
@@ -2331,13 +2589,18 @@ def freeze_or_authenticate_plan_output(
         rebuilt["created_utc"] = approved_plan["created_utc"]
         if strict_json(approved_plan) != strict_json(rebuilt):
             raise ValueError(
-                "approved submission-like plan differs from the rebuilt frozen plan"
+                "approved terminal plan differs from the rebuilt frozen plan"
             )
         return observed, approved_plan
     if resolved.exists():
         raise ValueError(f"refusing to overwrite plan output: {resolved}")
     atomic_json(resolved, plan)
     return sha256(resolved), plan
+
+
+def _terminal_attempt_receipt_path(plan_output: Path, profile: str) -> Path:
+    """Use one profile ledger per durable plan directory, independent of filenames."""
+    return plan_output.resolve().parent / f"{profile}.terminal-attempt.json"
 
 
 def main() -> None:
@@ -2386,6 +2649,9 @@ def main() -> None:
     parser.add_argument("--candidate-package-manifest", type=Path)
     parser.add_argument("--study-profile", choices=profile_names())
     parser.add_argument("--require-a100", action="store_true")
+    parser.add_argument("--require-h100", action="store_true")
+    parser.add_argument("--required-gpu-name")
+    parser.add_argument("--preclock-warmup", action="store_true")
     parser.add_argument("--minimum-gpu-memory-mib", type=int)
     parser.add_argument("--max-idle-gpu-memory-mib", type=int)
     parser.add_argument("--max-idle-gpu-utilization", type=int)
@@ -2497,6 +2763,9 @@ def main() -> None:
             topology_panel=topology_panel,
             evaluation_chunk_size=args.evaluation_chunk_size,
             require_a100=args.require_a100,
+            require_h100=args.require_h100,
+            required_gpu_name=args.required_gpu_name,
+            preclock_warmup=args.preclock_warmup,
             minimum_gpu_memory_mib=args.minimum_gpu_memory_mib,
             max_idle_gpu_memory_mib=args.max_idle_gpu_memory_mib,
             max_idle_gpu_utilization_percent=args.max_idle_gpu_utilization,
@@ -2520,13 +2789,18 @@ def main() -> None:
         )
     except (OSError, TypeError, ValueError, RuntimeError, json.JSONDecodeError) as error:
         parser.error(str(error))
-    if args.study_profile == "submission-like-screen-v1" and not args.plan_output:
-        parser.error("submission-like-screen-v1 requires --plan-output outside Git")
-    if args.approved_plan_sha256 and args.study_profile != "submission-like-screen-v1":
-        parser.error("--approved-plan-sha256 is only valid for submission-like-screen-v1")
+    terminal_profiles = {
+        "submission-like-screen-v1",
+        *COVERAGE_STUDY_PROFILES,
+    }
+    if args.study_profile in terminal_profiles and not args.plan_output:
+        parser.error(f"{args.study_profile} requires --plan-output outside Git")
+    if args.approved_plan_sha256 and args.study_profile not in terminal_profiles:
+        parser.error("--approved-plan-sha256 is only valid for terminal profiles")
+    plan_sha256 = None
     if args.plan_output:
         try:
-            _, plan = freeze_or_authenticate_plan_output(
+            plan_sha256, plan = freeze_or_authenticate_plan_output(
                 plan,
                 args.plan_output,
                 dry_run=args.dry_run,
@@ -2535,9 +2809,16 @@ def main() -> None:
         except (OSError, TypeError, ValueError) as error:
             parser.error(str(error))
     if args.dry_run:
+        if plan_sha256 is not None:
+            print(f"plan_sha256={plan_sha256}", file=sys.stderr)
         print(json.dumps(plan, indent=2, sort_keys=True))
         return
     output_dir = args.output / plan["plan_id"]
+    terminal_attempt_receipt_path = (
+        _terminal_attempt_receipt_path(args.plan_output, args.study_profile)
+        if args.study_profile in terminal_profiles and args.plan_output is not None
+        else None
+    )
     if args.recover_stale_lock and not args.resume:
         parser.error("--recover-stale-lock requires --resume")
     raise SystemExit(
@@ -2546,6 +2827,9 @@ def main() -> None:
             output_dir,
             resume=args.resume,
             recover_stale_lock=args.recover_stale_lock,
+            terminal_attempt_receipt_path=terminal_attempt_receipt_path,
+            approved_plan_output_path=args.plan_output,
+            approved_plan_sha256=plan_sha256,
         )
     )
 
