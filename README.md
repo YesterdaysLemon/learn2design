@@ -84,8 +84,11 @@ package. See the sanitized
 [`information-boundary result`](research/2026-08-27-infeasible-prefix-indistinguishability-results.md),
 [`signal-surface result`](research/2026-08-27-public-signal-surface-results.md),
 [`full-surface result`](research/2026-08-27-full-surface-prefix-results.md),
-and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting
-a new versioned systems-mechanics study and will not repeat a terminal fixture.
+and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). A sixth unpaid checkpoint,
+`normal-path-jax-boundary-v1`, now has a frozen
+[`systems-mechanics plan`](research/2026-08-27-normal-path-jax-boundary-plan.md)
+and authenticated registry contract, but no controller result yet. The
+controller will not repeat a terminal fixture.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

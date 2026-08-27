@@ -28,6 +28,11 @@ The terminal follow-on studies are `feasible-progress-clock-v1`,
 live under `research/`; terminal study IDs must never be reused even though the
 controller remains available for a newly frozen registry entry.
 
+The next registered checkpoint is `normal-path-jax-boundary-v1`. Its frozen
+plan and complete result contract are committed, but it is not terminal until
+the guarded controller records a result. It is a one-batch CPU systems audit,
+not a candidate treatment or timing benchmark.
+
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,
 existing output, concurrent lease, protected artifact drift, or any change to

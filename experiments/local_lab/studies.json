@@ -827,6 +827,273 @@
       "success_action": "synthetic_full_surface_prefix_twin_confirmed",
       "worker_mode": "full-surface-prefix-indistinguishability-v1",
       "worker_module": "experiments.local_lab.full_surface_prefix_worker"
+    },
+    "normal-path-jax-boundary-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "110ce4db441d3c7793b551b0fe1856f3ec59482b0f5b7fd94acbc80574feefba",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "69706617639051b4eddfae77d9ea71eee668b294ea00783401d2fbbd2805343e",
+        "worker_source": "71b9fe691377e8d39bfd425e835cd8237d5c01a5a1f267206049d6dd25f130e4"
+      },
+      "case_contract": {
+        "boundary_negative_controls": {
+          "callback_sentinel": "pure_callback",
+          "single_path_controls": [
+            "budget.eval_count",
+            "state.candidate.sha256",
+            "telemetry.feasible.sha256",
+            "timing.batch_micros"
+          ],
+          "typed_controls": [
+            "dtype",
+            "shape"
+          ]
+        },
+        "dependency_source_identity": {
+          "dfbench_version": "0.3.3",
+          "dfbench_wheel_sha256": "1f96d75b813ea42f93992da5c1f50d6a4f59dd7a507bcf561676b0e416378c43",
+          "jax_version": "0.9.0.1",
+          "jaxlib_version": "0.9.0.1",
+          "objective_source_sha256": "9e2c2bb54517f59efacf4c2a59908ffd55c7fb2e15089d53263ece796e71daa2",
+          "submission_source_sha256": "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
+        },
+        "explicit_jit_lowering": {
+          "compiled_calls": 1,
+          "forbidden_callback_primitives": [
+            "host_callback",
+            "io_callback",
+            "pure_callback"
+          ],
+          "required_exact_modes": [
+            "eager",
+            "jit",
+            "compiled"
+          ]
+        },
+        "normal_path_boundary_trace": {
+          "batch_microseconds": 4000,
+          "batch_shape": [
+            4,
+            3
+          ],
+          "evaluations": 4,
+          "explicit_barriers": 1,
+          "performance_clock_reads": 2,
+          "wall_clock_reads": 3
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        },
+        "pure_jax_transition_equivalence": {
+          "adam_state_leaves": 4,
+          "aux_leaf_paths": [
+            "is_feasible",
+            "penalty",
+            "power_values.detector",
+            "power_values.hard",
+            "power_values.soft",
+            "sensitivity_loss",
+            "violations"
+          ],
+          "expected_typed_matches": 46,
+          "telemetry_leaves": [
+            "adam_age_after",
+            "adam_age_before",
+            "batch_index",
+            "budget_progress_fraction",
+            "eval_count_after_batch",
+            "evaluated_generation",
+            "evaluation_batch_seconds",
+            "feasible",
+            "finite_loss",
+            "global_feasible_improvement",
+            "gradient_clip_scale",
+            "gradient_nonfinite_count",
+            "gradient_norm",
+            "learning_rate",
+            "loss_float_bits",
+            "member_index",
+            "next_generation",
+            "observed_member_best_loss",
+            "observed_member_improved",
+            "restart_kind",
+            "restart_noise_scale",
+            "restart_round",
+            "restart_triggered",
+            "stalled_steps_after",
+            "stalled_steps_before",
+            "time_seconds",
+            "update_applied"
+          ]
+        },
+        "source_boundary_inventory": {
+          "objective_logging_device_host_sites": 5,
+          "optimizer_callback_sites": 4,
+          "optimizer_clock_sites": 2,
+          "optimizer_device_scalar_sites": 3,
+          "optimizer_jit_sites": 0,
+          "optimizer_ready_sites": 2
+        }
+      },
+      "case_required_fields": {
+        "boundary_negative_controls": [
+          "callback_sentinel_detected",
+          "clean_callback_primitives",
+          "controls_checked",
+          "exact_single_path_controls",
+          "passed",
+          "typed_identity_changes"
+        ],
+        "dependency_source_identity": [
+          "dfbench_version",
+          "dfbench_wheel_sha256",
+          "jax_version",
+          "jaxlib_version",
+          "objective_source_sha256",
+          "passed",
+          "platform",
+          "submission_source_sha256",
+          "x64_enabled"
+        ],
+        "explicit_jit_lowering": [
+          "callback_primitives",
+          "compiled_calls",
+          "eager_compiled_exact",
+          "eager_jit_exact",
+          "jaxpr_sha256",
+          "passed",
+          "stablehlo_sha256"
+        ],
+        "normal_path_boundary_trace": [
+          "batch_microseconds",
+          "batch_shape",
+          "budget_exceeded_reads",
+          "budget_progress_eval_count_reads",
+          "budget_progress_reads",
+          "eval_count_reads",
+          "evals_left_reads",
+          "evaluation_count_after",
+          "evaluation_count_before",
+          "explicit_barriers",
+          "final_initial_callbacks",
+          "objective_time_elapsed_reads",
+          "optimizer_time_elapsed_reads",
+          "order_sha256",
+          "passed",
+          "performance_clock_reads",
+          "public_evaluation_calls",
+          "raw_initial_callbacks",
+          "restart_events",
+          "rng_draws",
+          "scalar_calls",
+          "start_logging_calls",
+          "telemetry_callbacks",
+          "time_left_reads",
+          "wall_clock_reads",
+          "warmup_calls"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "pure_jax_transition_equivalence": [
+          "adam_state_leaves_checked",
+          "aux_leaves_checked",
+          "callback_primitives",
+          "exact_typed_matches",
+          "passed",
+          "projection_sha256",
+          "pure_source_host_calls",
+          "restart_events",
+          "telemetry_leaves_checked"
+        ],
+        "source_boundary_inventory": [
+          "objective_logging_device_host_sites",
+          "optimizer_callback_sites",
+          "optimizer_clock_sites",
+          "optimizer_device_scalar_sites",
+          "optimizer_jit_sites",
+          "optimizer_ready_sites",
+          "passed",
+          "public_aux_transform_bound",
+          "source_projection_sha256"
+        ]
+      },
+      "failure_action": "park_normal_path_jax_boundary_research",
+      "fixture_identity": {
+        "aux_leaf_paths": [
+          "is_feasible",
+          "penalty",
+          "power_values.detector",
+          "power_values.hard",
+          "power_values.soft",
+          "sensitivity_loss",
+          "violations"
+        ],
+        "batch_microseconds": 4000,
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "claim_boundary": "synthetic_cpu_one_batch_no_restart_exact_typed_equivalence",
+        "dfbench_version": "0.3.3",
+        "dfbench_wheel_sha256": "1f96d75b813ea42f93992da5c1f50d6a4f59dd7a507bcf561676b0e416378c43",
+        "epsilon": 1e-08,
+        "gradient_clip_norm": 1.0,
+        "jax_version": "0.9.0.1",
+        "jaxlib_version": "0.9.0.1",
+        "learning_rate_high": 0.11,
+        "learning_rate_low": 0.05,
+        "max_evals": 4,
+        "minimum_improvement": 1e-07,
+        "objective_source_sha256": "9e2c2bb54517f59efacf4c2a59908ffd55c7fb2e15089d53263ece796e71daa2",
+        "parameter_dimension": 3,
+        "patience": 64,
+        "population_size": 4,
+        "seed": 20260827,
+        "submission_source_sha256": "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176",
+        "telemetry_leaves": [
+          "adam_age_after",
+          "adam_age_before",
+          "batch_index",
+          "budget_progress_fraction",
+          "eval_count_after_batch",
+          "evaluated_generation",
+          "evaluation_batch_seconds",
+          "feasible",
+          "finite_loss",
+          "global_feasible_improvement",
+          "gradient_clip_scale",
+          "gradient_nonfinite_count",
+          "gradient_norm",
+          "learning_rate",
+          "loss_float_bits",
+          "member_index",
+          "next_generation",
+          "observed_member_best_loss",
+          "observed_member_improved",
+          "restart_kind",
+          "restart_noise_scale",
+          "restart_round",
+          "restart_triggered",
+          "stalled_steps_after",
+          "stalled_steps_before",
+          "time_seconds",
+          "update_applied"
+        ]
+      },
+      "plan_path": "research/2026-08-27-normal-path-jax-boundary-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/normal_path_jax_boundary.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-normal-path-jax-boundary-plan.md",
+        "worker_source": "experiments/local_lab/normal_path_jax_boundary_worker.py"
+      },
+      "success_action": "synthetic_normal_path_jax_boundary_equivalent",
+      "worker_mode": "normal-path-jax-boundary-v1",
+      "worker_module": "experiments.local_lab.normal_path_jax_boundary_worker"
     }
   }
 }

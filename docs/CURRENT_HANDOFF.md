@@ -155,21 +155,24 @@ current observations are not a universal certificate without added
 assumptions; it does not show that they lack distributional value or that any
 policy improves performance.
 
-The next admissible question is a systems-mechanics inventory. Freeze one
-synthetic normal-path batch and identify the exact compilation, dispatch, host
-conversion, host-device synchronization, callback, RNG, budget, and timing
-boundaries. Then ask whether an experiment-only pure-JAX transition can
+The next admissible systems-mechanics question is now frozen as
+`normal-path-jax-boundary-v1` in
+[`2026-08-27-normal-path-jax-boundary-plan.md`](../research/2026-08-27-normal-path-jax-boundary-plan.md).
+It inventories compilation, dispatch, host conversion, host-device
+synchronization, callback, RNG, budget, and timing boundaries for one synthetic
+normal-path batch, then asks whether an experiment-only pure-JAX transition can
 reproduce the same typed public observations without changing the protected
-submission. Local CPU timings are diagnostic mechanics only, not accelerator
-or competition-performance evidence.
+submission. It is queued but has no controller result yet. Local CPU timings
+remain diagnostic mechanics only, not accelerator or competition-performance
+evidence.
 
 After that checkpoint, a learning lane must first freeze the topology,
 observation, action, reward, trajectory, split, and leakage contract and pass
 toy controls. Test a supervised or surrogate baseline before a contextual
 bandit or meta-RL controller. A native rewrite, official-data training,
 candidate integration, accelerator benchmark, or paid run remains a separate
-owner gate. The private controller is `awaiting_study` and will not rerun any
-terminal study.
+owner gate. The private controller is `awaiting_study` with the new versioned
+systems checkpoint pending and will not rerun any terminal study.
 
 ## Public deadlines
 
