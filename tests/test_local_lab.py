@@ -19,6 +19,9 @@ from experiments.local_lab.anchor_lane_stability import (
     REPOSITORY_ROOT,
     run_study,
 )
+from experiments.local_lab.contextual_bandit_toy_signal import (
+    run_study as run_contextual_bandit_toy_signal_study,
+)
 from experiments.local_lab.feasible_progress_clock import (
     run_study as run_feasible_progress_study,
 )
@@ -510,6 +513,110 @@ def test_supervised_toy_signal_result_is_sanitized() -> None:
     assert recursive_keys(result).isdisjoint(raw_result_keys)
 
 
+def _completed_contextual_bandit_toy_signal_result() -> dict[str, object]:
+    result = run_contextual_bandit_toy_signal_study(
+        include_process_isolation=False
+    )
+    result["cases"]["process_isolation"] = {
+        "passed": True,
+        "trace_sha256": "0" * 64,
+    }
+    result["status"] = "passed"
+    result["action"] = (
+        "synthetic_contextual_bandit_signal_recovered_for_harness"
+    )
+    return result
+
+
+def test_contextual_bandit_toy_signal_focused_projection_passes() -> None:
+    result = run_contextual_bandit_toy_signal_study(
+        include_process_isolation=False
+    )
+
+    assert result["study_id"] == "contextual-bandit-toy-signal-v1"
+    assert result["status"] == "incomplete"
+    assert result["action"] == "no_decision_incomplete_study"
+    assert set(result["cases"]) == {
+        "baseline_replay",
+        "contextual_recovery",
+        "generator_partition",
+        "leakage_guards",
+        "online_update_order",
+        "process_isolation",
+        "shuffled_context_control",
+        "signal_attribution_control",
+        "typed_bandit_contract",
+    }
+    assert all(
+        case["passed"]
+        for name, case in result["cases"].items()
+        if name != "process_isolation"
+    )
+    assert result["cases"]["process_isolation"]["passed"] is None
+    recovery = result["cases"]["contextual_recovery"]
+    assert recovery["train_mean_reward"] == 0.75
+    assert recovery["train_cumulative_regret"] == 256
+    assert recovery["validation_macro_reward"] == 1.0
+    assert recovery["test_macro_reward"] == 1.0
+    assert recovery["test_gain_over_random"] >= 0.25
+    assert result["cases"]["online_update_order"]["final_update_count"] == 1024
+    assert result["cases"]["leakage_guards"]["heldout_updates"] == 0
+    shuffled = result["cases"]["shuffled_context_control"]
+    assert shuffled["validation_macro_reward"] <= 0.55
+    assert shuffled["test_macro_reward"] <= 0.55
+    assert shuffled["true_reward_gap"] >= 0.40
+    attribution = result["cases"]["signal_attribution_control"]
+    assert attribution["refit_test_macro_reward"] <= 0.55
+    assert attribution["true_policy_zeroed_test_macro_reward"] <= 0.55
+    assert result["environment"]["platform"] == "cpu"
+
+
+def test_contextual_bandit_toy_signal_result_is_sanitized() -> None:
+    result = run_contextual_bandit_toy_signal_study(
+        include_process_isolation=False
+    )
+    encoded = json.dumps(result, allow_nan=False, sort_keys=True)
+
+    assert result["status"] == "incomplete"
+    assert result["action"] == "no_decision_incomplete_study"
+    assert result["cases"]["process_isolation"]["passed"] is None
+    forbidden = (
+        str(REPOSITORY_ROOT),
+        "credential",
+        "optimization_pairs",
+        "parameter_values",
+        "raw_gradient",
+        "topology",
+    )
+    assert all(value not in encoded for value in forbidden)
+
+    def recursive_keys(value: object) -> set[str]:
+        if isinstance(value, dict):
+            return set(value) | {
+                nested
+                for child in value.values()
+                for nested in recursive_keys(child)
+            }
+        if isinstance(value, list):
+            return {
+                nested for child in value for nested in recursive_keys(child)
+            }
+        return set()
+
+    raw_result_keys = {
+        "actions",
+        "contexts",
+        "logs",
+        "paths",
+        "policy_state",
+        "preferred_actions",
+        "rewards",
+        "table_cells",
+        "trajectories",
+    }
+    assert recursive_keys(result).isdisjoint(raw_result_keys)
+
+
 def test_result_validator_requires_exact_sanitized_contract() -> None:
     registry = lab_controller._load_study_registry()
     entry = lab_controller._study_entry(registry, "feasible-progress-clock-v1")
@@ -629,6 +736,18 @@ def test_supervised_toy_signal_validator_requires_exact_contract() -> None:
     study_id = "supervised-toy-signal-v1"
     entry = lab_controller._study_entry(registry, study_id)
     result = _completed_supervised_toy_signal_result()
+
+    _validate_study_result(study_id, entry, result)
+    result["fixture"]["baseline_seed"] += 1
+    with pytest.raises(RuntimeError, match="wrong frozen fixture identity"):
+        _validate_study_result(study_id, entry, result)
+
+
+def test_contextual_bandit_toy_signal_validator_requires_exact_contract() -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "contextual-bandit-toy-signal-v1"
+    entry = lab_controller._study_entry(registry, study_id)
+    result = _completed_contextual_bandit_toy_signal_result()
 
     _validate_study_result(study_id, entry, result)
     result["fixture"]["baseline_seed"] += 1
@@ -1155,7 +1274,7 @@ def test_sixth_study_end_to_end_leaves_seventh_study_pending(
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_seventh_study_end_to_end_closes_pending_registry(
+def test_seventh_study_end_to_end_leaves_eighth_study_pending(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = lab_controller._load_study_registry()
@@ -1214,6 +1333,74 @@ def test_seventh_study_end_to_end_closes_pending_registry(
         lab_controller, "_repository_snapshot", lambda _entry: snapshot
     )
     monkeypatch.setattr(lab_controller, "_git", lambda *_args: "6" * 40)
+    monkeypatch.setattr(
+        lab_controller,
+        "_run_worker",
+        lambda *_args, **_kwargs: (
+            complete_result,
+            {
+                "stderr_bytes": 0,
+                "stderr_sha256": "0" * 64,
+                "stdout_bytes": 0,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        lab_controller.sys,
+        "argv",
+        [
+            "run_local_lab.py",
+            "--study",
+            study_id,
+            "--output",
+            str(output),
+        ],
+    )
+
+    lab_controller.main()
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    state = _load_state(tmp_path)
+    assert payload["result"]["status"] == "passed"
+    assert state["status"] == "idle"
+    assert state["stop_reason"] is None
+    assert set(state["completed_studies"]) == (
+        set(registry["studies"]) - {"contextual-bandit-toy-signal-v1"}
+    )
+    assert not (tmp_path / "lab.lock").exists()
+
+
+def test_eighth_study_end_to_end_closes_pending_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "contextual-bandit-toy-signal-v1"
+    entry = lab_controller._study_entry(registry, study_id)
+    snapshot = {
+        "committed_file_sha256": entry["approved_file_sha256"],
+        "committed_source_paths": entry["source_paths"],
+        "revision": "9" * 40,
+    }
+    initial_state = lab_controller._default_state()
+    initial_state["status"] = "idle"
+    initial_state["completed_studies"] = {
+        name: {
+            "cycle_id": f"prior-{index}",
+            "result_sha256": format(index + 1, "x") * 64,
+            "revision": format(index + 2, "x") * 40,
+            "status": "passed",
+        }
+        for index, name in enumerate(registry["studies"])
+        if name != study_id
+    }
+    lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
+    output = tmp_path / "cycles" / "eighth-study-test" / "result.json"
+    complete_result = _completed_contextual_bandit_toy_signal_result()
+    monkeypatch.setattr(lab_controller, "PRIVATE_ROOT", tmp_path)
+    monkeypatch.setattr(
+        lab_controller, "_repository_snapshot", lambda _entry: snapshot
+    )
+    monkeypatch.setattr(lab_controller, "_git", lambda *_args: "9" * 40)
     monkeypatch.setattr(
         lab_controller,
         "_run_worker",

@@ -22,7 +22,7 @@ ROOT = Path(__file__).parents[1].resolve()
 PRIVATE_ROOT = ROOT.with_name(f"{ROOT.name}-local-lab").resolve()
 STUDY_REGISTRY_PATH = ROOT / "experiments" / "local_lab" / "studies.json"
 EXPECTED_STUDY_REGISTRY_SHA256 = (
-    "d20b8007f44cd82bd2eb19c54e50d60b3318010cd975ee2985882467e4fba64b"
+    "bff72a72f167592fd558a74698b5f0fbb36b9e08354db8359d68f1cee3015f3a"
 )
 EXPECTED_SUBMISSION_SOURCE_SHA256 = (
     "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
@@ -44,6 +44,9 @@ REQUIRED_SOURCE_KEYS = {
     "worker_source",
 }
 WORKER_MODULE_PATHS = {
+    "experiments.local_lab.contextual_bandit_toy_signal_worker": (
+        "experiments/local_lab/contextual_bandit_toy_signal_worker.py"
+    ),
     "experiments.local_lab.supervised_toy_signal_worker": (
         "experiments/local_lab/supervised_toy_signal_worker.py"
     ),

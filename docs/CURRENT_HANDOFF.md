@@ -124,6 +124,15 @@ are the evidence record, not a competing task list.
   `1548c94a5b46a0fca3054d252f8a96d38717c881b22f05036c868d6409d905cc`.
   This confirms current interface visibility only, not predictive value or a
   restart improvement.
+- The eighth autonomous checkpoint, `contextual-bandit-toy-signal-v1`, passed
+  all nine frozen CPU cases. The deterministic two-bin, two-action policy
+  learned the exposed context sign from chosen-action reward alone: train mean
+  reward was `0.75` with regret `256`, validation and test macro reward were
+  `1.0`, and the constant, shuffled-context, and both signal-ablation controls
+  scored `0.5`. The private immutable result SHA-256 is
+  `3396ec8c8203c86659b21d2beaa4c5dfee91bbcdfdd9b1245d3057086aa0fc9b`.
+  This validates immediate-reward bandit mechanics only, not delayed credit,
+  optimizer value, or competition performance.
 
 ## Next decision
 
@@ -143,7 +152,7 @@ aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
 
 Unpaid mechanism work now follows the guarded
-[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first seven frozen
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first eight frozen
 checkpoints passed. The third resolves the scalar/Boolean online-information
 question; the fourth closes the public aux inventory and confirms that richer
 current constraint diagnostics exist. It does not establish that any such
@@ -174,14 +183,26 @@ fresh-process controls also passed. This validates only a deliberately easy
 synthetic supervised harness; see
 [`2026-08-27-supervised-toy-signal-results.md`](../research/2026-08-27-supervised-toy-signal-results.md).
 
-The next admissible learning rung is a frozen contextual-bandit mechanics
-question. Before execution, specify a new topology-independent sequential toy
-family, typed context/action/reward/logging contract, train/validation/test
-generator regimes, online update order, deterministic seeds, constant and
-random baselines, reward or regret gate, and a context-shuffle negative
-control. Ask only whether a small deterministic two-action bandit recovers the
-toy online signal on held-out regimes while the negative control fails. A pass
-would validate the bandit harness, not optimizer or competition performance.
+The eighth checkpoint established the immediate-reward bandit contract.
+`contextual-bandit-toy-signal-v1` passed all nine frozen CPU cases: its fixed
+empirical-reward table achieved the analytic `0.75` train reward and `256`
+regret, then scored `1.0` on every held-out regime without updating. Both
+constant policies scored `0.5`, the seeded-random test policy scored
+`0.51171875`, and the shuffled-context and two signal-ablation variants scored
+`0.5`. Its update-order, keyed-scoring, split, leakage, attribution, and
+fresh-process controls also passed. This validates only a deliberately easy
+synthetic contextual-bandit harness; see
+[`2026-08-27-contextual-bandit-toy-signal-results.md`](../research/2026-08-27-contextual-bandit-toy-signal-results.md).
+
+The next admissible learning rung is a frozen delayed-credit mechanics
+question, not production RL. Before execution, specify a new
+topology-independent episodic toy family and typed state, action, transition,
+delayed-reward, trajectory, train/validation/test, update-order, attribution,
+and leakage contracts. Ask only whether a small deterministic tabular or
+linear value learner recovers a deliberately learnable two-step delayed choice
+on held-out generator regimes, beats frozen myopic, constant, and seeded-random
+baselines, and fails identically evaluated transition-shuffle and reward-delay
+controls. A pass would validate only the delayed-credit harness and toy signal.
 Meta-RL, a native rewrite, official-data training, candidate integration,
 accelerator benchmarking, or a paid run remains a separate owner gate. The
 private controller is `awaiting_study` with no approved study pending and will
@@ -210,6 +231,9 @@ new mechanism without selecting against the observed Stage-A panel. The
 validated supervised toy-signal harness result and its strict learning-only
 claim boundary are in
 [`2026-08-27-supervised-toy-signal-results.md`](../research/2026-08-27-supervised-toy-signal-results.md).
+The validated immediate-reward contextual-bandit harness and its strict
+learning-only claim boundary are in
+[`2026-08-27-contextual-bandit-toy-signal-results.md`](../research/2026-08-27-contextual-bandit-toy-signal-results.md).
 The validated JAX boundary map and exact one-batch pure-transition result are in
 [`2026-08-27-normal-path-jax-boundary-results.md`](../research/2026-08-27-normal-path-jax-boundary-results.md).
 The validated full-surface information-boundary result that motivated the
