@@ -64,7 +64,7 @@ the frozen
 [`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
 and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
-The guarded autonomous local laboratory has completed six unpaid CPU
+The guarded autonomous local laboratory has completed seven unpaid CPU
 checkpoints. `anchor-lane-stability-v1` confirmed its narrow lane-local/shared-
 boundary mechanics; `feasible-progress-clock-v1` confirmed that finite
 infeasible loss improvements reset the current member clock; and
@@ -81,15 +81,21 @@ host/device boundary and exactly matched one frozen no-restart batch with an
 experiment-only pure-JAX transition across eager, JIT, and explicit compiled
 execution. These are software or analytic boundary results, not
 competition-performance evidence, and they do not change the submitted
-package. See the sanitized
+package. `supervised-toy-signal-v1` then established the first learning
+contract: a deterministic ridge surrogate recovered one deliberately exposed
+signal on held-out generator regimes, while frozen label-shuffle and
+signal-ablation controls stayed at chance. This validates the toy harness, not
+an optimizer policy or competition gain. See the sanitized
 [`anchor result`](research/2026-08-26-anchor-lane-stability-results.md),
 [`clock result`](research/2026-08-27-feasible-progress-clock-results.md),
 [`information-boundary result`](research/2026-08-27-infeasible-prefix-indistinguishability-results.md),
 [`signal-surface result`](research/2026-08-27-public-signal-surface-results.md),
 [`full-surface result`](research/2026-08-27-full-surface-prefix-results.md),
 [`JAX-boundary result`](research/2026-08-27-normal-path-jax-boundary-results.md),
+[`supervised toy-signal result`](research/2026-08-27-supervised-toy-signal-results.md),
 and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting
-a newly frozen learning-contract study and will not repeat a terminal fixture.
+a newly frozen contextual-bandit mechanics study and will not repeat a
+terminal fixture.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and
