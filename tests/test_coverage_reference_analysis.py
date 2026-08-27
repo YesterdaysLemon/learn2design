@@ -6,6 +6,9 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("numpy")
+pytestmark = pytest.mark.integration
+
 from experiments.uifo_paired.coverage_analysis import summarize_coverage_records
 from experiments.uifo_paired.coverage_evidence import (
     compare_coverage_archived_summary,

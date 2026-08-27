@@ -5,8 +5,10 @@ import hashlib
 import json
 from pathlib import Path
 
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy")
+pytestmark = pytest.mark.integration
 
 from experiments.uifo_paired.coverage_analysis import summarize_coverage_records
 from experiments.uifo_paired.plan import build_plan

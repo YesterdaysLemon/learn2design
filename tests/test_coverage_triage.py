@@ -8,6 +8,9 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("numpy")
+pytestmark = pytest.mark.integration
+
 import experiments.uifo_paired.coverage_evidence as coverage_evidence
 from experiments.uifo_paired.coverage_results_ingestion import (
     _validate_coverage_history_chronology,
