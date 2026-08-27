@@ -64,14 +64,19 @@ the frozen
 [`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
 and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
-The guarded autonomous local laboratory has also completed its first unpaid
-CPU checkpoint. `anchor-lane-stability-v1` passed all six frozen deterministic
-mechanics cases at population eight. This confirms only the lane-local/shared-
-boundary behavior of the implementation; it is not competition-performance
-evidence and does not change the submitted package. See the
-[`sanitized result`](research/2026-08-26-anchor-lane-stability-results.md) and
-[`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting a
-new versioned analytic study and will not repeat the terminal fixture.
+The guarded autonomous local laboratory has completed three unpaid CPU
+checkpoints. `anchor-lane-stability-v1` confirmed its narrow lane-local/shared-
+boundary mechanics; `feasible-progress-clock-v1` confirmed that finite
+infeasible loss improvements reset the current member clock; and
+`infeasible-prefix-indistinguishability-v1` confirmed the abstract
+scalar/Boolean information obstruction for a deterministic target-lane rule.
+These are software or analytic boundary results, not competition-performance
+evidence, and they do not change the submitted package. See the sanitized
+[`anchor result`](research/2026-08-26-anchor-lane-stability-results.md),
+[`clock result`](research/2026-08-27-feasible-progress-clock-results.md),
+[`information-boundary result`](research/2026-08-27-infeasible-prefix-indistinguishability-results.md),
+and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting
+a new versioned analytic study and will not repeat a terminal fixture.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

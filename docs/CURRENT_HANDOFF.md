@@ -102,6 +102,17 @@ are the evidence record, not a competing task list.
   7. The private immutable result SHA-256 is
   `d256572c0b67ff107ffca253f25e720175806912b3fe94c87f54478a6c98956e`.
   This confirms clock semantics only, not an optimizer improvement.
+- The third autonomous checkpoint,
+  `infeasible-prefix-indistinguishability-v1`, passed all six frozen CPU
+  cases. The forever-infeasible and late-crossing paths were identical through
+  `B = 13`; all 8,192 action vectors were exhausted, with 8,191 satisfying
+  bounded restart only, one satisfying late-crossing preservation only, and
+  zero satisfying both. The same zero-joint partition held at all six frozen
+  bounds, while the extra-signal control satisfied both obligations only after
+  breaking prefix identity. The private immutable result SHA-256 is
+  `8aaf61bbcf21ea14e938f99f63f1c6e93f31b8d44307c79c9215ef84208b4ee5`.
+  This is an abstract deterministic one-lane information boundary, not a claim
+  about the full submitted optimizer or its performance.
 
 ## Next decision
 
@@ -121,17 +132,24 @@ aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
 
 Unpaid mechanism work now follows the guarded
-[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first two frozen
-checkpoints passed. The next admissible question is the online-information
-boundary exposed by the second result: a forever-infeasible improving path and
-a path that becomes feasible one batch later have identical observable
-prefixes. Determine, with a separately frozen analytic statement and hostile
-finite reference cases, whether any deterministic restart rule can both force
-a bounded restart on the former and preserve every possible late crossing.
-Do not implement a submission treatment or select a tenure threshold from the
-observed mechanics result. This question cannot change the candidate, reopen a
-closed panel, or authorize paid compute. The private controller is
-`awaiting_study` and will not rerun either terminal study.
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first three frozen
+checkpoints passed. The third resolves the scalar/Boolean online-information
+question: no deterministic one-lane rule can force a finite pathwise restart
+bound and preserve every late crossing when the policy-visible prefixes are
+identical.
+
+The next admissible question is a public signal-surface audit. Inventory the
+exact information available to a restart rule through the checked-in objective
+and optimizer interfaces before feasibility, including loss, gradient,
+auxiliary fields, parameters, deterministic optimizer state, RNG, budget, and
+global incumbent. Determine using static public-code analysis and synthetic
+fixtures whether any pre-feasibility certificate exists beyond the Boolean
+flag. Do not use official data or private trajectories, implement a submission
+treatment, or select a tenure threshold. A richer signal would require its own
+frozen analytic study; absence of one is an interface boundary, not evidence
+that a policy improves performance. This question cannot change the candidate,
+reopen a closed panel, or authorize paid compute. The private controller is
+`awaiting_study` and will not rerun any terminal study.
 
 ## Public deadlines
 
@@ -153,7 +171,9 @@ durable aggregate result and exploratory evidence boundaries are in
 Useful unpaid work now includes reviewing public-leaderboard feedback when it
 arrives, profiling the retained candidate locally, and developing a genuinely
 new mechanism without selecting against the observed Stage-A panel. The
-finite-infeasible clock result and its online-information boundary are in
+validated scalar/Boolean information-boundary result is in
+[`2026-08-27-infeasible-prefix-indistinguishability-results.md`](../research/2026-08-27-infeasible-prefix-indistinguishability-results.md).
+The finite-infeasible clock result that motivated it is in
 [`2026-08-27-feasible-progress-clock-results.md`](../research/2026-08-27-feasible-progress-clock-results.md).
 The validated anchor-lane mechanics result and its narrow claim boundary are in
 [`2026-08-26-anchor-lane-stability-results.md`](../research/2026-08-26-anchor-lane-stability-results.md). The
