@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-25
+Updated: 2026-08-27
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -86,6 +86,44 @@ are the evidence record, not a competing task list.
   `$23.416081577539444` GPU charge, and `$23.44330380158499` all-in, below the
   `$30` cap. After local hash verification, the pod and network volume were
   deleted. Live inventory is zero pods, endpoints, templates, and volumes.
+- The first autonomous local mechanics checkpoint,
+  `anchor-lane-stability-v1`, passed all six frozen CPU cases at the submitted
+  population of eight. Exact and fresh-process traces matched; lane zero stayed
+  invariant to seven changed suffix members until the forced shared-incumbent
+  restart boundary; exceptional arithmetic and the `8,8,2` partial tail had no
+  sanitizer or state violations. The private result SHA-256 is
+  `95c1b979e70c6bc29c25901beb528a4ce184e06b4e6add842c7285f47bbab68e`.
+  This is software-mechanics evidence only.
+- The second autonomous checkpoint, `feasible-progress-clock-v1`, passed all
+  seven frozen CPU cases. Across 32 finite-but-infeasible descending
+  observations, all 32 reset their member clocks and no restart occurred. The
+  plateau and delayed-plateau controls restarted every member exactly at their
+  declared boundaries; the mixed case restarted exactly members 1, 3, 5, and
+  7. The private immutable result SHA-256 is
+  `d256572c0b67ff107ffca253f25e720175806912b3fe94c87f54478a6c98956e`.
+  This confirms clock semantics only, not an optimizer improvement.
+- The third autonomous checkpoint,
+  `infeasible-prefix-indistinguishability-v1`, passed all six frozen CPU
+  cases. The forever-infeasible and late-crossing paths were identical through
+  `B = 13`; all 8,192 action vectors were exhausted, with 8,191 satisfying
+  bounded restart only, one satisfying late-crossing preservation only, and
+  zero satisfying both. The same zero-joint partition held at all six frozen
+  bounds, while the extra-signal control satisfied both obligations only after
+  breaking prefix identity. The private immutable result SHA-256 is
+  `8aaf61bbcf21ea14e938f99f63f1c6e93f31b8d44307c79c9215ef84208b4ee5`.
+  This is an abstract deterministic one-lane information boundary, not a claim
+  about the full submitted optimizer or its performance.
+- The fourth autonomous checkpoint, `public-signal-surface-v1`, passed all
+  eight frozen CPU cases. Under the authenticated `dfbench==0.3.3` wheel and
+  source identities, the UIFO aux contract exposes `sensitivity_loss`,
+  `penalty`, `violations`, and raw `power_values.{hard,soft,detector}` beyond
+  `is_feasible`. Scalar/batched calls and the protected population helper's
+  full/1/2/4 chunk modes preserved the complete aux projection exactly. The
+  current optimizer receives that tree but directly consumes only
+  `is_feasible`. The private immutable result SHA-256 is
+  `1548c94a5b46a0fca3054d252f8a96d38717c881b22f05036c868d6409d905cc`.
+  This confirms current interface visibility only, not predictive value or a
+  restart improvement.
 
 ## Next decision
 
@@ -103,6 +141,35 @@ rationale, implementation audit, untouched panel, frozen decision rule and
 cost envelope, then separate owner approval before provisioning. The favorable
 aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
+
+Unpaid mechanism work now follows the guarded
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first five frozen
+checkpoints passed. The third resolves the scalar/Boolean online-information
+question; the fourth closes the public aux inventory and confirms that richer
+current constraint diagnostics exist. It does not establish that any such
+diagnostic predicts a future feasibility crossing. The fifth closes the
+full-surface universal-certificate question: its two protected synthetic paths
+were byte-identical through `B = 8` across the exact allowed typed snapshot and
+differed at the next primary feasibility leaf. This shows only that finite
+current observations are not a universal certificate without added
+assumptions; it does not show that they lack distributional value or that any
+policy improves performance.
+
+The next admissible question is a systems-mechanics inventory. Freeze one
+synthetic normal-path batch and identify the exact compilation, dispatch, host
+conversion, host-device synchronization, callback, RNG, budget, and timing
+boundaries. Then ask whether an experiment-only pure-JAX transition can
+reproduce the same typed public observations without changing the protected
+submission. Local CPU timings are diagnostic mechanics only, not accelerator
+or competition-performance evidence.
+
+After that checkpoint, a learning lane must first freeze the topology,
+observation, action, reward, trajectory, split, and leakage contract and pass
+toy controls. Test a supervised or surrogate baseline before a contextual
+bandit or meta-RL controller. A native rewrite, official-data training,
+candidate integration, accelerator benchmark, or paid run remains a separate
+owner gate. The private controller is `awaiting_study` and will not rerun any
+terminal study.
 
 ## Public deadlines
 
@@ -124,6 +191,16 @@ durable aggregate result and exploratory evidence boundaries are in
 Useful unpaid work now includes reviewing public-leaderboard feedback when it
 arrives, profiling the retained candidate locally, and developing a genuinely
 new mechanism without selecting against the observed Stage-A panel. The
+validated full-surface information-boundary result and next systems rung are in
+[`2026-08-27-full-surface-prefix-results.md`](../research/2026-08-27-full-surface-prefix-results.md).
+The validated public signal-surface inventory and claim boundary are in
+[`2026-08-27-public-signal-surface-results.md`](../research/2026-08-27-public-signal-surface-results.md).
+The validated scalar/Boolean information-boundary result is in
+[`2026-08-27-infeasible-prefix-indistinguishability-results.md`](../research/2026-08-27-infeasible-prefix-indistinguishability-results.md).
+The finite-infeasible clock result that motivated it is in
+[`2026-08-27-feasible-progress-clock-results.md`](../research/2026-08-27-feasible-progress-clock-results.md).
+The validated anchor-lane mechanics result and its narrow claim boundary are in
+[`2026-08-26-anchor-lane-stability-results.md`](../research/2026-08-26-anchor-lane-stability-results.md). The
 validated Stage-A aggregate result, cost boundary, and exact terminal action
 are in
 [`2026-08-25-h100-coverage-triage-results.md`](../research/2026-08-25-h100-coverage-triage-results.md).

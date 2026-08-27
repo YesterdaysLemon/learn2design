@@ -64,7 +64,36 @@ the frozen
 [`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
 and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
-New contributors should begin with [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow [`AGENTS.md`](AGENTS.md); these are compact entrypoints into the detailed experiment and research records, not separate ledgers.
+The guarded autonomous local laboratory has completed five unpaid CPU
+checkpoints. `anchor-lane-stability-v1` confirmed its narrow lane-local/shared-
+boundary mechanics; `feasible-progress-clock-v1` confirmed that finite
+infeasible loss improvements reset the current member clock; and
+`infeasible-prefix-indistinguishability-v1` confirmed the abstract
+scalar/Boolean information obstruction for a deterministic target-lane rule.
+`public-signal-surface-v1` then confirmed that the authenticated UIFO aux
+contract exposes richer current constraint diagnostics and that the protected
+population helper preserves them, while the optimizer currently consumes only
+the Boolean. `full-surface-prefix-indistinguishability-v1` then confirmed a
+finite synthetic twin across the complete allowed snapshot through its frozen
+bound, with the next primary difference confined to `aux.is_feasible`. These
+are software or analytic boundary results, not
+competition-performance evidence, and they do not change the submitted
+package. See the sanitized
+[`anchor result`](research/2026-08-26-anchor-lane-stability-results.md),
+[`clock result`](research/2026-08-27-feasible-progress-clock-results.md),
+[`information-boundary result`](research/2026-08-27-infeasible-prefix-indistinguishability-results.md),
+[`signal-surface result`](research/2026-08-27-public-signal-surface-results.md),
+[`full-surface result`](research/2026-08-27-full-surface-prefix-results.md),
+and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting
+a new versioned systems-mechanics study and will not repeat a terminal fixture.
+
+New contributors should begin with
+[`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and
+[`CONTRIBUTING.md`](CONTRIBUTING.md). Coding agents should also follow
+[`AGENTS.md`](AGENTS.md). Recurring unpaid mechanics work is governed by the
+[`autonomous local laboratory protocol`](docs/AUTONOMOUS_LAB.md). These are
+compact entrypoints into the detailed experiment and research records, not
+separate evidence ledgers.
 
 ## Build the current candidate
 

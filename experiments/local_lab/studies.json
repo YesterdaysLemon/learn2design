@@ -1,0 +1,832 @@
+{
+  "schema_version": 1,
+  "studies": {
+    "anchor-lane-stability-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "eaadb83eb9c1be8724ae4892b4dd199325d18e139b248af7df8f72fe2b54ade0",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "aab1b647d24904233693b7ffd99cefb8eac39a60f187c9871c0e4c1cfe763a99",
+        "worker_source": "cb4e2b5c6acc74c123b3830ee2d1f7441ff856889cd0f1273b37a85101f6c484"
+      },
+      "case_contract": {
+        "diagnostics_disabled_control": {
+          "initial_variants": [
+            "suffix-a",
+            "suffix-a"
+          ],
+          "max_evals": 18,
+          "mode": "quadratic",
+          "patience": 100
+        },
+        "exact_twin": {
+          "initial_variants": [
+            null,
+            null
+          ],
+          "max_evals": 24,
+          "mode": "quadratic",
+          "patience": 100
+        },
+        "exceptional_arithmetic_partial_tail": {
+          "initial_variants": [
+            "exceptional-a",
+            "exceptional-b"
+          ],
+          "max_evals": 18,
+          "mode": "exceptional",
+          "patience": 100
+        },
+        "forced_shared_state_boundary": {
+          "initial_variants": [
+            "boundary-a",
+            "boundary-b"
+          ],
+          "max_evals": 32,
+          "mode": "shared-boundary",
+          "patience": 2
+        },
+        "process_isolation": {
+          "source_case": "exact_twin",
+          "workers": 2
+        },
+        "suffix_invariance": {
+          "initial_variants": [
+            "suffix-a",
+            "suffix-b"
+          ],
+          "max_evals": 24,
+          "mode": "quadratic",
+          "patience": 100
+        }
+      },
+      "case_required_fields": {
+        "diagnostics_disabled_control": [
+          "passed",
+          "trace_sha256"
+        ],
+        "exact_twin": [
+          "batches",
+          "passed",
+          "trace_sha256"
+        ],
+        "exceptional_arithmetic_partial_tail": [
+          "batch_sizes",
+          "finite_infeasible_observations",
+          "global_improvement_events",
+          "nonfinite_gradient_values",
+          "partial_events",
+          "partial_state_violations",
+          "passed",
+          "sanitizer_violations"
+        ],
+        "forced_shared_state_boundary": [
+          "first_lane_zero_loss_difference_batch",
+          "first_lane_zero_parameter_difference_batch",
+          "incumbent_events",
+          "passed",
+          "restart_events"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "suffix_invariance": [
+          "anchor_loss_hashes_equal",
+          "anchor_parameter_hashes_equal",
+          "passed",
+          "raw_random_hashes_equal",
+          "suffix_initial_hashes_differ"
+        ]
+      },
+      "failure_action": "park_initializer_and_restart_research",
+      "fixture_identity": {
+        "n_params": 5,
+        "population_size": 8,
+        "seed": 20260826
+      },
+      "plan_path": "research/2026-08-26-anchor-lane-stability-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/anchor_lane_stability.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-26-anchor-lane-stability-plan.md",
+        "worker_source": "experiments/local_lab/worker.py"
+      },
+      "success_action": "anchor_lane_mechanics_confirmed",
+      "worker_mode": "anchor-lane-stability-v1",
+      "worker_module": "experiments.local_lab.worker"
+    },
+    "feasible-progress-clock-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "42034a57542eecffa90394e0317b0a229fae628d3f4268764455524f4d85703f",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "7617a6047127c8f4aa9cb18072e98460538fc5682e7d65062c30b6c4e4def4d7",
+        "worker_source": "279323d6121f25515bb8344f2eb954513109ac856bde0cc8477671c7d31162ba"
+      },
+      "case_contract": {
+        "diagnostics_disabled_control": {
+          "max_evals": 32,
+          "mode": "mixed",
+          "patience": 2,
+          "telemetry_variants": [
+            false,
+            true
+          ]
+        },
+        "finite_infeasible_descent": {
+          "feasible_batches": [],
+          "max_evals": 32,
+          "mode": "descent",
+          "patience": 2
+        },
+        "finite_infeasible_improve_then_plateau": {
+          "feasible_batches": [],
+          "improvement_batches": [
+            0,
+            1
+          ],
+          "max_evals": 40,
+          "mode": "improve-then-plateau",
+          "patience": 2
+        },
+        "finite_infeasible_plateau_control": {
+          "feasible_batches": [],
+          "max_evals": 32,
+          "mode": "plateau",
+          "patience": 2
+        },
+        "late_feasibility_crossing": {
+          "feasible_member": 0,
+          "first_feasible_batch": 3,
+          "max_evals": 32,
+          "mode": "late-crossing",
+          "patience": 2
+        },
+        "mixed_member_clock": {
+          "descending_members": [
+            0,
+            2,
+            4,
+            6
+          ],
+          "max_evals": 32,
+          "mode": "mixed",
+          "patience": 2,
+          "plateau_members": [
+            1,
+            3,
+            5,
+            7
+          ]
+        },
+        "process_isolation": {
+          "source_case": "mixed_member_clock",
+          "workers": 2
+        }
+      },
+      "case_required_fields": {
+        "diagnostics_disabled_control": [
+          "passed",
+          "trace_sha256"
+        ],
+        "finite_infeasible_descent": [
+          "finite_infeasible_observations",
+          "improved_rows",
+          "nonfinite_derivative_values",
+          "passed",
+          "restart_events",
+          "stalled_steps_by_member",
+          "trace_sha256"
+        ],
+        "finite_infeasible_improve_then_plateau": [
+          "changed_members_after_restart",
+          "passed",
+          "restart_events",
+          "restart_state_reset_members",
+          "stalled_steps_by_member"
+        ],
+        "finite_infeasible_plateau_control": [
+          "changed_members_after_restart",
+          "passed",
+          "restart_events",
+          "restart_state_reset_members",
+          "stalled_steps_by_member"
+        ],
+        "late_feasibility_crossing": [
+          "first_feasible_batch",
+          "global_improvement_events",
+          "passed",
+          "restart_events",
+          "stalled_steps_by_member"
+        ],
+        "mixed_member_clock": [
+          "changed_members_after_boundary",
+          "passed",
+          "restart_events",
+          "restart_state_reset_members",
+          "stalled_steps_by_member"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ]
+      },
+      "failure_action": "park_feasible_progress_clock_research",
+      "fixture_identity": {
+        "claim_boundary": "mechanics_only_no_candidate_or_performance_claim",
+        "initial_population_sha256": "a80d3cd61f8075c3874169bfbc49000a1341a9ac50c209c913aa7d0be27a6eee",
+        "learning_rate": 0.05,
+        "loss_dtype": "float32",
+        "minimum_improvement": 1e-07,
+        "n_params": 3,
+        "patience": 2,
+        "population_size": 8,
+        "seed": 20260826
+      },
+      "plan_path": "research/2026-08-26-feasible-progress-clock-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/feasible_progress_clock.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-26-feasible-progress-clock-plan.md",
+        "worker_source": "experiments/local_lab/feasible_progress_clock_worker.py"
+      },
+      "success_action": "finite_infeasible_progress_resets_clock_confirmed",
+      "worker_mode": "feasible-progress-clock-v1",
+      "worker_module": "experiments.local_lab.feasible_progress_clock_worker"
+    },
+    "infeasible-prefix-indistinguishability-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "03635e7246ef523d7c85d59919becd3a16cd4de5d59c1cf26ddc7b0bd824f2ef",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "fe4667d9d08141dcc97832661cdf42615e076108ad342267673d35be7d697008",
+        "worker_source": "fe57f21c96281cd98bc9d49fca2d42b8cfc097574d2c35c021c0dc8962a5b3c3"
+      },
+      "case_contract": {
+        "boundary_sweep": {
+          "bounds": [
+            1,
+            2,
+            3,
+            5,
+            8,
+            13
+          ],
+          "crossing_offset": 1
+        },
+        "extra_signal_positive_control": {
+          "bound": 13,
+          "certificate_step": 13,
+          "late_crossing_step": 14
+        },
+        "action_vector_exhaustion": {
+          "action_vector_count": 8192,
+          "bound": 13,
+          "policy_projection": "actions_on_one_shared_prefix"
+        },
+        "process_isolation": {
+          "source_case": "boundary_sweep",
+          "workers": 2
+        },
+        "shared_prefix_identity": {
+          "bound": 13,
+          "decision_timing": "observe_then_decide",
+          "initial_rule_state": "identical",
+          "late_crossing_step": 14,
+          "observable_fields": [
+            "loss",
+            "is_feasible"
+          ],
+          "restart_scope": "one_target_lane_state_change"
+        },
+        "witness_partition": {
+          "bound": 13,
+          "bounded_restart_required": true,
+          "preserve_before_crossing_required": true
+        }
+      },
+      "case_required_fields": {
+        "boundary_sweep": [
+          "bounds_checked",
+          "joint_satisfiers_by_bound",
+          "passed",
+          "policy_counts_by_bound"
+        ],
+        "extra_signal_positive_control": [
+          "forever_restarted_by_bound",
+          "late_crossing_preserved",
+          "passed",
+          "prefixes_identical"
+        ],
+        "action_vector_exhaustion": [
+          "bound",
+          "joint_satisfiers",
+          "passed",
+          "total_action_vectors"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "shared_prefix_identity": [
+          "forever_prefix_sha256",
+          "late_prefix_sha256",
+          "next_observations_differ",
+          "passed",
+          "prefixes_identical",
+          "rule_inputs_identical",
+          "strictly_improving_prefix"
+        ],
+        "witness_partition": [
+          "bounded_only_policies",
+          "joint_satisfiers",
+          "partition_total",
+          "passed",
+          "preserve_only_policies"
+        ]
+      },
+      "failure_action": "park_infeasible_prefix_boundary_research",
+      "fixture_identity": {
+        "bounds": [
+          1,
+          2,
+          3,
+          5,
+          8,
+          13
+        ],
+        "claim_boundary": "abstract_deterministic_one_lane_identical_prefix_only",
+        "decision_timing": "observe_then_decide",
+        "initial_rule_state": "identical_deterministic",
+        "late_crossing_offset": 1,
+        "max_bound": 13,
+        "observable_fields": [
+          "loss",
+          "is_feasible"
+        ],
+        "policy_projection": "actions_on_one_shared_prefix",
+        "restart_scope": "one_target_lane_state_change"
+      },
+      "plan_path": "research/2026-08-27-infeasible-prefix-indistinguishability-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/infeasible_prefix_indistinguishability.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-infeasible-prefix-indistinguishability-plan.md",
+        "worker_source": "experiments/local_lab/infeasible_prefix_indistinguishability_worker.py"
+      },
+      "success_action": "synthetic_identical_prefix_obstruction_confirmed",
+      "worker_mode": "infeasible-prefix-indistinguishability-v1",
+      "worker_module": "experiments.local_lab.infeasible_prefix_indistinguishability_worker"
+    },
+    "public-signal-surface-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "c98bd04e7e305b16855feb6b79edd7a307b90cccfcd8ef07d58fe216a7669639",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "d0c6500b6a71022bdb92bdb5fe823775f1fe1880a3970f1338d34d24392d010a",
+        "worker_source": "f2b260c301f3cc981afeb0f4573f55d465aa0a7c4148e846b697d0762146609b"
+      },
+      "case_contract": {
+        "candidate_passthrough_modes": {
+          "aux_leaf_paths": [
+            "is_feasible",
+            "penalty",
+            "power_values.detector",
+            "power_values.hard",
+            "power_values.soft",
+            "sensitivity_loss",
+            "violations"
+          ],
+          "chunk_modes": [
+            "full",
+            "1",
+            "2",
+            "4"
+          ],
+          "points": 4
+        },
+        "consumer_boundary": {
+          "available_aux_fields": [
+            "is_feasible",
+            "penalty",
+            "power_values.detector",
+            "power_values.hard",
+            "power_values.soft",
+            "sensitivity_loss",
+            "violations"
+          ],
+          "consumed_aux_fields": [
+            "is_feasible"
+          ],
+          "helper_aux_methods": [
+            "value_and_grad_aux",
+            "vmap_value_and_grad_aux"
+          ]
+        },
+        "dependency_source_identity": {
+          "dfbench_version": "0.3.3",
+          "dfbench_wheel_sha256": "1f96d75b813ea42f93992da5c1f50d6a4f59dd7a507bcf561676b0e416378c43",
+          "objective_source_sha256": "9e2c2bb54517f59efacf4c2a59908ffd55c7fb2e15089d53263ece796e71daa2",
+          "optical_source_sha256": "e7768eb3afd061b2684dbdb761e4211c9a9709852a54b45fff17d21a851ee95d",
+          "uifo_source_sha256": "a6e3e95275987799761831a64a2c7b0aa793656d741df4d5d5e78b64c13f7d08"
+        },
+        "infeasible_magnitude_control": {
+          "feasible_control_index": 0,
+          "infeasible_indices": [
+            1,
+            2
+          ],
+          "required_distinct_non_boolean_groups": [
+            "penalty",
+            "power_values",
+            "violations"
+          ]
+        },
+        "no_aux_negative_control": {
+          "expected_error_type": "RuntimeError",
+          "rich_aux_universal": false
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        },
+        "scalar_batch_roundtrip": {
+          "aux_leaf_paths": [
+            "is_feasible",
+            "penalty",
+            "power_values.detector",
+            "power_values.hard",
+            "power_values.soft",
+            "sensitivity_loss",
+            "violations"
+          ],
+          "points": 4,
+          "required_max_abs_difference": 0.0
+        },
+        "uifo_aux_schema": {
+          "power_fields": [
+            "detector",
+            "hard",
+            "soft"
+          ],
+          "top_level_fields": [
+            "is_feasible",
+            "penalty",
+            "power_values",
+            "sensitivity_loss",
+            "violations"
+          ],
+          "total_loss_components": [
+            "penalty",
+            "sensitivity_loss"
+          ]
+        }
+      },
+      "case_required_fields": {
+        "candidate_passthrough_modes": [
+          "aux_leaf_paths",
+          "chunk_modes",
+          "mode_projection_sha256",
+          "modes_identical",
+          "passed",
+          "paths_identical",
+          "points"
+        ],
+        "consumer_boundary": [
+          "available_aux_fields",
+          "consumed_aux_fields",
+          "helper_aux_methods",
+          "passed",
+          "unused_available_fields"
+        ],
+        "dependency_source_identity": [
+          "dfbench_version",
+          "dfbench_wheel_sha256",
+          "objective_source_sha256",
+          "optical_source_sha256",
+          "passed",
+          "uifo_source_sha256"
+        ],
+        "infeasible_magnitude_control": [
+          "feasible_control_present",
+          "infeasible_points",
+          "passed",
+          "penalties_differ",
+          "power_values_differ",
+          "same_infeasible_boolean",
+          "violations_differ"
+        ],
+        "no_aux_negative_control": [
+          "error_type",
+          "message_identifies_aux_contract",
+          "passed",
+          "rich_aux_universal"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "scalar_batch_roundtrip": [
+          "aux_leaf_paths",
+          "max_abs_aux_difference",
+          "max_abs_gradient_difference",
+          "max_abs_loss_difference",
+          "passed",
+          "points",
+          "projection_sha256"
+        ],
+        "uifo_aux_schema": [
+          "passed",
+          "power_fields",
+          "top_level_fields",
+          "total_loss_components",
+          "uses_shared_aux_builder"
+        ]
+      },
+      "failure_action": "park_public_signal_surface_research",
+      "fixture_identity": {
+        "aux_power_fields": [
+          "detector",
+          "hard",
+          "soft"
+        ],
+        "aux_top_level_fields": [
+          "is_feasible",
+          "penalty",
+          "power_values",
+          "sensitivity_loss",
+          "violations"
+        ],
+        "claim_boundary": "public_interface_current_state_only_no_predictive_or_performance_claim",
+        "dfbench_version": "0.3.3",
+        "dfbench_wheel_sha256": "1f96d75b813ea42f93992da5c1f50d6a4f59dd7a507bcf561676b0e416378c43",
+        "n_params": 3,
+        "objective_source_sha256": "9e2c2bb54517f59efacf4c2a59908ffd55c7fb2e15089d53263ece796e71daa2",
+        "optical_source_sha256": "e7768eb3afd061b2684dbdb761e4211c9a9709852a54b45fff17d21a851ee95d",
+        "points_sha256": "072518bff8df1349bd0f532c12d0df5c2055f569e7b2a03a016973b7d2935389",
+        "submission_source_sha256": "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176",
+        "uifo_source_sha256": "a6e3e95275987799761831a64a2c7b0aa793656d741df4d5d5e78b64c13f7d08"
+      },
+      "plan_path": "research/2026-08-27-public-signal-surface-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/public_signal_surface.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-public-signal-surface-plan.md",
+        "worker_source": "experiments/local_lab/public_signal_surface_worker.py"
+      },
+      "success_action": "public_current_constraint_signals_confirmed",
+      "worker_mode": "public-signal-surface-v1",
+      "worker_module": "experiments.local_lab.public_signal_surface_worker"
+    },
+    "full-surface-prefix-indistinguishability-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "2bf9c6be4ffe9ece4f5320e50fa66aac05738467c11bf2743a9052a6d433e394",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "8d57b19ce4b5b570fd4f9a1adb1734006e6b0c372bfa9bc35b658727d0ff8094",
+        "worker_source": "f9c3641c86977a0734572b1679732557d39e65c5975e543c10af2d7eb5637963"
+      },
+      "case_contract": {
+        "normal_path_execution": {
+          "batches": 9,
+          "max_evals": 36,
+          "parameter_dimension": 3,
+          "population_size": 4,
+          "worlds": [
+            "forever_infeasible",
+            "late_crossing"
+          ]
+        },
+        "adapter_schema": {
+          "array_projection_fields": [
+            "dtype",
+            "shape",
+            "sha256"
+          ],
+          "aux_leaf_paths": [
+            "aux.is_feasible",
+            "aux.penalty",
+            "aux.power_values.detector",
+            "aux.power_values.hard",
+            "aux.power_values.soft",
+            "aux.sensitivity_loss",
+            "aux.violations"
+          ],
+          "exact_schema_required": true,
+          "top_level_fields": [
+            "candidate",
+            "loss",
+            "total_gradient",
+            "aux",
+            "optimizer_state",
+            "rng_transcript",
+            "budget_counters",
+            "incumbent_state"
+          ]
+        },
+        "shared_full_surface_prefix": {
+          "bound": 8,
+          "decision_timing": "observe_then_decide",
+          "late_crossing_step": 9,
+          "next_primary_difference": "aux.is_feasible"
+        },
+        "signal_class_negative_controls": {
+          "control_names": [
+            "candidate",
+            "loss",
+            "total_gradient",
+            "optimizer_state",
+            "rng_transcript",
+            "budget_counters",
+            "incumbent_state"
+          ],
+          "exact_diff_paths_per_control": 1
+        },
+        "aux_leaf_negative_controls": {
+          "aux_leaf_paths": [
+            "aux.is_feasible",
+            "aux.penalty",
+            "aux.power_values.detector",
+            "aux.power_values.hard",
+            "aux.power_values.soft",
+            "aux.sensitivity_loss",
+            "aux.violations"
+          ],
+          "exact_diff_paths_per_control": 1
+        },
+        "typed_array_metadata_boundary": {
+          "controls": [
+            "dtype",
+            "shape"
+          ],
+          "raw_bytes_held_equal": true
+        },
+        "forbidden_extension_rejection": {
+          "extension_classes": [
+            "unlogged_callable",
+            "extra_evaluation",
+            "hessian",
+            "manual_log",
+            "private_attribute",
+            "saved_record",
+            "structural_metadata"
+          ],
+          "scope": "exact_schema_sentinel_only"
+        },
+        "action_vector_exhaustion": {
+          "action_vector_count": 256,
+          "bound": 8,
+          "scope": "abstract_corollary_on_shared_executed_prefix"
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        }
+      },
+      "case_required_fields": {
+        "normal_path_execution": [
+          "batches_per_world",
+          "evaluations_per_world",
+          "passed",
+          "restart_events",
+          "rng_draws_per_world",
+          "scalar_calls",
+          "state_commitments_per_world",
+          "telemetry_events_per_world",
+          "worlds"
+        ],
+        "adapter_schema": [
+          "array_projection_fields",
+          "aux_leaf_paths",
+          "exact_schema_required",
+          "passed",
+          "snapshot_schema_sha256",
+          "top_level_fields"
+        ],
+        "shared_full_surface_prefix": [
+          "bound",
+          "forever_prefix_sha256",
+          "late_prefix_sha256",
+          "next_evaluation_difference_paths",
+          "next_full_snapshots_differ",
+          "passed",
+          "prefix_all_finite",
+          "prefix_all_infeasible",
+          "prefix_strictly_improving",
+          "prefixes_identical"
+        ],
+        "signal_class_negative_controls": [
+          "control_names",
+          "controls_checked",
+          "exact_single_path_controls",
+          "passed"
+        ],
+        "aux_leaf_negative_controls": [
+          "aux_leaf_paths",
+          "controls_checked",
+          "exact_single_path_controls",
+          "passed"
+        ],
+        "typed_array_metadata_boundary": [
+          "controls",
+          "controls_checked",
+          "passed",
+          "typed_identity_changes"
+        ],
+        "forbidden_extension_rejection": [
+          "extensions_checked",
+          "extensions_rejected",
+          "passed",
+          "scope"
+        ],
+        "action_vector_exhaustion": [
+          "bound",
+          "bounded_only_transcripts",
+          "joint_satisfiers",
+          "passed",
+          "preserve_only_transcripts",
+          "scope",
+          "total_action_vectors"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ]
+      },
+      "failure_action": "park_full_surface_prefix_research",
+      "fixture_identity": {
+        "aux_leaf_paths": [
+          "aux.is_feasible",
+          "aux.penalty",
+          "aux.power_values.detector",
+          "aux.power_values.hard",
+          "aux.power_values.soft",
+          "aux.sensitivity_loss",
+          "aux.violations"
+        ],
+        "claim_boundary": "executed_synthetic_normal_path_next_feasibility_only",
+        "decision_timing": "observe_then_decide",
+        "execution_adapter": "protected_optimizer_scripted_public_surface",
+        "forbidden_extension_classes": [
+          "unlogged_callable",
+          "extra_evaluation",
+          "hessian",
+          "manual_log",
+          "private_attribute",
+          "saved_record",
+          "structural_metadata"
+        ],
+        "late_crossing_offset": 1,
+        "max_bound": 8,
+        "parameter_dimension": 3,
+        "policy_projection": "binary_actions_on_one_shared_executed_prefix",
+        "population_size": 4,
+        "signal_classes": [
+          "candidate",
+          "loss",
+          "total_gradient",
+          "optimizer_state",
+          "rng_transcript",
+          "budget_counters",
+          "incumbent_state"
+        ],
+        "snapshot_top_level_fields": [
+          "candidate",
+          "loss",
+          "total_gradient",
+          "aux",
+          "optimizer_state",
+          "rng_transcript",
+          "budget_counters",
+          "incumbent_state"
+        ],
+        "typed_array_projection_fields": [
+          "dtype",
+          "shape",
+          "sha256"
+        ]
+      },
+      "plan_path": "research/2026-08-27-full-surface-prefix-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/full_surface_prefix.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-full-surface-prefix-plan.md",
+        "worker_source": "experiments/local_lab/full_surface_prefix_worker.py"
+      },
+      "success_action": "synthetic_full_surface_prefix_twin_confirmed",
+      "worker_mode": "full-surface-prefix-indistinguishability-v1",
+      "worker_module": "experiments.local_lab.full_surface_prefix_worker"
+    }
+  }
+}
