@@ -22,6 +22,11 @@ from experiments.local_lab.anchor_lane_stability import (
 from experiments.local_lab.feasible_progress_clock import (
     run_study as run_feasible_progress_study,
 )
+from experiments.local_lab.full_surface_prefix import (
+    AUX_LEAF_PATHS as FULL_SURFACE_AUX_LEAF_PATHS,
+    SIGNAL_CLASSES as FULL_SURFACE_SIGNAL_CLASSES,
+    run_study as run_full_surface_prefix_study,
+)
 from experiments.local_lab.infeasible_prefix_indistinguishability import (
     run_study as run_prefix_boundary_study,
 )
@@ -254,6 +259,79 @@ def test_public_signal_surface_result_is_sanitized() -> None:
     assert all(value not in encoded for value in forbidden)
 
 
+def test_full_surface_prefix_frozen_study_passes() -> None:
+    result = run_full_surface_prefix_study(include_process_isolation=True)
+
+    assert result["study_id"] == "full-surface-prefix-indistinguishability-v1"
+    assert result["status"] == "passed"
+    assert result["action"] == "synthetic_full_surface_prefix_twin_confirmed"
+    assert set(result["cases"]) == {
+        "action_vector_exhaustion",
+        "adapter_schema",
+        "aux_leaf_negative_controls",
+        "forbidden_extension_rejection",
+        "normal_path_execution",
+        "process_isolation",
+        "shared_full_surface_prefix",
+        "signal_class_negative_controls",
+        "typed_array_metadata_boundary",
+    }
+    assert all(case["passed"] for case in result["cases"].values())
+    assert result["cases"]["normal_path_execution"] == {
+        "batches_per_world": 9,
+        "evaluations_per_world": 36,
+        "passed": True,
+        "restart_events": 0,
+        "rng_draws_per_world": 1,
+        "scalar_calls": 0,
+        "state_commitments_per_world": 9,
+        "telemetry_events_per_world": 9,
+        "worlds": 2,
+    }
+    assert result["cases"]["shared_full_surface_prefix"][
+        "prefixes_identical"
+    ]
+    assert result["cases"]["shared_full_surface_prefix"][
+        "prefix_all_finite"
+    ]
+    assert result["cases"]["shared_full_surface_prefix"][
+        "prefix_all_infeasible"
+    ]
+    assert result["cases"]["shared_full_surface_prefix"][
+        "prefix_strictly_improving"
+    ]
+    assert result["cases"]["shared_full_surface_prefix"][
+        "next_evaluation_difference_paths"
+    ] == ["aux.is_feasible.sha256"]
+    assert result["cases"]["aux_leaf_negative_controls"][
+        "aux_leaf_paths"
+    ] == FULL_SURFACE_AUX_LEAF_PATHS
+    assert result["cases"]["signal_class_negative_controls"][
+        "control_names"
+    ] == FULL_SURFACE_SIGNAL_CLASSES
+    assert result["cases"]["action_vector_exhaustion"][
+        "joint_satisfiers"
+    ] == 0
+    assert result["environment"]["platform"] == "cpu"
+
+
+def test_full_surface_prefix_result_is_sanitized() -> None:
+    result = run_full_surface_prefix_study(include_process_isolation=False)
+    encoded = json.dumps(result, allow_nan=False, sort_keys=True)
+
+    assert result["status"] == "incomplete"
+    assert result["action"] == "no_decision_incomplete_study"
+    assert result["cases"]["process_isolation"]["passed"] is None
+    forbidden = (
+        str(REPOSITORY_ROOT),
+        "optimization_pairs",
+        "parameter_values",
+        "raw_gradient",
+        "topology",
+    )
+    assert all(value not in encoded for value in forbidden)
+
+
 def test_result_validator_requires_exact_sanitized_contract() -> None:
     registry = lab_controller._load_study_registry()
     entry = lab_controller._study_entry(registry, "feasible-progress-clock-v1")
@@ -309,6 +387,43 @@ def test_public_signal_surface_validator_requires_exact_contract() -> None:
     result["fixture"]["dfbench_wheel_sha256"] = "1" * 64
     with pytest.raises(RuntimeError, match="wrong frozen fixture identity"):
         _validate_study_result("public-signal-surface-v1", entry, result)
+
+
+def test_full_surface_prefix_validator_requires_exact_contract() -> None:
+    registry = lab_controller._load_study_registry()
+    entry = lab_controller._study_entry(
+        registry, "full-surface-prefix-indistinguishability-v1"
+    )
+    result = run_full_surface_prefix_study(include_process_isolation=False)
+    result["cases"]["process_isolation"] = {
+        "passed": True,
+        "trace_sha256": "0" * 64,
+    }
+    result["status"] = "passed"
+    result["action"] = "synthetic_full_surface_prefix_twin_confirmed"
+
+    _validate_study_result(
+        "full-surface-prefix-indistinguishability-v1", entry, result
+    )
+    wrong_identity = json.loads(json.dumps(result))
+    wrong_identity["fixture"]["max_bound"] = 7
+    with pytest.raises(RuntimeError, match="wrong frozen fixture identity"):
+        _validate_study_result(
+            "full-surface-prefix-indistinguishability-v1",
+            entry,
+            wrong_identity,
+        )
+
+    wrong_contract = json.loads(json.dumps(result))
+    wrong_contract["fixture"]["case_contract"]["shared_full_surface_prefix"][
+        "bound"
+    ] = 7
+    with pytest.raises(RuntimeError, match="wrong frozen case contract"):
+        _validate_study_result(
+            "full-surface-prefix-indistinguishability-v1",
+            entry,
+            wrong_contract,
+        )
 
 
 def test_protected_submission_canonical_digest_matches_pin() -> None:
@@ -605,7 +720,7 @@ def test_third_study_end_to_end_leaves_fourth_study_pending(
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_fourth_study_end_to_end_closes_pending_registry(
+def test_fourth_study_end_to_end_leaves_fifth_study_pending(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = lab_controller._load_study_registry()
@@ -661,11 +776,86 @@ def test_fourth_study_end_to_end_closes_pending_registry(
     payload = json.loads(output.read_text(encoding="utf-8"))
     state = _load_state(tmp_path)
     assert payload["result"]["status"] == "passed"
+    assert state["status"] == "idle"
+    assert state["stop_reason"] is None
+    assert set(state["completed_studies"]) == {
+        "anchor-lane-stability-v1",
+        "feasible-progress-clock-v1",
+        "infeasible-prefix-indistinguishability-v1",
+        "public-signal-surface-v1",
+    }
+    assert not (tmp_path / "lab.lock").exists()
+
+
+def test_fifth_study_end_to_end_closes_pending_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "full-surface-prefix-indistinguishability-v1"
+    entry = lab_controller._study_entry(registry, study_id)
+    snapshot = {
+        "committed_file_sha256": entry["approved_file_sha256"],
+        "committed_source_paths": entry["source_paths"],
+        "revision": "1" * 40,
+    }
+    initial_state = lab_controller._default_state()
+    initial_state["status"] = "idle"
+    initial_state["completed_studies"] = {
+        "anchor-lane-stability-v1": {
+            "cycle_id": "anchor-cycle",
+            "result_sha256": "a" * 64,
+            "revision": "b" * 40,
+            "status": "passed",
+        },
+        "feasible-progress-clock-v1": {
+            "cycle_id": "clock-cycle",
+            "result_sha256": "c" * 64,
+            "revision": "d" * 40,
+            "status": "passed",
+        },
+        "infeasible-prefix-indistinguishability-v1": {
+            "cycle_id": "prefix-cycle",
+            "result_sha256": "e" * 64,
+            "revision": "f" * 40,
+            "status": "passed",
+        },
+        "public-signal-surface-v1": {
+            "cycle_id": "signal-cycle",
+            "result_sha256": "2" * 64,
+            "revision": "3" * 40,
+            "status": "passed",
+        },
+    }
+    lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
+    output = tmp_path / "cycles" / "fifth-study-test" / "result.json"
+    monkeypatch.setattr(lab_controller, "PRIVATE_ROOT", tmp_path)
+    monkeypatch.setattr(
+        lab_controller, "_repository_snapshot", lambda _entry: snapshot
+    )
+    monkeypatch.setattr(lab_controller, "_git", lambda *_args: "1" * 40)
+    monkeypatch.setattr(
+        lab_controller.sys,
+        "argv",
+        [
+            "run_local_lab.py",
+            "--study",
+            study_id,
+            "--output",
+            str(output),
+        ],
+    )
+
+    lab_controller.main()
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    state = _load_state(tmp_path)
+    assert payload["result"]["status"] == "passed"
     assert state["status"] == "awaiting_study"
     assert state["stop_reason"] == "no_approved_study_pending"
     assert set(state["completed_studies"]) == {
         "anchor-lane-stability-v1",
         "feasible-progress-clock-v1",
+        "full-surface-prefix-indistinguishability-v1",
         "infeasible-prefix-indistinguishability-v1",
         "public-signal-surface-v1",
     }

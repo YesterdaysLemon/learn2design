@@ -586,6 +586,247 @@
       "success_action": "public_current_constraint_signals_confirmed",
       "worker_mode": "public-signal-surface-v1",
       "worker_module": "experiments.local_lab.public_signal_surface_worker"
+    },
+    "full-surface-prefix-indistinguishability-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "2bf9c6be4ffe9ece4f5320e50fa66aac05738467c11bf2743a9052a6d433e394",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "8d57b19ce4b5b570fd4f9a1adb1734006e6b0c372bfa9bc35b658727d0ff8094",
+        "worker_source": "f9c3641c86977a0734572b1679732557d39e65c5975e543c10af2d7eb5637963"
+      },
+      "case_contract": {
+        "normal_path_execution": {
+          "batches": 9,
+          "max_evals": 36,
+          "parameter_dimension": 3,
+          "population_size": 4,
+          "worlds": [
+            "forever_infeasible",
+            "late_crossing"
+          ]
+        },
+        "adapter_schema": {
+          "array_projection_fields": [
+            "dtype",
+            "shape",
+            "sha256"
+          ],
+          "aux_leaf_paths": [
+            "aux.is_feasible",
+            "aux.penalty",
+            "aux.power_values.detector",
+            "aux.power_values.hard",
+            "aux.power_values.soft",
+            "aux.sensitivity_loss",
+            "aux.violations"
+          ],
+          "exact_schema_required": true,
+          "top_level_fields": [
+            "candidate",
+            "loss",
+            "total_gradient",
+            "aux",
+            "optimizer_state",
+            "rng_transcript",
+            "budget_counters",
+            "incumbent_state"
+          ]
+        },
+        "shared_full_surface_prefix": {
+          "bound": 8,
+          "decision_timing": "observe_then_decide",
+          "late_crossing_step": 9,
+          "next_primary_difference": "aux.is_feasible"
+        },
+        "signal_class_negative_controls": {
+          "control_names": [
+            "candidate",
+            "loss",
+            "total_gradient",
+            "optimizer_state",
+            "rng_transcript",
+            "budget_counters",
+            "incumbent_state"
+          ],
+          "exact_diff_paths_per_control": 1
+        },
+        "aux_leaf_negative_controls": {
+          "aux_leaf_paths": [
+            "aux.is_feasible",
+            "aux.penalty",
+            "aux.power_values.detector",
+            "aux.power_values.hard",
+            "aux.power_values.soft",
+            "aux.sensitivity_loss",
+            "aux.violations"
+          ],
+          "exact_diff_paths_per_control": 1
+        },
+        "typed_array_metadata_boundary": {
+          "controls": [
+            "dtype",
+            "shape"
+          ],
+          "raw_bytes_held_equal": true
+        },
+        "forbidden_extension_rejection": {
+          "extension_classes": [
+            "unlogged_callable",
+            "extra_evaluation",
+            "hessian",
+            "manual_log",
+            "private_attribute",
+            "saved_record",
+            "structural_metadata"
+          ],
+          "scope": "exact_schema_sentinel_only"
+        },
+        "action_vector_exhaustion": {
+          "action_vector_count": 256,
+          "bound": 8,
+          "scope": "abstract_corollary_on_shared_executed_prefix"
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        }
+      },
+      "case_required_fields": {
+        "normal_path_execution": [
+          "batches_per_world",
+          "evaluations_per_world",
+          "passed",
+          "restart_events",
+          "rng_draws_per_world",
+          "scalar_calls",
+          "state_commitments_per_world",
+          "telemetry_events_per_world",
+          "worlds"
+        ],
+        "adapter_schema": [
+          "array_projection_fields",
+          "aux_leaf_paths",
+          "exact_schema_required",
+          "passed",
+          "snapshot_schema_sha256",
+          "top_level_fields"
+        ],
+        "shared_full_surface_prefix": [
+          "bound",
+          "forever_prefix_sha256",
+          "late_prefix_sha256",
+          "next_evaluation_difference_paths",
+          "next_full_snapshots_differ",
+          "passed",
+          "prefix_all_finite",
+          "prefix_all_infeasible",
+          "prefix_strictly_improving",
+          "prefixes_identical"
+        ],
+        "signal_class_negative_controls": [
+          "control_names",
+          "controls_checked",
+          "exact_single_path_controls",
+          "passed"
+        ],
+        "aux_leaf_negative_controls": [
+          "aux_leaf_paths",
+          "controls_checked",
+          "exact_single_path_controls",
+          "passed"
+        ],
+        "typed_array_metadata_boundary": [
+          "controls",
+          "controls_checked",
+          "passed",
+          "typed_identity_changes"
+        ],
+        "forbidden_extension_rejection": [
+          "extensions_checked",
+          "extensions_rejected",
+          "passed",
+          "scope"
+        ],
+        "action_vector_exhaustion": [
+          "bound",
+          "bounded_only_transcripts",
+          "joint_satisfiers",
+          "passed",
+          "preserve_only_transcripts",
+          "scope",
+          "total_action_vectors"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ]
+      },
+      "failure_action": "park_full_surface_prefix_research",
+      "fixture_identity": {
+        "aux_leaf_paths": [
+          "aux.is_feasible",
+          "aux.penalty",
+          "aux.power_values.detector",
+          "aux.power_values.hard",
+          "aux.power_values.soft",
+          "aux.sensitivity_loss",
+          "aux.violations"
+        ],
+        "claim_boundary": "executed_synthetic_normal_path_next_feasibility_only",
+        "decision_timing": "observe_then_decide",
+        "execution_adapter": "protected_optimizer_scripted_public_surface",
+        "forbidden_extension_classes": [
+          "unlogged_callable",
+          "extra_evaluation",
+          "hessian",
+          "manual_log",
+          "private_attribute",
+          "saved_record",
+          "structural_metadata"
+        ],
+        "late_crossing_offset": 1,
+        "max_bound": 8,
+        "parameter_dimension": 3,
+        "policy_projection": "binary_actions_on_one_shared_executed_prefix",
+        "population_size": 4,
+        "signal_classes": [
+          "candidate",
+          "loss",
+          "total_gradient",
+          "optimizer_state",
+          "rng_transcript",
+          "budget_counters",
+          "incumbent_state"
+        ],
+        "snapshot_top_level_fields": [
+          "candidate",
+          "loss",
+          "total_gradient",
+          "aux",
+          "optimizer_state",
+          "rng_transcript",
+          "budget_counters",
+          "incumbent_state"
+        ],
+        "typed_array_projection_fields": [
+          "dtype",
+          "shape",
+          "sha256"
+        ]
+      },
+      "plan_path": "research/2026-08-27-full-surface-prefix-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/full_surface_prefix.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-full-surface-prefix-plan.md",
+        "worker_source": "experiments/local_lab/full_surface_prefix_worker.py"
+      },
+      "success_action": "synthetic_full_surface_prefix_twin_confirmed",
+      "worker_mode": "full-surface-prefix-indistinguishability-v1",
+      "worker_module": "experiments.local_lab.full_surface_prefix_worker"
     }
   }
 }
