@@ -64,7 +64,7 @@ the frozen
 [`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
 and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
-The guarded autonomous local laboratory has completed five unpaid CPU
+The guarded autonomous local laboratory has completed six unpaid CPU
 checkpoints. `anchor-lane-stability-v1` confirmed its narrow lane-local/shared-
 boundary mechanics; `feasible-progress-clock-v1` confirmed that finite
 infeasible loss improvements reset the current member clock; and
@@ -76,7 +76,10 @@ population helper preserves them, while the optimizer currently consumes only
 the Boolean. `full-surface-prefix-indistinguishability-v1` then confirmed a
 finite synthetic twin across the complete allowed snapshot through its frozen
 bound, with the next primary difference confined to `aux.is_feasible`. These
-are software or analytic boundary results, not
+were followed by `normal-path-jax-boundary-v1`, which mapped the protected
+host/device boundary and exactly matched one frozen no-restart batch with an
+experiment-only pure-JAX transition across eager, JIT, and explicit compiled
+execution. These are software or analytic boundary results, not
 competition-performance evidence, and they do not change the submitted
 package. See the sanitized
 [`anchor result`](research/2026-08-26-anchor-lane-stability-results.md),
@@ -84,11 +87,9 @@ package. See the sanitized
 [`information-boundary result`](research/2026-08-27-infeasible-prefix-indistinguishability-results.md),
 [`signal-surface result`](research/2026-08-27-public-signal-surface-results.md),
 [`full-surface result`](research/2026-08-27-full-surface-prefix-results.md),
-and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). A sixth unpaid checkpoint,
-`normal-path-jax-boundary-v1`, now has a frozen
-[`systems-mechanics plan`](research/2026-08-27-normal-path-jax-boundary-plan.md)
-and authenticated registry contract, but no controller result yet. The
-controller will not repeat a terminal fixture.
+[`JAX-boundary result`](research/2026-08-27-normal-path-jax-boundary-results.md),
+and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting
+a newly frozen learning-contract study and will not repeat a terminal fixture.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

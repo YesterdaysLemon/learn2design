@@ -143,7 +143,7 @@ aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
 
 Unpaid mechanism work now follows the guarded
-[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first five frozen
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first six frozen
 checkpoints passed. The third resolves the scalar/Boolean online-information
 question; the fourth closes the public aux inventory and confirms that richer
 current constraint diagnostics exist. It does not establish that any such
@@ -155,24 +155,23 @@ current observations are not a universal certificate without added
 assumptions; it does not show that they lack distributional value or that any
 policy improves performance.
 
-The next admissible systems-mechanics question is now frozen as
-`normal-path-jax-boundary-v1` in
-[`2026-08-27-normal-path-jax-boundary-plan.md`](../research/2026-08-27-normal-path-jax-boundary-plan.md).
-It inventories compilation, dispatch, host conversion, host-device
-synchronization, callback, RNG, budget, and timing boundaries for one synthetic
-normal-path batch, then asks whether an experiment-only pure-JAX transition can
-reproduce the same typed public observations without changing the protected
-submission. It is queued but has no controller result yet. Local CPU timings
-remain diagnostic mechanics only, not accelerator or competition-performance
-evidence.
+The sixth checkpoint completed the systems-mechanics inventory. On the frozen
+x64-enabled CPU runtime, an experiment-only pure-JAX no-restart transition
+exactly matched 46 typed observation/state/telemetry leaves across eager, JIT,
+and explicitly compiled execution. The protected route still has Objective
+logging, scalar, budget, clock, callback, conditional-RNG, and Python-loop
+boundaries. The result is not a runtime, accelerator, kernel-count, UIFO, or
+candidate-improvement claim; see
+[`2026-08-27-normal-path-jax-boundary-results.md`](../research/2026-08-27-normal-path-jax-boundary-results.md).
 
 After that checkpoint, a learning lane must first freeze the topology,
 observation, action, reward, trajectory, split, and leakage contract and pass
 toy controls. Test a supervised or surrogate baseline before a contextual
 bandit or meta-RL controller. A native rewrite, official-data training,
 candidate integration, accelerator benchmark, or paid run remains a separate
-owner gate. The private controller is `awaiting_study` with the new versioned
-systems checkpoint pending and will not rerun any terminal study.
+owner gate. The private controller is `awaiting_study` with no approved study
+pending and will not rerun any terminal study. The next plan must freeze the
+learning contract before executing a model or policy.
 
 ## Public deadlines
 
@@ -194,7 +193,10 @@ durable aggregate result and exploratory evidence boundaries are in
 Useful unpaid work now includes reviewing public-leaderboard feedback when it
 arrives, profiling the retained candidate locally, and developing a genuinely
 new mechanism without selecting against the observed Stage-A panel. The
-validated full-surface information-boundary result and next systems rung are in
+validated JAX boundary map and exact one-batch pure-transition result are in
+[`2026-08-27-normal-path-jax-boundary-results.md`](../research/2026-08-27-normal-path-jax-boundary-results.md).
+The validated full-surface information-boundary result that motivated the
+systems rung is in
 [`2026-08-27-full-surface-prefix-results.md`](../research/2026-08-27-full-surface-prefix-results.md).
 The validated public signal-surface inventory and claim boundary are in
 [`2026-08-27-public-signal-surface-results.md`](../research/2026-08-27-public-signal-surface-results.md).

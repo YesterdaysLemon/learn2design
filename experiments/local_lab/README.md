@@ -24,14 +24,14 @@ uv run --frozen --no-sync `
 The terminal follow-on studies are `feasible-progress-clock-v1`,
 `infeasible-prefix-indistinguishability-v1`, and
 `public-signal-surface-v1`, followed by
-`full-surface-prefix-indistinguishability-v1`. Their sanitized conclusions
+`full-surface-prefix-indistinguishability-v1` and
+`normal-path-jax-boundary-v1`. Their sanitized conclusions
 live under `research/`; terminal study IDs must never be reused even though the
 controller remains available for a newly frozen registry entry.
 
-The next registered checkpoint is `normal-path-jax-boundary-v1`. Its frozen
-plan and complete result contract are committed, but it is not terminal until
-the guarded controller records a result. It is a one-batch CPU systems audit,
-not a candidate treatment or timing benchmark.
+The JAX-boundary checkpoint passed its one-batch CPU systems contract. It is
+not a candidate treatment or timing benchmark. The next registry entry must
+freeze a learning contract before any model or policy is executed.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,
