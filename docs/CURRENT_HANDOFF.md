@@ -143,7 +143,7 @@ aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
 
 Unpaid mechanism work now follows the guarded
-[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first five frozen
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first seven frozen
 checkpoints passed. The third resolves the scalar/Boolean online-information
 question; the fourth closes the public aux inventory and confirms that richer
 current constraint diagnostics exist. It does not establish that any such
@@ -155,21 +155,37 @@ current observations are not a universal certificate without added
 assumptions; it does not show that they lack distributional value or that any
 policy improves performance.
 
-The next admissible question is a systems-mechanics inventory. Freeze one
-synthetic normal-path batch and identify the exact compilation, dispatch, host
-conversion, host-device synchronization, callback, RNG, budget, and timing
-boundaries. Then ask whether an experiment-only pure-JAX transition can
-reproduce the same typed public observations without changing the protected
-submission. Local CPU timings are diagnostic mechanics only, not accelerator
-or competition-performance evidence.
+The sixth checkpoint completed the systems-mechanics inventory. On the frozen
+x64-enabled CPU runtime, an experiment-only pure-JAX no-restart transition
+exactly matched 46 typed observation/state/telemetry leaves across eager, JIT,
+and explicitly compiled execution. The protected route still has Objective
+logging, scalar, budget, clock, callback, conditional-RNG, and Python-loop
+boundaries. The result is not a runtime, accelerator, kernel-count, UIFO, or
+candidate-improvement claim; see
+[`2026-08-27-normal-path-jax-boundary-results.md`](../research/2026-08-27-normal-path-jax-boundary-results.md).
 
-After that checkpoint, a learning lane must first freeze the topology,
-observation, action, reward, trajectory, split, and leakage contract and pass
-toy controls. Test a supervised or surrogate baseline before a contextual
-bandit or meta-RL controller. A native rewrite, official-data training,
-candidate integration, accelerator benchmark, or paid run remains a separate
-owner gate. The private controller is `awaiting_study` and will not rerun any
-terminal study.
+The seventh checkpoint established that first learning contract.
+`supervised-toy-signal-v1` passed all eight frozen CPU cases: its deterministic
+ridge surrogate scored `1.0` on every train, validation, test, and minimum
+held-out regime macro; the constant baseline scored `0.5`, the frozen random
+test baseline scored `0.54296875`, and both the within-block label-shuffle and
+signal-ablation controls scored `0.5`. Its split, leakage, attribution, and
+fresh-process controls also passed. This validates only a deliberately easy
+synthetic supervised harness; see
+[`2026-08-27-supervised-toy-signal-results.md`](../research/2026-08-27-supervised-toy-signal-results.md).
+
+The next admissible learning rung is a frozen contextual-bandit mechanics
+question. Before execution, specify a new topology-independent sequential toy
+family, typed context/action/reward/logging contract, train/validation/test
+generator regimes, online update order, deterministic seeds, constant and
+random baselines, reward or regret gate, and a context-shuffle negative
+control. Ask only whether a small deterministic two-action bandit recovers the
+toy online signal on held-out regimes while the negative control fails. A pass
+would validate the bandit harness, not optimizer or competition performance.
+Meta-RL, a native rewrite, official-data training, candidate integration,
+accelerator benchmarking, or a paid run remains a separate owner gate. The
+private controller is `awaiting_study` with no approved study pending and will
+not rerun any terminal study.
 
 ## Public deadlines
 
@@ -191,7 +207,13 @@ durable aggregate result and exploratory evidence boundaries are in
 Useful unpaid work now includes reviewing public-leaderboard feedback when it
 arrives, profiling the retained candidate locally, and developing a genuinely
 new mechanism without selecting against the observed Stage-A panel. The
-validated full-surface information-boundary result and next systems rung are in
+validated supervised toy-signal harness result and its strict learning-only
+claim boundary are in
+[`2026-08-27-supervised-toy-signal-results.md`](../research/2026-08-27-supervised-toy-signal-results.md).
+The validated JAX boundary map and exact one-batch pure-transition result are in
+[`2026-08-27-normal-path-jax-boundary-results.md`](../research/2026-08-27-normal-path-jax-boundary-results.md).
+The validated full-surface information-boundary result that motivated the
+systems rung is in
 [`2026-08-27-full-surface-prefix-results.md`](../research/2026-08-27-full-surface-prefix-results.md).
 The validated public signal-surface inventory and claim boundary are in
 [`2026-08-27-public-signal-surface-results.md`](../research/2026-08-27-public-signal-surface-results.md).

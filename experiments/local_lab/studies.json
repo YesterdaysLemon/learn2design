@@ -827,6 +827,689 @@
       "success_action": "synthetic_full_surface_prefix_twin_confirmed",
       "worker_mode": "full-surface-prefix-indistinguishability-v1",
       "worker_module": "experiments.local_lab.full_surface_prefix_worker"
+    },
+    "normal-path-jax-boundary-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "110ce4db441d3c7793b551b0fe1856f3ec59482b0f5b7fd94acbc80574feefba",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "69706617639051b4eddfae77d9ea71eee668b294ea00783401d2fbbd2805343e",
+        "worker_source": "71b9fe691377e8d39bfd425e835cd8237d5c01a5a1f267206049d6dd25f130e4"
+      },
+      "case_contract": {
+        "boundary_negative_controls": {
+          "callback_sentinel": "pure_callback",
+          "single_path_controls": [
+            "budget.eval_count",
+            "state.candidate.sha256",
+            "telemetry.feasible.sha256",
+            "timing.batch_micros"
+          ],
+          "typed_controls": [
+            "dtype",
+            "shape"
+          ]
+        },
+        "dependency_source_identity": {
+          "dfbench_version": "0.3.3",
+          "dfbench_wheel_sha256": "1f96d75b813ea42f93992da5c1f50d6a4f59dd7a507bcf561676b0e416378c43",
+          "jax_version": "0.9.0.1",
+          "jaxlib_version": "0.9.0.1",
+          "objective_source_sha256": "9e2c2bb54517f59efacf4c2a59908ffd55c7fb2e15089d53263ece796e71daa2",
+          "submission_source_sha256": "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
+        },
+        "explicit_jit_lowering": {
+          "compiled_calls": 1,
+          "forbidden_callback_primitives": [
+            "host_callback",
+            "io_callback",
+            "pure_callback"
+          ],
+          "required_exact_modes": [
+            "eager",
+            "jit",
+            "compiled"
+          ]
+        },
+        "normal_path_boundary_trace": {
+          "batch_microseconds": 4000,
+          "batch_shape": [
+            4,
+            3
+          ],
+          "evaluations": 4,
+          "explicit_barriers": 1,
+          "performance_clock_reads": 2,
+          "wall_clock_reads": 3
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        },
+        "pure_jax_transition_equivalence": {
+          "adam_state_leaves": 4,
+          "aux_leaf_paths": [
+            "is_feasible",
+            "penalty",
+            "power_values.detector",
+            "power_values.hard",
+            "power_values.soft",
+            "sensitivity_loss",
+            "violations"
+          ],
+          "expected_typed_matches": 46,
+          "telemetry_leaves": [
+            "adam_age_after",
+            "adam_age_before",
+            "batch_index",
+            "budget_progress_fraction",
+            "eval_count_after_batch",
+            "evaluated_generation",
+            "evaluation_batch_seconds",
+            "feasible",
+            "finite_loss",
+            "global_feasible_improvement",
+            "gradient_clip_scale",
+            "gradient_nonfinite_count",
+            "gradient_norm",
+            "learning_rate",
+            "loss_float_bits",
+            "member_index",
+            "next_generation",
+            "observed_member_best_loss",
+            "observed_member_improved",
+            "restart_kind",
+            "restart_noise_scale",
+            "restart_round",
+            "restart_triggered",
+            "stalled_steps_after",
+            "stalled_steps_before",
+            "time_seconds",
+            "update_applied"
+          ]
+        },
+        "source_boundary_inventory": {
+          "objective_logging_device_host_sites": 5,
+          "optimizer_callback_sites": 4,
+          "optimizer_clock_sites": 2,
+          "optimizer_device_scalar_sites": 3,
+          "optimizer_jit_sites": 0,
+          "optimizer_ready_sites": 2
+        }
+      },
+      "case_required_fields": {
+        "boundary_negative_controls": [
+          "callback_sentinel_detected",
+          "clean_callback_primitives",
+          "controls_checked",
+          "exact_single_path_controls",
+          "passed",
+          "typed_identity_changes"
+        ],
+        "dependency_source_identity": [
+          "dfbench_version",
+          "dfbench_wheel_sha256",
+          "jax_version",
+          "jaxlib_version",
+          "objective_source_sha256",
+          "passed",
+          "platform",
+          "submission_source_sha256",
+          "x64_enabled"
+        ],
+        "explicit_jit_lowering": [
+          "callback_primitives",
+          "compiled_calls",
+          "eager_compiled_exact",
+          "eager_jit_exact",
+          "jaxpr_sha256",
+          "passed",
+          "stablehlo_sha256"
+        ],
+        "normal_path_boundary_trace": [
+          "batch_microseconds",
+          "batch_shape",
+          "budget_exceeded_reads",
+          "budget_progress_eval_count_reads",
+          "budget_progress_reads",
+          "eval_count_reads",
+          "evals_left_reads",
+          "evaluation_count_after",
+          "evaluation_count_before",
+          "explicit_barriers",
+          "final_initial_callbacks",
+          "objective_time_elapsed_reads",
+          "optimizer_time_elapsed_reads",
+          "order_sha256",
+          "passed",
+          "performance_clock_reads",
+          "public_evaluation_calls",
+          "raw_initial_callbacks",
+          "restart_events",
+          "rng_draws",
+          "scalar_calls",
+          "start_logging_calls",
+          "telemetry_callbacks",
+          "time_left_reads",
+          "wall_clock_reads",
+          "warmup_calls"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "pure_jax_transition_equivalence": [
+          "adam_state_leaves_checked",
+          "aux_leaves_checked",
+          "callback_primitives",
+          "exact_typed_matches",
+          "passed",
+          "projection_sha256",
+          "pure_source_host_calls",
+          "restart_events",
+          "telemetry_leaves_checked"
+        ],
+        "source_boundary_inventory": [
+          "objective_logging_device_host_sites",
+          "optimizer_callback_sites",
+          "optimizer_clock_sites",
+          "optimizer_device_scalar_sites",
+          "optimizer_jit_sites",
+          "optimizer_ready_sites",
+          "passed",
+          "public_aux_transform_bound",
+          "source_projection_sha256"
+        ]
+      },
+      "failure_action": "park_normal_path_jax_boundary_research",
+      "fixture_identity": {
+        "aux_leaf_paths": [
+          "is_feasible",
+          "penalty",
+          "power_values.detector",
+          "power_values.hard",
+          "power_values.soft",
+          "sensitivity_loss",
+          "violations"
+        ],
+        "batch_microseconds": 4000,
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "claim_boundary": "synthetic_cpu_one_batch_no_restart_exact_typed_equivalence",
+        "dfbench_version": "0.3.3",
+        "dfbench_wheel_sha256": "1f96d75b813ea42f93992da5c1f50d6a4f59dd7a507bcf561676b0e416378c43",
+        "epsilon": 1e-08,
+        "gradient_clip_norm": 1.0,
+        "jax_version": "0.9.0.1",
+        "jaxlib_version": "0.9.0.1",
+        "learning_rate_high": 0.11,
+        "learning_rate_low": 0.05,
+        "max_evals": 4,
+        "minimum_improvement": 1e-07,
+        "objective_source_sha256": "9e2c2bb54517f59efacf4c2a59908ffd55c7fb2e15089d53263ece796e71daa2",
+        "parameter_dimension": 3,
+        "patience": 64,
+        "population_size": 4,
+        "seed": 20260827,
+        "submission_source_sha256": "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176",
+        "telemetry_leaves": [
+          "adam_age_after",
+          "adam_age_before",
+          "batch_index",
+          "budget_progress_fraction",
+          "eval_count_after_batch",
+          "evaluated_generation",
+          "evaluation_batch_seconds",
+          "feasible",
+          "finite_loss",
+          "global_feasible_improvement",
+          "gradient_clip_scale",
+          "gradient_nonfinite_count",
+          "gradient_norm",
+          "learning_rate",
+          "loss_float_bits",
+          "member_index",
+          "next_generation",
+          "observed_member_best_loss",
+          "observed_member_improved",
+          "restart_kind",
+          "restart_noise_scale",
+          "restart_round",
+          "restart_triggered",
+          "stalled_steps_after",
+          "stalled_steps_before",
+          "time_seconds",
+          "update_applied"
+        ]
+      },
+      "plan_path": "research/2026-08-27-normal-path-jax-boundary-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/normal_path_jax_boundary.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-normal-path-jax-boundary-plan.md",
+        "worker_source": "experiments/local_lab/normal_path_jax_boundary_worker.py"
+      },
+      "success_action": "synthetic_normal_path_jax_boundary_equivalent",
+      "worker_mode": "normal-path-jax-boundary-v1",
+      "worker_module": "experiments.local_lab.normal_path_jax_boundary_worker"
+    },
+    "supervised-toy-signal-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "6e8e3565e8b4bcab53b7bbab95d582faf48c187fbf6535e8f2ad9a333ccc5699",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "e04e7acb97f9aa8689918cff744d8bcc305c1a953c8c3c82a678be1002f40fb0",
+        "worker_source": "ec569a7f1f8680bbac40e8f210bcfe912ab0b5468a2993b9f8ac7c4a20256db7"
+      },
+      "case_contract": {
+        "baseline_replay": {
+          "constant_action": 0,
+          "random_seed": 2026082707,
+          "scoring": "macro_accuracy_equal_weight_by_regime"
+        },
+        "generator_partition": {
+          "blocks_per_regime": 32,
+          "expected_dataset_sha256": "f6af01db64aab94363e964f73b8e46b9341b680f63338f9fdff059ed14f1a38e",
+          "regime_counts": {
+            "test": 2,
+            "train": 4,
+            "validation": 2
+          },
+          "regimes": [
+            {
+              "code": 101,
+              "nuisance_scale": 0.9,
+              "nuisance_shift": -0.75,
+              "signal_scale": 0.8,
+              "split": "train"
+            },
+            {
+              "code": 103,
+              "nuisance_scale": 1.1,
+              "nuisance_shift": -0.25,
+              "signal_scale": 0.95,
+              "split": "train"
+            },
+            {
+              "code": 107,
+              "nuisance_scale": 0.8,
+              "nuisance_shift": 0.25,
+              "signal_scale": 1.05,
+              "split": "train"
+            },
+            {
+              "code": 109,
+              "nuisance_scale": 1.2,
+              "nuisance_shift": 0.75,
+              "signal_scale": 1.2,
+              "split": "train"
+            },
+            {
+              "code": 211,
+              "nuisance_scale": 0.7,
+              "nuisance_shift": -1.25,
+              "signal_scale": 0.7,
+              "split": "validation"
+            },
+            {
+              "code": 223,
+              "nuisance_scale": 1.3,
+              "nuisance_shift": 1.25,
+              "signal_scale": 1.3,
+              "split": "validation"
+            },
+            {
+              "code": 307,
+              "nuisance_scale": 0.6,
+              "nuisance_shift": -1.75,
+              "signal_scale": 0.6,
+              "split": "test"
+            },
+            {
+              "code": 331,
+              "nuisance_scale": 1.4,
+              "nuisance_shift": 1.75,
+              "signal_scale": 1.4,
+              "split": "test"
+            }
+          ],
+          "rows_per_block": 4,
+          "split_counts": {
+            "test": 256,
+            "train": 512,
+            "validation": 256
+          },
+          "trajectories_per_regime": 128
+        },
+        "label_shuffle_control": {
+          "permutation": [
+            0,
+            2,
+            1,
+            3
+          ],
+          "scope": "train_labels_within_each_four_row_block",
+          "thresholds": {
+            "maximum_shuffle_macro_accuracy": 0.55,
+            "minimum_true_shuffle_gap": 0.4
+          }
+        },
+        "leakage_guards": {
+          "forbidden_policy_fields": [
+            "target",
+            "reward",
+            "regime_code",
+            "split",
+            "sample_key"
+          ],
+          "overlap_sentinels": [
+            "regime",
+            "sample_key",
+            "observation"
+          ],
+          "policy_input_fields": [
+            "observation"
+          ],
+          "reorder": "reverse_each_heldout_split"
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        },
+        "signal_attribution_control": {
+          "maximum_macro_accuracy": 0.55,
+          "signal_index": 0,
+          "variants": [
+            "refit_without_signal",
+            "true_policy_without_signal"
+          ]
+        },
+        "supervised_recovery": {
+          "fit_split": "train_only",
+          "model": "float64_linear_ridge_score",
+          "ridge_coefficient": 1e-06,
+          "thresholds": {
+            "maximum_attribution_macro_accuracy": 0.55,
+            "maximum_shuffle_macro_accuracy": 0.55,
+            "minimum_heldout_regime_accuracy": 0.98,
+            "minimum_test_gain_constant": 0.3,
+            "minimum_test_gain_random": 0.25,
+            "minimum_test_macro_accuracy": 0.99,
+            "minimum_train_macro_accuracy": 0.99,
+            "minimum_true_shuffle_gap": 0.4,
+            "minimum_validation_gain_constant": 0.3,
+            "minimum_validation_macro_accuracy": 0.99
+          },
+          "tie_action": 0
+        },
+        "typed_task_contract": {
+          "action_dtype": "int8",
+          "action_values": [
+            0,
+            1
+          ],
+          "done": true,
+          "horizon": 1,
+          "observation_dtype": "float64",
+          "observation_fields": [
+            "signal",
+            "nuisance_pair",
+            "nuisance_regime",
+            "nuisance_cycle"
+          ],
+          "observation_shape": [
+            4
+          ],
+          "policy_input_fields": [
+            "observation"
+          ],
+          "reward_dtype": "float64",
+          "reward_values": [
+            0.0,
+            1.0
+          ],
+          "structure_kind": "none",
+          "target_dtype": "int8",
+          "target_values": [
+            0,
+            1
+          ]
+        }
+      },
+      "case_required_fields": {
+        "baseline_replay": [
+          "constant_test_macro_accuracy",
+          "constant_validation_macro_accuracy",
+          "passed",
+          "random_seed",
+          "random_test_macro_accuracy",
+          "random_validation_macro_accuracy",
+          "replay_exact",
+          "same_evaluation_rows",
+          "trace_sha256"
+        ],
+        "generator_partition": [
+          "balanced_regimes",
+          "dataset_sha256",
+          "deterministic_replay",
+          "exact_regime_order",
+          "exact_sample_key_order",
+          "expected_dataset_commitment",
+          "finite_observations",
+          "observation_overlap_count",
+          "passed",
+          "regime_counts",
+          "regimes_disjoint",
+          "sample_keys_disjoint",
+          "split_counts",
+          "trajectories_per_regime",
+          "validated_blocks",
+          "within_split_keys_unique"
+        ],
+        "label_shuffle_control": [
+          "feature_commitment_unchanged",
+          "heldout_commitment_unchanged",
+          "label_marginal_preserved",
+          "nonidentity_permutation",
+          "passed",
+          "positive_gate_rejected",
+          "shuffled_block_pattern_exact",
+          "test_macro_accuracy",
+          "trace_sha256",
+          "true_accuracy_gap"
+        ],
+        "leakage_guards": [
+          "canonical_reorder_exact",
+          "fit_scope_sentinels_checked",
+          "fit_scope_sentinels_rejected",
+          "fit_scopes",
+          "forbidden_fields_checked",
+          "forbidden_fields_rejected",
+          "overlap_sentinels_checked",
+          "overlap_sentinels_rejected",
+          "passed",
+          "policy_input_fields"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "signal_attribution_control": [
+          "heldout_commitment_unchanged",
+          "nuisance_only_test_macro_accuracy",
+          "only_signal_changed",
+          "passed",
+          "signal_zeroed_true_policy_test_macro_accuracy",
+          "trace_sha256"
+        ],
+        "supervised_recovery": [
+          "learned_projection_sha256",
+          "min_heldout_regime_accuracy",
+          "passed",
+          "test_gain_over_constant",
+          "test_gain_over_random",
+          "test_macro_accuracy",
+          "train_macro_accuracy",
+          "validation_gain_over_constant",
+          "validation_macro_accuracy"
+        ],
+        "typed_task_contract": [
+          "action_dtype",
+          "action_values",
+          "done",
+          "horizon",
+          "observation_dtype",
+          "observation_fields",
+          "observation_shape",
+          "passed",
+          "policy_input_fields",
+          "reward_dtype",
+          "reward_values",
+          "structure_kind",
+          "target_dtype",
+          "target_values"
+        ]
+      },
+      "failure_action": "park_learning_contract_research",
+      "fixture_identity": {
+        "action_dtype": "int8",
+        "action_values": [
+          0,
+          1
+        ],
+        "baseline_seed": 2026082707,
+        "blocks_per_regime": 32,
+        "claim_boundary": "synthetic_cpu_supervised_harness_only",
+        "expected_dataset_sha256": "f6af01db64aab94363e964f73b8e46b9341b680f63338f9fdff059ed14f1a38e",
+        "generator_regimes": [
+          {
+            "code": 101,
+            "nuisance_scale": 0.9,
+            "nuisance_shift": -0.75,
+            "signal_scale": 0.8,
+            "split": "train"
+          },
+          {
+            "code": 103,
+            "nuisance_scale": 1.1,
+            "nuisance_shift": -0.25,
+            "signal_scale": 0.95,
+            "split": "train"
+          },
+          {
+            "code": 107,
+            "nuisance_scale": 0.8,
+            "nuisance_shift": 0.25,
+            "signal_scale": 1.05,
+            "split": "train"
+          },
+          {
+            "code": 109,
+            "nuisance_scale": 1.2,
+            "nuisance_shift": 0.75,
+            "signal_scale": 1.2,
+            "split": "train"
+          },
+          {
+            "code": 211,
+            "nuisance_scale": 0.7,
+            "nuisance_shift": -1.25,
+            "signal_scale": 0.7,
+            "split": "validation"
+          },
+          {
+            "code": 223,
+            "nuisance_scale": 1.3,
+            "nuisance_shift": 1.25,
+            "signal_scale": 1.3,
+            "split": "validation"
+          },
+          {
+            "code": 307,
+            "nuisance_scale": 0.6,
+            "nuisance_shift": -1.75,
+            "signal_scale": 0.6,
+            "split": "test"
+          },
+          {
+            "code": 331,
+            "nuisance_scale": 1.4,
+            "nuisance_shift": 1.75,
+            "signal_scale": 1.4,
+            "split": "test"
+          }
+        ],
+        "horizon": 1,
+        "label_shuffle_permutation": [
+          0,
+          2,
+          1,
+          3
+        ],
+        "observation_dtype": "float64",
+        "observation_fields": [
+          "signal",
+          "nuisance_pair",
+          "nuisance_regime",
+          "nuisance_cycle"
+        ],
+        "observation_shape": [
+          4
+        ],
+        "policy_input_fields": [
+          "observation"
+        ],
+        "regime_counts": {
+          "test": 2,
+          "train": 4,
+          "validation": 2
+        },
+        "reward_dtype": "float64",
+        "reward_values": [
+          0.0,
+          1.0
+        ],
+        "ridge_coefficient": 1e-06,
+        "rows_per_block": 4,
+        "split_counts": {
+          "test": 256,
+          "train": 512,
+          "validation": 256
+        },
+        "target_dtype": "int8",
+        "target_values": [
+          0,
+          1
+        ],
+        "thresholds": {
+          "maximum_attribution_macro_accuracy": 0.55,
+          "maximum_shuffle_macro_accuracy": 0.55,
+          "minimum_heldout_regime_accuracy": 0.98,
+          "minimum_test_gain_constant": 0.3,
+          "minimum_test_gain_random": 0.25,
+          "minimum_test_macro_accuracy": 0.99,
+          "minimum_train_macro_accuracy": 0.99,
+          "minimum_true_shuffle_gap": 0.4,
+          "minimum_validation_gain_constant": 0.3,
+          "minimum_validation_macro_accuracy": 0.99
+        },
+        "trajectories_per_regime": 128,
+        "structure_kind": "none"
+      },
+      "plan_path": "research/2026-08-27-supervised-toy-signal-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/supervised_toy_signal.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-27-supervised-toy-signal-plan.md",
+        "worker_source": "experiments/local_lab/supervised_toy_signal_worker.py"
+      },
+      "success_action": "synthetic_supervised_toy_signal_recovered_for_harness",
+      "worker_mode": "supervised-toy-signal-v1",
+      "worker_module": "experiments.local_lab.supervised_toy_signal_worker"
     }
   }
 }

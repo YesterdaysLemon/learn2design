@@ -30,10 +30,18 @@ from experiments.local_lab.full_surface_prefix import (
 from experiments.local_lab.infeasible_prefix_indistinguishability import (
     run_study as run_prefix_boundary_study,
 )
+from experiments.local_lab.normal_path_jax_boundary import (
+    AUX_LEAF_PATHS as JAX_BOUNDARY_AUX_LEAF_PATHS,
+    TELEMETRY_LEAVES as JAX_BOUNDARY_TELEMETRY_LEAVES,
+    run_study as run_normal_path_jax_boundary_study,
+)
 from experiments.local_lab.public_signal_surface import (
     AUX_LEAF_PATHS,
     DFBENCH_WHEEL_SHA256,
     run_study as run_public_signal_surface_study,
+)
+from experiments.local_lab.supervised_toy_signal import (
+    run_study as run_supervised_toy_signal_study,
 )
 from tools.run_local_lab import (
     DuplicateStudyError,
@@ -332,6 +340,176 @@ def test_full_surface_prefix_result_is_sanitized() -> None:
     assert all(value not in encoded for value in forbidden)
 
 
+def test_normal_path_jax_boundary_frozen_study_passes() -> None:
+    result = run_normal_path_jax_boundary_study(include_process_isolation=True)
+
+    assert result["study_id"] == "normal-path-jax-boundary-v1"
+    assert result["status"] == "passed"
+    assert result["action"] == (
+        "synthetic_normal_path_jax_boundary_equivalent"
+    )
+    assert set(result["cases"]) == {
+        "boundary_negative_controls",
+        "dependency_source_identity",
+        "explicit_jit_lowering",
+        "normal_path_boundary_trace",
+        "process_isolation",
+        "pure_jax_transition_equivalence",
+        "source_boundary_inventory",
+    }
+    assert all(case["passed"] for case in result["cases"].values())
+    assert result["cases"]["source_boundary_inventory"][
+        "objective_logging_device_host_sites"
+    ] == 5
+    assert result["cases"]["source_boundary_inventory"][
+        "optimizer_device_scalar_sites"
+    ] == 3
+    assert result["cases"]["normal_path_boundary_trace"][
+        "explicit_barriers"
+    ] == 1
+    assert result["cases"]["normal_path_boundary_trace"][
+        "evaluation_count_after"
+    ] == 4
+    assert result["cases"]["pure_jax_transition_equivalence"][
+        "exact_typed_matches"
+    ] == 46
+    assert result["cases"]["pure_jax_transition_equivalence"][
+        "aux_leaves_checked"
+    ] == len(JAX_BOUNDARY_AUX_LEAF_PATHS)
+    assert result["cases"]["pure_jax_transition_equivalence"][
+        "telemetry_leaves_checked"
+    ] == len(JAX_BOUNDARY_TELEMETRY_LEAVES)
+    assert result["cases"]["explicit_jit_lowering"]["eager_jit_exact"]
+    assert result["cases"]["explicit_jit_lowering"][
+        "eager_compiled_exact"
+    ]
+    assert result["environment"]["platform"] == "cpu"
+
+
+def test_normal_path_jax_boundary_result_is_sanitized() -> None:
+    result = run_normal_path_jax_boundary_study(
+        include_process_isolation=False
+    )
+    encoded = json.dumps(result, allow_nan=False, sort_keys=True)
+
+    assert result["status"] == "incomplete"
+    assert result["action"] == "no_decision_incomplete_study"
+    assert result["cases"]["process_isolation"]["passed"] is None
+    forbidden = (
+        str(REPOSITORY_ROOT),
+        "optimization_pairs",
+        "parameter_values",
+        "raw_gradient",
+        "topology",
+    )
+    assert all(value not in encoded for value in forbidden)
+
+
+def _completed_supervised_toy_signal_result() -> dict[str, object]:
+    result = run_supervised_toy_signal_study(include_process_isolation=False)
+    result["cases"]["process_isolation"] = {
+        "passed": True,
+        "trace_sha256": "0" * 64,
+    }
+    result["status"] = "passed"
+    result["action"] = (
+        "synthetic_supervised_toy_signal_recovered_for_harness"
+    )
+    return result
+
+
+def test_supervised_toy_signal_focused_projection_passes() -> None:
+    result = run_supervised_toy_signal_study(include_process_isolation=False)
+
+    assert result["study_id"] == "supervised-toy-signal-v1"
+    assert result["status"] == "incomplete"
+    assert result["action"] == "no_decision_incomplete_study"
+    assert set(result["cases"]) == {
+        "baseline_replay",
+        "generator_partition",
+        "label_shuffle_control",
+        "leakage_guards",
+        "process_isolation",
+        "signal_attribution_control",
+        "supervised_recovery",
+        "typed_task_contract",
+    }
+    assert all(
+        case["passed"]
+        for name, case in result["cases"].items()
+        if name != "process_isolation"
+    )
+    assert result["cases"]["process_isolation"]["passed"] is None
+    assert result["cases"]["supervised_recovery"]["test_macro_accuracy"] >= 0.99
+    assert result["cases"]["supervised_recovery"][
+        "test_gain_over_constant"
+    ] >= 0.30
+    assert result["cases"]["supervised_recovery"][
+        "test_gain_over_random"
+    ] >= 0.25
+    assert result["cases"]["label_shuffle_control"]["test_macro_accuracy"] <= 0.55
+    assert result["cases"]["generator_partition"][
+        "expected_dataset_commitment"
+    ]
+    assert result["cases"]["generator_partition"][
+        "within_split_keys_unique"
+    ]
+    assert result["cases"]["leakage_guards"][
+        "fit_scope_sentinels_rejected"
+    ] == 2
+    assert result["cases"]["label_shuffle_control"][
+        "heldout_commitment_unchanged"
+    ]
+    assert result["cases"]["signal_attribution_control"][
+        "nuisance_only_test_macro_accuracy"
+    ] <= 0.55
+    assert result["cases"]["signal_attribution_control"][
+        "only_signal_changed"
+    ]
+    assert result["environment"]["platform"] == "cpu"
+
+
+def test_supervised_toy_signal_result_is_sanitized() -> None:
+    result = run_supervised_toy_signal_study(include_process_isolation=False)
+    encoded = json.dumps(result, allow_nan=False, sort_keys=True)
+
+    assert result["status"] == "incomplete"
+    assert result["action"] == "no_decision_incomplete_study"
+    assert result["cases"]["process_isolation"]["passed"] is None
+    forbidden = (
+        str(REPOSITORY_ROOT),
+        "optimization_pairs",
+        "parameter_values",
+        "raw_gradient",
+        "topology",
+    )
+    assert all(value not in encoded for value in forbidden)
+
+    def recursive_keys(value: object) -> set[str]:
+        if isinstance(value, dict):
+            return set(value) | {
+                nested
+                for child in value.values()
+                for nested in recursive_keys(child)
+            }
+        if isinstance(value, list):
+            return {
+                nested for child in value for nested in recursive_keys(child)
+            }
+        return set()
+
+    raw_result_keys = {
+        "labels",
+        "model_weights",
+        "paths",
+        "predictions",
+        "raw_actions",
+        "raw_observations",
+        "trajectories",
+    }
+    assert recursive_keys(result).isdisjoint(raw_result_keys)
+
+
 def test_result_validator_requires_exact_sanitized_contract() -> None:
     registry = lab_controller._load_study_registry()
     entry = lab_controller._study_entry(registry, "feasible-progress-clock-v1")
@@ -424,6 +602,38 @@ def test_full_surface_prefix_validator_requires_exact_contract() -> None:
             entry,
             wrong_contract,
         )
+
+
+def test_normal_path_jax_boundary_validator_requires_exact_contract() -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "normal-path-jax-boundary-v1"
+    entry = lab_controller._study_entry(registry, study_id)
+    result = run_normal_path_jax_boundary_study(
+        include_process_isolation=False
+    )
+    result["cases"]["process_isolation"] = {
+        "passed": True,
+        "trace_sha256": "0" * 64,
+    }
+    result["status"] = "passed"
+    result["action"] = "synthetic_normal_path_jax_boundary_equivalent"
+
+    _validate_study_result(study_id, entry, result)
+    result["fixture"]["batch_microseconds"] = 3999
+    with pytest.raises(RuntimeError, match="wrong frozen fixture identity"):
+        _validate_study_result(study_id, entry, result)
+
+
+def test_supervised_toy_signal_validator_requires_exact_contract() -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "supervised-toy-signal-v1"
+    entry = lab_controller._study_entry(registry, study_id)
+    result = _completed_supervised_toy_signal_result()
+
+    _validate_study_result(study_id, entry, result)
+    result["fixture"]["baseline_seed"] += 1
+    with pytest.raises(RuntimeError, match="wrong frozen fixture identity"):
+        _validate_study_result(study_id, entry, result)
 
 
 def test_protected_submission_canonical_digest_matches_pin() -> None:
@@ -787,7 +997,7 @@ def test_fourth_study_end_to_end_leaves_fifth_study_pending(
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_fifth_study_end_to_end_closes_pending_registry(
+def test_fifth_study_end_to_end_leaves_sixth_study_pending(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = lab_controller._load_study_registry()
@@ -850,8 +1060,8 @@ def test_fifth_study_end_to_end_closes_pending_registry(
     payload = json.loads(output.read_text(encoding="utf-8"))
     state = _load_state(tmp_path)
     assert payload["result"]["status"] == "passed"
-    assert state["status"] == "awaiting_study"
-    assert state["stop_reason"] == "no_approved_study_pending"
+    assert state["status"] == "idle"
+    assert state["stop_reason"] is None
     assert set(state["completed_studies"]) == {
         "anchor-lane-stability-v1",
         "feasible-progress-clock-v1",
@@ -859,4 +1069,181 @@ def test_fifth_study_end_to_end_closes_pending_registry(
         "infeasible-prefix-indistinguishability-v1",
         "public-signal-surface-v1",
     }
+    assert not (tmp_path / "lab.lock").exists()
+
+
+def test_sixth_study_end_to_end_leaves_seventh_study_pending(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "normal-path-jax-boundary-v1"
+    entry = lab_controller._study_entry(registry, study_id)
+    snapshot = {
+        "committed_file_sha256": entry["approved_file_sha256"],
+        "committed_source_paths": entry["source_paths"],
+        "revision": "4" * 40,
+    }
+    initial_state = lab_controller._default_state()
+    initial_state["status"] = "awaiting_study"
+    initial_state["stop_reason"] = "no_approved_study_pending"
+    initial_state["completed_studies"] = {
+        "anchor-lane-stability-v1": {
+            "cycle_id": "anchor-cycle",
+            "result_sha256": "a" * 64,
+            "revision": "b" * 40,
+            "status": "passed",
+        },
+        "feasible-progress-clock-v1": {
+            "cycle_id": "clock-cycle",
+            "result_sha256": "c" * 64,
+            "revision": "d" * 40,
+            "status": "passed",
+        },
+        "full-surface-prefix-indistinguishability-v1": {
+            "cycle_id": "full-surface-cycle",
+            "result_sha256": "4" * 64,
+            "revision": "5" * 40,
+            "status": "passed",
+        },
+        "infeasible-prefix-indistinguishability-v1": {
+            "cycle_id": "prefix-cycle",
+            "result_sha256": "e" * 64,
+            "revision": "f" * 40,
+            "status": "passed",
+        },
+        "public-signal-surface-v1": {
+            "cycle_id": "signal-cycle",
+            "result_sha256": "2" * 64,
+            "revision": "3" * 40,
+            "status": "passed",
+        },
+    }
+    lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
+    output = tmp_path / "cycles" / "sixth-study-test" / "result.json"
+    monkeypatch.setattr(lab_controller, "PRIVATE_ROOT", tmp_path)
+    monkeypatch.setattr(
+        lab_controller, "_repository_snapshot", lambda _entry: snapshot
+    )
+    monkeypatch.setattr(lab_controller, "_git", lambda *_args: "4" * 40)
+    monkeypatch.setattr(
+        lab_controller.sys,
+        "argv",
+        [
+            "run_local_lab.py",
+            "--study",
+            study_id,
+            "--output",
+            str(output),
+        ],
+    )
+
+    lab_controller.main()
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    state = _load_state(tmp_path)
+    assert payload["result"]["status"] == "passed"
+    assert state["status"] == "idle"
+    assert state["stop_reason"] is None
+    assert set(state["completed_studies"]) == {
+        "anchor-lane-stability-v1",
+        "feasible-progress-clock-v1",
+        "full-surface-prefix-indistinguishability-v1",
+        "infeasible-prefix-indistinguishability-v1",
+        "normal-path-jax-boundary-v1",
+        "public-signal-surface-v1",
+    }
+    assert not (tmp_path / "lab.lock").exists()
+
+
+def test_seventh_study_end_to_end_closes_pending_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "supervised-toy-signal-v1"
+    entry = lab_controller._study_entry(registry, study_id)
+    snapshot = {
+        "committed_file_sha256": entry["approved_file_sha256"],
+        "committed_source_paths": entry["source_paths"],
+        "revision": "6" * 40,
+    }
+    initial_state = lab_controller._default_state()
+    initial_state["status"] = "idle"
+    initial_state["completed_studies"] = {
+        "anchor-lane-stability-v1": {
+            "cycle_id": "anchor-cycle",
+            "result_sha256": "a" * 64,
+            "revision": "b" * 40,
+            "status": "passed",
+        },
+        "feasible-progress-clock-v1": {
+            "cycle_id": "clock-cycle",
+            "result_sha256": "c" * 64,
+            "revision": "d" * 40,
+            "status": "passed",
+        },
+        "full-surface-prefix-indistinguishability-v1": {
+            "cycle_id": "full-surface-cycle",
+            "result_sha256": "4" * 64,
+            "revision": "5" * 40,
+            "status": "passed",
+        },
+        "infeasible-prefix-indistinguishability-v1": {
+            "cycle_id": "prefix-cycle",
+            "result_sha256": "e" * 64,
+            "revision": "f" * 40,
+            "status": "passed",
+        },
+        "normal-path-jax-boundary-v1": {
+            "cycle_id": "jax-cycle",
+            "result_sha256": "7" * 64,
+            "revision": "8" * 40,
+            "status": "passed",
+        },
+        "public-signal-surface-v1": {
+            "cycle_id": "signal-cycle",
+            "result_sha256": "2" * 64,
+            "revision": "3" * 40,
+            "status": "passed",
+        },
+    }
+    lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
+    output = tmp_path / "cycles" / "seventh-study-test" / "result.json"
+    complete_result = _completed_supervised_toy_signal_result()
+    monkeypatch.setattr(lab_controller, "PRIVATE_ROOT", tmp_path)
+    monkeypatch.setattr(
+        lab_controller, "_repository_snapshot", lambda _entry: snapshot
+    )
+    monkeypatch.setattr(lab_controller, "_git", lambda *_args: "6" * 40)
+    monkeypatch.setattr(
+        lab_controller,
+        "_run_worker",
+        lambda *_args, **_kwargs: (
+            complete_result,
+            {
+                "stderr_bytes": 0,
+                "stderr_sha256": "0" * 64,
+                "stdout_bytes": 0,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        lab_controller.sys,
+        "argv",
+        [
+            "run_local_lab.py",
+            "--study",
+            study_id,
+            "--output",
+            str(output),
+        ],
+    )
+
+    lab_controller.main()
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    state = _load_state(tmp_path)
+    assert payload["result"]["status"] == "passed"
+    assert state["status"] == "awaiting_study"
+    assert state["stop_reason"] == "no_approved_study_pending"
+    assert set(state["completed_studies"]) == set(registry["studies"])
     assert not (tmp_path / "lab.lock").exists()
