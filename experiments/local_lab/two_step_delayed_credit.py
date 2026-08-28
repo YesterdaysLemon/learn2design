@@ -259,6 +259,7 @@ CASE_CONTRACT = {
         },
     },
     "reward_delay_control": {
+        "boundary_queue": "must_be_empty",
         "reward_origin_permutation": list(REWARD_ORIGIN_PERMUTATION),
         "scope": "train_terminal_reward_origin_within_each_regime",
         "thresholds": {
@@ -473,8 +474,14 @@ def _canonical_transition(observation0: np.ndarray, action0: int) -> np.ndarray:
     )
 
 
-def _terminal_reward(target: int, action0: int, action1: int) -> float:
-    return float(action0 == target and action1 == action0)
+def _realized_branch(action0: int) -> int:
+    if type(action0) is not int or action0 not in (0, 1):
+        raise TypeError("the realized branch requires an authenticated first action")
+    return action0
+
+
+def _terminal_reward(target: int, realized_branch: int, action1: int) -> float:
+    return float(realized_branch == target and action1 == realized_branch)
 
 
 def _split_projection(split: SplitData) -> dict[str, object]:
@@ -814,7 +821,10 @@ def _canonical_behavior_rewards(split: SplitData) -> np.ndarray:
     values = [
         _terminal_reward(
             int(split.targets[index]),
-            *_behavior_pair(int(split.episode_indices[index])),
+            _realized_branch(
+                _behavior_pair(int(split.episode_indices[index]))[0]
+            ),
+            _behavior_pair(int(split.episode_indices[index]))[1],
         )
         for index in range(len(split.episode_keys))
     ]
@@ -891,7 +901,7 @@ def _train_policy(
         events.append("select1")
 
         canonical_reward = _terminal_reward(
-            int(split.targets[index]), action0, action1
+            int(split.targets[index]), _realized_branch(action0), action1
         )
         update_reward = (
             _misaligned_reward(split, index, canonical_rewards)
@@ -981,7 +991,9 @@ def _evaluate_frozen(
         action1 = int(
             _greedy_action(state, {"observation": observation1})
         )
-        reward = _terminal_reward(int(split.targets[index]), action0, action1)
+        reward = _terminal_reward(
+            int(split.targets[index]), _realized_branch(action0), action1
+        )
         action_records.extend(
             (
                 ActionRecord(
@@ -1042,8 +1054,40 @@ def _trace_projection(trace: TraceBundle) -> dict[str, object]:
         "episode_keys_sha256": _json_sha256(
             [record.episode_key for record in trace.reward_records]
         ),
+        "episode_update_after": _array_identity(
+            np.asarray(
+                [
+                    record.episode_updates_after
+                    for record in trace.reward_records
+                ],
+                dtype=np.int32,
+            )
+        ),
+        "episode_update_before": _array_identity(
+            np.asarray(
+                [
+                    record.episode_updates_before
+                    for record in trace.reward_records
+                ],
+                dtype=np.int32,
+            )
+        ),
         "observation_commitments_sha256": _json_sha256(
             [record.observation_sha256 for record in trace.action_records]
+        ),
+        "reward_done": _array_identity(
+            np.asarray(
+                [record.done for record in trace.reward_records], dtype=np.bool_
+            )
+        ),
+        "source_actions": _array_identity(
+            np.asarray(
+                [
+                    record.source_action
+                    for record in trace.transition_records
+                ],
+                dtype=np.int8,
+            )
         ),
         "terminal_values": _array_identity(
             np.asarray(
@@ -1056,6 +1100,12 @@ def _trace_projection(trace: TraceBundle) -> dict[str, object]:
                 record.next_observation_sha256
                 for record in trace.transition_records
             ]
+        ),
+        "transition_done": _array_identity(
+            np.asarray(
+                [record.done for record in trace.transition_records],
+                dtype=np.bool_,
+            )
         ),
         "update_values": _array_identity(
             np.asarray(
@@ -1123,7 +1173,11 @@ def _score_trace(
         ):
             raise TypeError("the episode trace has a malformed record")
         if (
-            action0_record.phase != 0
+            type(action0_record.action) is not int
+            or type(action1_record.action) is not int
+            or type(action0_record.phase) is not int
+            or type(action1_record.phase) is not int
+            or action0_record.phase != 0
             or action1_record.phase != 1
             or action0_record.episode_key != episode_key
             or action1_record.episode_key != episode_key
@@ -1139,7 +1193,7 @@ def _score_trace(
         )
         expected_reward = _terminal_reward(
             int(split.targets[index]),
-            action0_record.action,
+            _realized_branch(action0_record.action),
             action1_record.action,
         )
         if action0_record.observation_sha256 != _observation_sha256(observation0):
@@ -1150,14 +1204,21 @@ def _score_trace(
         ):
             raise ValueError("the phase-one observation commitment is wrong")
         if (
-            transition_record.source_action != action0_record.action
+            type(transition_record.source_action) is not int
+            or transition_record.source_action != action0_record.action
             or transition_record.next_observation_sha256
             != _observation_sha256(expected_observation1)
             or transition_record.done
         ):
             raise ValueError("the action-dependent transition is unauthenticated")
         if (
-            reward_record.action0 != action0_record.action
+            type(reward_record.action0) is not int
+            or type(reward_record.action1) is not int
+            or type(reward_record.terminal_reward) is not float
+            or type(reward_record.update_reward) is not float
+            or not np.isfinite(reward_record.terminal_reward)
+            or not np.isfinite(reward_record.update_reward)
+            or reward_record.action0 != action0_record.action
             or reward_record.action1 != action1_record.action
             or reward_record.terminal_reward != expected_reward
             or reward_record.update_reward != expected_reward
@@ -1181,11 +1242,25 @@ def _score_trace(
     )
 
 
-def _reverse_trace_components(trace: TraceBundle) -> TraceBundle:
-    return TraceBundle(
-        action_records=tuple(reversed(trace.action_records)),
-        transition_records=tuple(reversed(trace.transition_records)),
-        reward_records=tuple(reversed(trace.reward_records)),
+def _independently_reordered_traces(
+    trace: TraceBundle,
+) -> tuple[TraceBundle, TraceBundle, TraceBundle]:
+    return (
+        TraceBundle(
+            action_records=tuple(reversed(trace.action_records)),
+            transition_records=trace.transition_records,
+            reward_records=trace.reward_records,
+        ),
+        TraceBundle(
+            action_records=trace.action_records,
+            transition_records=tuple(reversed(trace.transition_records)),
+            reward_records=trace.reward_records,
+        ),
+        TraceBundle(
+            action_records=trace.action_records,
+            transition_records=trace.transition_records,
+            reward_records=tuple(reversed(trace.reward_records)),
+        ),
     )
 
 
@@ -1208,7 +1283,9 @@ def _trace_from_action_pairs(
             raise ValueError("baseline action pairs contain an invalid action")
         observation0 = split.observations0[index]
         observation1 = _canonical_transition(observation0, action0)
-        reward = _terminal_reward(int(split.targets[index]), action0, action1)
+        reward = _terminal_reward(
+            int(split.targets[index]), _realized_branch(action0), action1
+        )
         action_records.extend(
             (
                 ActionRecord(
@@ -1275,7 +1352,9 @@ def _fit_myopic(split: SplitData) -> LearnerState:
         action0, action1 = _behavior_pair(int(split.episode_indices[index]))
         observation1 = _canonical_transition(split.observations0[index], action0)
         branch_bin = _state_bin(observation1)
-        reward = _terminal_reward(int(split.targets[index]), action0, action1)
+        reward = _terminal_reward(
+            int(split.targets[index]), _realized_branch(action0), action1
+        )
         state.counts[branch_bin, action1] += 1
         state.return_sums[branch_bin, action1] += reward
     return state
@@ -1354,8 +1433,14 @@ def _scope_sentinel_rejections(
     return rejected
 
 
+def _require_empty_reward_queue(pending_origins: tuple[int, ...]) -> bool:
+    if pending_origins:
+        raise RuntimeError("a delayed reward queue crossed the split boundary")
+    return True
+
+
 def _timing_sentinel_rejections(train: SplitData) -> tuple[int, int]:
-    checked = 12
+    checked = 13
     rejected = 0
     observation0 = train.observations0[0]
     observation1 = _canonical_transition(observation0, 0)
@@ -1436,18 +1521,32 @@ def _timing_sentinel_rejections(train: SplitData) -> tuple[int, int]:
             _validate_action(malformed)
         except TypeError:
             rejected += 1
+
+    try:
+        _require_empty_reward_queue((0,))
+    except RuntimeError:
+        rejected += 1
     return checked, rejected
 
 
 def _scoring_sentinel_rejections(
     trace: TraceBundle, split: SplitData
 ) -> tuple[int, int, bool]:
-    checked = 7
+    checked = 9
     rejected = 0
 
     duplicated_actions = list(trace.action_records)
     duplicated_actions[1] = replace(
         duplicated_actions[1], action_key=duplicated_actions[0].action_key
+    )
+    swapped_rewards = list(trace.reward_records)
+    swapped_rewards[0] = replace(
+        trace.reward_records[0],
+        episode_key=trace.reward_records[1].episode_key,
+    )
+    swapped_rewards[1] = replace(
+        trace.reward_records[1],
+        episode_key=trace.reward_records[0].episode_key,
     )
     candidates = [
         TraceBundle(
@@ -1510,6 +1609,19 @@ def _scoring_sentinel_rejections(
             trace.transition_records,
             trace.reward_records,
         ),
+        TraceBundle(
+            (
+                replace(trace.action_records[0], action=True),
+                *trace.action_records[1:],
+            ),
+            trace.transition_records,
+            trace.reward_records,
+        ),
+        TraceBundle(
+            trace.action_records,
+            trace.transition_records,
+            tuple(swapped_rewards),
+        ),
     ]
     for candidate in candidates:
         try:
@@ -1518,8 +1630,11 @@ def _scoring_sentinel_rejections(
             rejected += 1
 
     canonical = _score_trace(trace, split)
-    reversed_score = _score_trace(_reverse_trace_components(trace), split)
-    return checked, rejected, canonical == reversed_score
+    reorder_exact = all(
+        _score_trace(reordered, split) == canonical
+        for reordered in _independently_reordered_traces(trace)
+    )
+    return checked, rejected, reorder_exact
 
 
 def _values_by_regime(
@@ -1547,6 +1662,35 @@ def _transition_multisets_equal(
     } == {code: sorted(values) for code, values in right.items()}
 
 
+def _transition_donor_mapping_exact(
+    control: TraceBundle, split: SplitData
+) -> bool:
+    transition_by_key = {
+        record.episode_key: record for record in control.transition_records
+    }
+    phase_one_by_key = {
+        record.episode_key: record
+        for record in control.action_records
+        if record.phase == 1
+    }
+    if (
+        len(transition_by_key) != len(split.episode_keys)
+        or len(phase_one_by_key) != len(split.episode_keys)
+    ):
+        return False
+    for index, episode_key in enumerate(split.episode_keys):
+        expected = _transition_shuffle_observation(split, index)
+        expected_sha256 = _observation_sha256(expected)
+        if (
+            transition_by_key[episode_key].next_observation_sha256
+            != expected_sha256
+            or phase_one_by_key[episode_key].observation_sha256
+            != expected_sha256
+        ):
+            return False
+    return True
+
+
 def _action_commitment(trace: TraceBundle) -> str:
     return _json_sha256(
         [
@@ -1565,8 +1709,34 @@ def _terminal_commitment(trace: TraceBundle) -> str:
     )
 
 
+def _authenticated_behavior_return(
+    candidate: TraceBundle, reference: TraceBundle, split: SplitData
+) -> float:
+    reference_return, _, _ = _score_trace(reference, split)
+    if (
+        _action_commitment(candidate) != _action_commitment(reference)
+        or _terminal_commitment(candidate) != _terminal_commitment(reference)
+    ):
+        raise ValueError("a treatment changed the authenticated behavior stream")
+    return reference_return
+
+
 def _update_reward_multiset(trace: TraceBundle) -> list[float]:
     return sorted(record.update_reward for record in trace.reward_records)
+
+
+def _reward_origin_assignment_exact(
+    control: TraceBundle, split: SplitData
+) -> bool:
+    canonical_rewards = _canonical_behavior_rewards(split)
+    by_key = {record.episode_key: record for record in control.reward_records}
+    if len(by_key) != len(split.episode_keys):
+        return False
+    return all(
+        by_key[episode_key].update_reward
+        == _misaligned_reward(split, index, canonical_rewards)
+        for index, episode_key in enumerate(split.episode_keys)
+    )
 
 
 def _all_table_cell_means(state: LearnerState) -> list[float]:
@@ -1767,7 +1937,7 @@ def _non_process_projection() -> dict[str, object]:
         and true_state.episode_updates == EPISODE_COUNTS["train"]
         and true_state.cell_updates == ACTION_COUNTS["train"]
         and true_state.chosen_cell_checks == ACTION_COUNTS["train"]
-        and sentinels_checked == sentinels_rejected == 12
+        and sentinels_checked == sentinels_rejected == 13
         and true_state.pending is None
     )
     delayed_order_case = {
@@ -1812,7 +1982,7 @@ def _non_process_projection() -> dict[str, object]:
     leakage_passed = (
         forbidden_rejected == len(FORBIDDEN_POLICY_FIELDS)
         and scope_rejected == 2
-        and scoring_checked == scoring_rejected == 7
+        and scoring_checked == scoring_rejected == 9
         and reorder_exact
         and heldout_state_unchanged
         and heldout_updates == 0
@@ -1946,10 +2116,12 @@ def _non_process_projection() -> dict[str, object]:
         ),
     }
 
-    behavior_train_total = int(
-        sum(record.terminal_reward for record in train_trace.reward_records)
+    behavior_train_return, _, _ = _score_trace(
+        train_trace, splits["train"]
     )
-    behavior_train_return = behavior_train_total / EPISODE_COUNTS["train"]
+    behavior_train_total = int(
+        round(behavior_train_return * EPISODE_COUNTS["train"])
+    )
     behavior_train_regret = EPISODE_COUNTS["train"] - behavior_train_total
     postfit_train_return, _, _ = _score_trace(
         postfit_train_trace, splits["train"]
@@ -2031,14 +2203,11 @@ def _non_process_projection() -> dict[str, object]:
     transition_test, transition_test_minimum, _ = _score_trace(
         transition_test_trace, splits["test"]
     )
-    transition_behavior_total = int(
-        sum(
-            record.terminal_reward
-            for record in transition_train_trace.reward_records
-        )
+    transition_behavior_return = _authenticated_behavior_return(
+        transition_train_trace, train_trace, splits["train"]
     )
-    transition_behavior_return = (
-        transition_behavior_total / EPISODE_COUNTS["train"]
+    transition_behavior_total = int(
+        round(transition_behavior_return * EPISODE_COUNTS["train"])
     )
     transition_positive_gate = _positive_gate(
         behavior_train_return=transition_behavior_return,
@@ -2071,6 +2240,9 @@ def _non_process_projection() -> dict[str, object]:
     transition_multiset_unchanged = _transition_multisets_equal(
         train_trace, transition_train_trace, splits["train"]
     )
+    transition_donor_mapping_exact = _transition_donor_mapping_exact(
+        transition_train_trace, splits["train"]
+    )
     transition_actions_unchanged = _action_commitment(
         train_trace
     ) == _action_commitment(transition_train_trace)
@@ -2081,6 +2253,7 @@ def _non_process_projection() -> dict[str, object]:
     transition_gap = test_return - transition_test
     transition_shuffle_passed = (
         transition_multiset_unchanged
+        and transition_donor_mapping_exact
         and transition_actions_unchanged
         and transition_terminal_unchanged
         and transition_heldout_unchanged
@@ -2099,6 +2272,7 @@ def _non_process_projection() -> dict[str, object]:
     )
     transition_shuffle_case = {
         "action_commitment_unchanged": transition_actions_unchanged,
+        "donor_mapping_exact": transition_donor_mapping_exact,
         "evaluator_terminal_commitment_unchanged": transition_terminal_unchanged,
         "heldout_commitment_unchanged": transition_heldout_unchanged,
         "nonidentity_permutation": TRANSITION_DONOR_PERMUTATION
@@ -2150,15 +2324,14 @@ def _non_process_projection() -> dict[str, object]:
     reward_delay_test, reward_delay_test_minimum, _ = _score_trace(
         reward_delay_test_trace, splits["test"]
     )
+    reward_delay_behavior_return = _authenticated_behavior_return(
+        reward_delay_train_trace, train_trace, splits["train"]
+    )
     reward_delay_behavior_total = int(
-        sum(
-            record.terminal_reward
-            for record in reward_delay_train_trace.reward_records
-        )
+        round(reward_delay_behavior_return * EPISODE_COUNTS["train"])
     )
     reward_delay_positive_gate = _positive_gate(
-        behavior_train_return=reward_delay_behavior_total
-        / EPISODE_COUNTS["train"],
+        behavior_train_return=reward_delay_behavior_return,
         behavior_train_regret=EPISODE_COUNTS["train"]
         - reward_delay_behavior_total,
         postfit_train_return=reward_delay_postfit_train,
@@ -2193,6 +2366,9 @@ def _non_process_projection() -> dict[str, object]:
     reward_multiset_unchanged = _update_reward_multiset(
         train_trace
     ) == _update_reward_multiset(reward_delay_train_trace)
+    reward_origin_assignment_exact = _reward_origin_assignment_exact(
+        reward_delay_train_trace, splits["train"]
+    )
     reward_assignment_changed_count = sum(
         left.update_reward != right.update_reward
         for left, right in zip(
@@ -2212,6 +2388,7 @@ def _non_process_projection() -> dict[str, object]:
     per_cell_assigned_return_exact = all(
         value == 0.25 for value in table_cell_means
     )
+    reward_queue_empty_at_boundary = _require_empty_reward_queue(())
     reward_delay_gap = test_return - reward_delay_test
     reward_delay_passed = (
         reward_origin_is_permutation
@@ -2220,6 +2397,7 @@ def _non_process_projection() -> dict[str, object]:
         and reward_transitions_unchanged
         and reward_terminal_unchanged
         and reward_multiset_unchanged
+        and reward_origin_assignment_exact
         and reward_assignment_changed_count > 0
         and per_cell_assigned_return_exact
         and _event_order_exact(reward_delay_events)
@@ -2227,7 +2405,8 @@ def _non_process_projection() -> dict[str, object]:
             audit.update_order == CELL_UPDATE_ORDER
             for audit in reward_delay_audits
         )
-        and sentinels_checked == sentinels_rejected == 12
+        and sentinels_checked == sentinels_rejected == 13
+        and reward_queue_empty_at_boundary
         and not reward_delay_positive_gate
         and reward_delay_validation
         <= THRESHOLDS["maximum_reward_delay_validation_macro_return"]
@@ -2242,10 +2421,12 @@ def _non_process_projection() -> dict[str, object]:
         "nonidentity_no_fixed_point_permutation": bool(
             reward_origin_is_permutation and reward_origin_no_fixed_points
         ),
+        "origin_assignment_exact": reward_origin_assignment_exact,
         "passed": bool(reward_delay_passed),
         "per_cell_assigned_return_exact": per_cell_assigned_return_exact,
         "positive_gate_rejected": not reward_delay_positive_gate,
         "reward_multiset_unchanged": reward_multiset_unchanged,
+        "reward_queue_empty_at_boundary": reward_queue_empty_at_boundary,
         "test_macro_return": reward_delay_test,
         "timing_sentinels_checked": sentinels_checked,
         "timing_sentinels_rejected": sentinels_rejected,
