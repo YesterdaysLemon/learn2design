@@ -1,4 +1,8 @@
-"""Deterministic synthetic multi-step TD propagation checkpoint."""
+"""Pre-result-rejected synthetic multi-step TD fixture.
+
+This v1 fixture is retained only as an auditable preflight record. It is not an
+approved local-lab study and must not be executed as terminal evidence.
+"""
 
 from __future__ import annotations
 

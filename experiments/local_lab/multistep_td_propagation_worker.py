@@ -1,4 +1,7 @@
-"""Network-disabled worker for the multi-step TD propagation study."""
+"""Historical worker for the pre-result-rejected multi-step TD v1 fixture.
+
+The module is intentionally absent from the guarded controller allowlist.
+"""
 
 from __future__ import annotations
 
