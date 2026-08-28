@@ -2,7 +2,13 @@
 
 Date: 2026-08-28  
 Study ID: `multistep-td-action-prefix-v2`  
-Status: frozen before implementation or result observation
+Status: rejected before terminal execution; retained as the frozen preflight
+record only
+
+> **Closed record.** Pre-result audit rejected this fixture after development
+> diagnostics but before controller execution. Do not run, repair, register, or
+> reuse this ID. See
+> [`2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md`](2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 
 This is a fresh study, not a repair, rerun, or continuation of the rejected
 `multistep-td-propagation-v1` fixture. The v1 source and worker must remain

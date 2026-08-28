@@ -110,10 +110,18 @@ rung is a newly frozen bootstrapped multi-step value-propagation question, not
 meta-RL or candidate integration. The first proposed fixture,
 `multistep-td-propagation-v1`, was rejected before terminal execution because
 its public state leaked prior target agreement and its complete-family,
-held-out, scoring, timing, and negative-control proofs were incomplete. A
-successor must use a fresh ID and target-independent state; see the sanitized
-[`preflight rejection`](research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
-No terminal fixture will be repeated.
+held-out, scoring, timing, and negative-control proofs were incomplete. Its
+target-independent successor, `multistep-td-action-prefix-v2`, was also
+rejected before terminal execution: independent audits found false-positive
+paths in its target-swap, feedback-only baseline, held-out, trace
+authentication, timing, control-difference, and multi-boundary dependency
+proofs. Neither rejected fixture is registered or approved for execution. A
+successor must use a fresh v3 ID and plan; see the sanitized
+[`v1 preflight rejection`](research/2026-08-28-multistep-td-propagation-preflight-rejection.md)
+and
+[`v2 preflight rejection`](research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
+The nine earlier terminal studies remain the complete evidence set, and no
+terminal fixture will be repeated.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

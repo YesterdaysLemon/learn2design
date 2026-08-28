@@ -145,6 +145,15 @@ are the evidence record, not a competing task list.
   scoring, timing, and control-balance sentinels were incomplete. It is not a
   terminal study and contributes no evidence; see
   [`2026-08-28-multistep-td-propagation-preflight-rejection.md`](../research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
+- Its fresh successor, `multistep-td-action-prefix-v2`, was also rejected
+  before terminal execution. Development diagnostics passed, but independent
+  audits found that the target-swap proof was tautological, the myopic baseline
+  read evaluator truth, several held-out and timing sentinels were not connected
+  to the exercised paths, and the family, trace, control-difference, and
+  all-boundary dependency proofs were incomplete. The controller was never
+  invoked, v2 is absent from the registry and allowlist, and it contributes no
+  evidence; see
+  [`2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 
 ## Next decision
 
@@ -217,26 +226,27 @@ scored `0.5`. Exact update order, keyed scoring, split isolation, leakage,
 attribution, delayed-queue, and fresh-process controls passed; see
 [`2026-08-28-two-step-delayed-credit-results.md`](../research/2026-08-28-two-step-delayed-credit-results.md).
 
-The fresh target-independent plan is now frozen as
-[`multistep-td-action-prefix-v2`](../research/2026-08-28-multistep-td-action-prefix-v2-plan.md).
-It commits a four-step public action-prefix state, all 7,680 legal
-state/action/outcome rows, independent family replay, absent and exploding
-held-out sentinels, separately keyed component authentication, an
-outcome-blind reward-origin control balanced exactly in every frozen
-target/action cell, a complete timing-attack matrix, and all-trajectory
-signal-ablation integrity. The learner has not run, no registry entry or
-controller allowlist exists, and no evidentiary claim follows from the plan.
+The target-independent v2 plan was frozen before implementation, but its
+implementation was rejected during pre-result audit. Its source, worker, plan,
+generator commitment, thresholds, regimes, seeds, permutations, cases, and
+development diagnostics are quarantined. Do not repair, register, execute, or
+reuse `multistep-td-action-prefix-v2`; its full disposition and successor
+requirements are in the
+[`v2 preflight rejection`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 
-The live next gate is implementation and independent pre-result audit of that
-exact frozen contract on a separate v2 source and worker. Only after focused
-tests, source pins, the normalized registry digest, protected-source checks,
-and one clean pre-result commit may the guarded controller invoke the study
-once. A substantive preflight confound must quarantine v2 without execution.
-A pass would validate only the synthetic TD harness. Native rewrites,
-official-data training, candidate integration, accelerator benchmarking,
-meta-RL, or paid training remain separate owner gates. The controller remains
-`awaiting_study` with no approved study pending, and no terminal study will be
-rerun.
+The live next gate is a fresh `multistep-td-action-prefix-v3` plan committed
+before any learner executes. It must fail closed on a complete independent
+family replay; construct a real target-swapped twin; connect held-out and lazy
+sentinels to the exercised source and environment boundaries; authenticate the
+exact pending transition and strictly typed trace components; fit and replay
+all comparators from authenticated behavior feedback only; prove complete-field
+control whitelists and all-row ablation; and test terminal-scalar propagation
+across every bootstrap boundary. No v3 choice may be selected against v2's
+development diagnostics. Native rewrites, official-data training, candidate
+integration, accelerator benchmarking, meta-RL, or paid training remain
+separate owner gates. The controller remains `awaiting_study` with no approved
+study pending, the nine earlier terminal studies remain the entire approved
+evidence set, and no terminal study will be rerun.
 
 ## Public deadlines
 
