@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-27
+Updated: 2026-08-28
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -133,6 +133,18 @@ are the evidence record, not a competing task list.
   `3396ec8c8203c86659b21d2beaa4c5dfee91bbcdfdd9b1245d3057086aa0fc9b`.
   This validates immediate-reward bandit mechanics only, not delayed credit,
   optimizer value, or competition performance.
+- The ninth autonomous checkpoint, `two-step-delayed-credit-v1`, passed all
+  eleven frozen CPU cases and remains the last terminal learning result.
+  Its fixed empirical value table reached `1.0` on untouched held-out regimes
+  and lost the signal under its transition, reward-origin, and signal-ablation
+  controls. This validates only that synthetic two-step harness.
+- The proposed `multistep-td-propagation-v1` checkpoint was rejected during
+  pre-result audit and never invoked through the guarded controller. Its public
+  successor state exposed prior target agreement, its family commitment did
+  not cover every legal successor/outcome row, and several promised isolation,
+  scoring, timing, and control-balance sentinels were incomplete. It is not a
+  terminal study and contributes no evidence; see
+  [`2026-08-28-multistep-td-propagation-preflight-rejection.md`](../research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
 
 ## Next decision
 
@@ -152,7 +164,7 @@ aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
 
 Unpaid mechanism work now follows the guarded
-[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first eight frozen
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first nine terminal
 checkpoints passed. The third resolves the scalar/Boolean online-information
 question; the fourth closes the public aux inventory and confirms that richer
 current constraint diagnostics exist. It does not establish that any such
@@ -205,18 +217,23 @@ scored `0.5`. Exact update order, keyed scoring, split isolation, leakage,
 attribution, delayed-queue, and fresh-process controls passed; see
 [`2026-08-28-two-step-delayed-credit-results.md`](../research/2026-08-28-two-step-delayed-credit-results.md).
 
-The next admissible unpaid learning rung is bootstrapped multi-step value
-propagation, not meta-RL. Before execution, freeze a new topology-independent
-multi-step family and explicit TD target, bootstrap, update-order, held-out,
-attribution, and leakage contracts. Ask only whether a deterministic tabular
-TD learner propagates a terminal signal backward across more than one
-bootstrap boundary, beats frozen constant, myopic, no-bootstrap, and
-seeded-random baselines, and loses the signal under frozen transition-target
-and reward-origin controls. A pass would validate only that synthetic TD
-harness. Native rewrites, official-data training, candidate integration,
-accelerator benchmarking, meta-RL, or paid training remain separate owner
-gates. The controller is `awaiting_study` with no approved study pending, and
-no terminal study will be rerun.
+The next admissible unpaid learning rung remains bootstrapped multi-step value
+propagation, not meta-RL, but it requires a fresh v2 study rather than repair or
+execution of the observed v1 fixture. Before executing a learner, freeze a new
+versioned plan whose public successor state is target-independent and whose
+commitment covers every legal successor, terminal reward, and `done` outcome.
+It must also include absent/exploding held-out sentinels, fully authenticated
+independently reordered scoring components, an outcome-blind reward-origin
+control balanced within every target/action cell, complete terminal-timing
+attacks, and all-trajectory signal-ablation integrity. Ask only whether a
+deterministic tabular TD learner propagates a terminal signal backward across
+more than one bootstrap boundary, beats frozen constant, myopic, no-bootstrap,
+and seeded-random baselines, and loses the signal under frozen
+transition-target and reward-origin controls. A pass would validate only that
+synthetic TD harness. Native rewrites, official-data training, candidate
+integration, accelerator benchmarking, meta-RL, or paid training remain
+separate owner gates. The controller is `awaiting_study` with no approved
+study pending, and no terminal study will be rerun.
 
 ## Public deadlines
 

@@ -107,7 +107,13 @@ validates only that fixed synthetic delayed-credit harness. See the sanitized
 and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is back in
 `awaiting_study` with no approved study pending. The next admissible learning
 rung is a newly frozen bootstrapped multi-step value-propagation question, not
-meta-RL or candidate integration; no terminal fixture will be repeated.
+meta-RL or candidate integration. The first proposed fixture,
+`multistep-td-propagation-v1`, was rejected before terminal execution because
+its public state leaked prior target agreement and its complete-family,
+held-out, scoring, timing, and negative-control proofs were incomplete. A
+successor must use a fresh ID and target-independent state; see the sanitized
+[`preflight rejection`](research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
+No terminal fixture will be repeated.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

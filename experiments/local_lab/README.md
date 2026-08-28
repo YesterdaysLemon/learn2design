@@ -46,8 +46,17 @@ remain outside this laboratory's authority.
 
 No approved study is currently pending. The next admissible learning rung is a
 newly frozen bootstrapped multi-step value-propagation question with exact TD
-targets and negative controls. It is not meta-RL, production RL, an optimizer
-treatment, or candidate evidence.
+targets and negative controls. The first proposed fixture,
+`multistep-td-propagation-v1`, was rejected during pre-result audit and never
+entered this registry: its public successor leaked prior target agreement, its
+family commitment omitted successor/outcome rows, and several frozen sentinels
+were incomplete. A successor must use a new ID, target-independent public
+state, a complete legal-family commitment, stronger held-out and keyed-scoring
+sentinels, and an outcome-blind cell-balanced reward-origin control. See the
+sanitized
+[`preflight rejection`](../../research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
+It is not meta-RL, production RL, an optimizer treatment, or candidate
+evidence.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,
