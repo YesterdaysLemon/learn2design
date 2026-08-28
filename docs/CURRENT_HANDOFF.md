@@ -194,18 +194,29 @@ fresh-process controls also passed. This validates only a deliberately easy
 synthetic contextual-bandit harness; see
 [`2026-08-27-contextual-bandit-toy-signal-results.md`](../research/2026-08-27-contextual-bandit-toy-signal-results.md).
 
-The delayed-credit mechanics rung is now frozen as
-`two-step-delayed-credit-v1`; see
-[`2026-08-28-two-step-delayed-credit-plan.md`](../research/2026-08-28-two-step-delayed-credit-plan.md).
-It specifies a topology-independent two-action episode, a physical pre-action
-information boundary, exact terminal-return update order, untouched held-out
-regimes, myopic/constant/seeded-random baselines, and transition-shuffle,
-reward-origin-misalignment, and signal-ablation controls. Exactly one guarded
-local-CPU invocation is pending after its source approvals and verification
-are clean. A pass may validate only the delayed-credit harness and toy signal.
-Meta-RL, a native rewrite, official-data training, candidate integration,
-accelerator benchmarking, or a paid run remains a separate owner gate. No
-terminal study will be rerun.
+The ninth checkpoint established the two-step delayed-credit contract.
+`two-step-delayed-credit-v1` passed all eleven frozen CPU cases. Its fixed
+four-state empirical-return table had the analytic `0.25` behavior return and
+`96` regret, then scored `1.0` on train and every untouched held-out regime.
+Constants and the myopic policy scored `0.5`; the seeded-random validation/test
+policy scored `0.203125 / 0.265625`. The transition-shuffle control scored
+`0.0`, while reward-origin misalignment and both signal-ablation variants
+scored `0.5`. Exact update order, keyed scoring, split isolation, leakage,
+attribution, delayed-queue, and fresh-process controls passed; see
+[`2026-08-28-two-step-delayed-credit-results.md`](../research/2026-08-28-two-step-delayed-credit-results.md).
+
+The next admissible unpaid learning rung is bootstrapped multi-step value
+propagation, not meta-RL. Before execution, freeze a new topology-independent
+multi-step family and explicit TD target, bootstrap, update-order, held-out,
+attribution, and leakage contracts. Ask only whether a deterministic tabular
+TD learner propagates a terminal signal backward across more than one
+bootstrap boundary, beats frozen constant, myopic, no-bootstrap, and
+seeded-random baselines, and loses the signal under frozen transition-target
+and reward-origin controls. A pass would validate only that synthetic TD
+harness. Native rewrites, official-data training, candidate integration,
+accelerator benchmarking, meta-RL, or paid training remain separate owner
+gates. The controller is `awaiting_study` with no approved study pending, and
+no terminal study will be rerun.
 
 ## Public deadlines
 
@@ -233,6 +244,9 @@ claim boundary are in
 The validated immediate-reward contextual-bandit harness and its strict
 learning-only claim boundary are in
 [`2026-08-27-contextual-bandit-toy-signal-results.md`](../research/2026-08-27-contextual-bandit-toy-signal-results.md).
+The validated two-step delayed-credit harness, its model-specific caveat, and
+its strict learning-only claim boundary are in
+[`2026-08-28-two-step-delayed-credit-results.md`](../research/2026-08-28-two-step-delayed-credit-results.md).
 The validated JAX boundary map and exact one-batch pure-transition result are in
 [`2026-08-27-normal-path-jax-boundary-results.md`](../research/2026-08-27-normal-path-jax-boundary-results.md).
 The validated full-surface information-boundary result that motivated the
