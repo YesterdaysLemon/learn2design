@@ -54,9 +54,18 @@ were incomplete. A successor must use a new ID, target-independent public
 state, a complete legal-family commitment, stronger held-out and keyed-scoring
 sentinels, and an outcome-blind cell-balanced reward-origin control. See the
 sanitized
-[`preflight rejection`](../../research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
-It is not meta-RL, production RL, an optimizer treatment, or candidate
-evidence.
+[`v1 preflight rejection`](../../research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
+Its fresh target-independent successor, `multistep-td-action-prefix-v2`, was
+also rejected before controller execution. Although its development projection
+passed, independent audits found that several target-swap, feedback-only
+baseline, held-out, keyed-trace, timing, control-difference, and all-bootstrap
+dependency checks could pass without establishing their frozen claims. V2 is
+absent from `studies.json` and the controller allowlist and must not be repaired,
+registered, executed, or reused. See the sanitized
+[`v2 preflight rejection`](../../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
+A successor requires a fresh `multistep-td-action-prefix-v3` ID and frozen plan
+before any learner executes. It is not meta-RL, production RL, an optimizer
+treatment, or candidate evidence.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,

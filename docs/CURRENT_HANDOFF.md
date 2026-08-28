@@ -145,6 +145,15 @@ are the evidence record, not a competing task list.
   scoring, timing, and control-balance sentinels were incomplete. It is not a
   terminal study and contributes no evidence; see
   [`2026-08-28-multistep-td-propagation-preflight-rejection.md`](../research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
+- Its fresh successor, `multistep-td-action-prefix-v2`, was also rejected
+  before terminal execution. Development diagnostics passed, but independent
+  audits found that the target-swap proof was tautological, the myopic baseline
+  read evaluator truth, several held-out and timing sentinels were not connected
+  to the exercised paths, and the family, trace, control-difference, and
+  all-boundary dependency proofs were incomplete. The controller was never
+  invoked, v2 is absent from the registry and allowlist, and it contributes no
+  evidence; see
+  [`2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 
 ## Next decision
 
@@ -217,23 +226,27 @@ scored `0.5`. Exact update order, keyed scoring, split isolation, leakage,
 attribution, delayed-queue, and fresh-process controls passed; see
 [`2026-08-28-two-step-delayed-credit-results.md`](../research/2026-08-28-two-step-delayed-credit-results.md).
 
-The next admissible unpaid learning rung remains bootstrapped multi-step value
-propagation, not meta-RL, but it requires a fresh v2 study rather than repair or
-execution of the observed v1 fixture. Before executing a learner, freeze a new
-versioned plan whose public successor state is target-independent and whose
-commitment covers every legal successor, terminal reward, and `done` outcome.
-It must also include absent/exploding held-out sentinels, fully authenticated
-independently reordered scoring components, an outcome-blind reward-origin
-control balanced within every target/action cell, complete terminal-timing
-attacks, and all-trajectory signal-ablation integrity. Ask only whether a
-deterministic tabular TD learner propagates a terminal signal backward across
-more than one bootstrap boundary, beats frozen constant, myopic, no-bootstrap,
-and seeded-random baselines, and loses the signal under frozen
-transition-target and reward-origin controls. A pass would validate only that
-synthetic TD harness. Native rewrites, official-data training, candidate
+The target-independent v2 plan was frozen before implementation, but its
+implementation was rejected during pre-result audit. Its source, worker, plan,
+generator commitment, thresholds, regimes, seeds, permutations, cases, and
+development diagnostics are quarantined. Do not repair, register, execute, or
+reuse `multistep-td-action-prefix-v2`; its full disposition and successor
+requirements are in the
+[`v2 preflight rejection`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
+
+The live next gate is a fresh `multistep-td-action-prefix-v3` plan committed
+before any learner executes. It must fail closed on a complete independent
+family replay; construct a real target-swapped twin; connect held-out and lazy
+sentinels to the exercised source and environment boundaries; authenticate the
+exact pending transition and strictly typed trace components; fit and replay
+all comparators from authenticated behavior feedback only; prove complete-field
+control whitelists and all-row ablation; and test terminal-scalar propagation
+across every bootstrap boundary. No v3 choice may be selected against v2's
+development diagnostics. Native rewrites, official-data training, candidate
 integration, accelerator benchmarking, meta-RL, or paid training remain
-separate owner gates. The controller is `awaiting_study` with no approved
-study pending, and no terminal study will be rerun.
+separate owner gates. The controller remains `awaiting_study` with no approved
+study pending, the nine earlier terminal studies remain the entire approved
+evidence set, and no terminal study will be rerun.
 
 ## Public deadlines
 
