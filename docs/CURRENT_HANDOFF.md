@@ -217,23 +217,26 @@ scored `0.5`. Exact update order, keyed scoring, split isolation, leakage,
 attribution, delayed-queue, and fresh-process controls passed; see
 [`2026-08-28-two-step-delayed-credit-results.md`](../research/2026-08-28-two-step-delayed-credit-results.md).
 
-The next admissible unpaid learning rung remains bootstrapped multi-step value
-propagation, not meta-RL, but it requires a fresh v2 study rather than repair or
-execution of the observed v1 fixture. Before executing a learner, freeze a new
-versioned plan whose public successor state is target-independent and whose
-commitment covers every legal successor, terminal reward, and `done` outcome.
-It must also include absent/exploding held-out sentinels, fully authenticated
-independently reordered scoring components, an outcome-blind reward-origin
-control balanced within every target/action cell, complete terminal-timing
-attacks, and all-trajectory signal-ablation integrity. Ask only whether a
-deterministic tabular TD learner propagates a terminal signal backward across
-more than one bootstrap boundary, beats frozen constant, myopic, no-bootstrap,
-and seeded-random baselines, and loses the signal under frozen
-transition-target and reward-origin controls. A pass would validate only that
-synthetic TD harness. Native rewrites, official-data training, candidate
-integration, accelerator benchmarking, meta-RL, or paid training remain
-separate owner gates. The controller is `awaiting_study` with no approved
-study pending, and no terminal study will be rerun.
+The fresh target-independent plan is now frozen as
+[`multistep-td-action-prefix-v2`](../research/2026-08-28-multistep-td-action-prefix-v2-plan.md).
+It commits a four-step public action-prefix state, all 7,680 legal
+state/action/outcome rows, independent family replay, absent and exploding
+held-out sentinels, separately keyed component authentication, an
+outcome-blind reward-origin control balanced exactly in every frozen
+target/action cell, a complete timing-attack matrix, and all-trajectory
+signal-ablation integrity. The learner has not run, no registry entry or
+controller allowlist exists, and no evidentiary claim follows from the plan.
+
+The live next gate is implementation and independent pre-result audit of that
+exact frozen contract on a separate v2 source and worker. Only after focused
+tests, source pins, the normalized registry digest, protected-source checks,
+and one clean pre-result commit may the guarded controller invoke the study
+once. A substantive preflight confound must quarantine v2 without execution.
+A pass would validate only the synthetic TD harness. Native rewrites,
+official-data training, candidate integration, accelerator benchmarking,
+meta-RL, or paid training remain separate owner gates. The controller remains
+`awaiting_study` with no approved study pending, and no terminal study will be
+rerun.
 
 ## Public deadlines
 
