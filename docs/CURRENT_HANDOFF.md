@@ -194,19 +194,18 @@ fresh-process controls also passed. This validates only a deliberately easy
 synthetic contextual-bandit harness; see
 [`2026-08-27-contextual-bandit-toy-signal-results.md`](../research/2026-08-27-contextual-bandit-toy-signal-results.md).
 
-The next admissible learning rung is a frozen delayed-credit mechanics
-question, not production RL. Before execution, specify a new
-topology-independent episodic toy family and typed state, action, transition,
-delayed-reward, trajectory, train/validation/test, update-order, attribution,
-and leakage contracts. Ask only whether a small deterministic tabular or
-linear value learner recovers a deliberately learnable two-step delayed choice
-on held-out generator regimes, beats frozen myopic, constant, and seeded-random
-baselines, and fails identically evaluated transition-shuffle and reward-delay
-controls. A pass would validate only the delayed-credit harness and toy signal.
+The delayed-credit mechanics rung is now frozen as
+`two-step-delayed-credit-v1`; see
+[`2026-08-28-two-step-delayed-credit-plan.md`](../research/2026-08-28-two-step-delayed-credit-plan.md).
+It specifies a topology-independent two-action episode, a physical pre-action
+information boundary, exact terminal-return update order, untouched held-out
+regimes, myopic/constant/seeded-random baselines, and transition-shuffle,
+reward-origin-misalignment, and signal-ablation controls. Exactly one guarded
+local-CPU invocation is pending after its source approvals and verification
+are clean. A pass may validate only the delayed-credit harness and toy signal.
 Meta-RL, a native rewrite, official-data training, candidate integration,
-accelerator benchmarking, or a paid run remains a separate owner gate. The
-private controller is `awaiting_study` with no approved study pending and will
-not rerun any terminal study.
+accelerator benchmarking, or a paid run remains a separate owner gate. No
+terminal study will be rerun.
 
 ## Public deadlines
 

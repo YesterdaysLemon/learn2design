@@ -99,9 +99,9 @@ candidate treatment. See the sanitized
 [`JAX-boundary result`](research/2026-08-27-normal-path-jax-boundary-results.md),
 [`supervised toy-signal result`](research/2026-08-27-supervised-toy-signal-results.md),
 [`contextual-bandit result`](research/2026-08-27-contextual-bandit-toy-signal-results.md),
-and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is awaiting
-a newly frozen delayed-credit mechanics study and will not repeat a terminal
-fixture.
+and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The ninth study,
+`two-step-delayed-credit-v1`, is frozen and pending exactly one guarded CPU
+execution; the controller will not repeat a terminal fixture.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

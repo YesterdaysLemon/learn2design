@@ -37,9 +37,16 @@ attribution, leakage, and process-isolation controls. It validates only the
 synthetic supervised harness. The contextual-bandit checkpoint then passed its
 frozen online-update, held-out, baseline, context-shuffle, attribution,
 leakage, and process-isolation controls. It validates only the synthetic
-immediate-reward bandit harness. The next registry entry may freeze a narrow
-delayed-credit mechanics question; production RL and candidate integration
-remain outside this laboratory's authority.
+immediate-reward bandit harness. The following registry entry freezes the
+narrow delayed-credit mechanics question described below; production RL and
+candidate integration remain outside this laboratory's authority.
+
+The pending ninth study is `two-step-delayed-credit-v1`. Its frozen plan fixes
+a two-action synthetic episode, terminal-return table updates, untouched
+held-out regimes, three baseline families, transition-assignment and delayed
+reward-origin controls, signal attribution, leakage sentinels, and the narrow
+claim boundary before its one guarded CPU execution. It is not production RL,
+an optimizer treatment, or candidate evidence.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,
