@@ -115,13 +115,18 @@ target-independent successor, `multistep-td-action-prefix-v2`, was also
 rejected before terminal execution: independent audits found false-positive
 paths in its target-swap, feedback-only baseline, held-out, trace
 authentication, timing, control-difference, and multi-boundary dependency
-proofs. Neither rejected fixture is registered or approved for execution. A
-successor must use a fresh v3 ID and plan; see the sanitized
+proofs. Neither rejected fixture is registered or approved for execution. The
+fresh
+[`multistep-td-action-prefix-v3` plan](research/2026-08-28-multistep-td-action-prefix-v3-plan.md)
+is now frozen before implementation; see the sanitized
 [`v1 preflight rejection`](research/2026-08-28-multistep-td-propagation-preflight-rejection.md)
 and
 [`v2 preflight rejection`](research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
-The nine earlier terminal studies remain the complete evidence set, and no
-terminal fixture will be repeated.
+The live gate is exact v3 implementation plus hostile pre-result audit. V3 is
+not registered or allowlisted, no learner or controller has run, and its public
+sign is an intentionally target-correlated toy signal rather than evidence that
+delayed credit is necessary. The nine earlier terminal studies remain the
+complete evidence set, and no terminal fixture will be repeated.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

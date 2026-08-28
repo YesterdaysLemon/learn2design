@@ -234,19 +234,28 @@ reuse `multistep-td-action-prefix-v2`; its full disposition and successor
 requirements are in the
 [`v2 preflight rejection`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 
-The live next gate is a fresh `multistep-td-action-prefix-v3` plan committed
-before any learner executes. It must fail closed on a complete independent
-family replay; construct a real target-swapped twin; connect held-out and lazy
-sentinels to the exercised source and environment boundaries; authenticate the
-exact pending transition and strictly typed trace components; fit and replay
-all comparators from authenticated behavior feedback only; prove complete-field
-control whitelists and all-row ablation; and test terminal-scalar propagation
-across every bootstrap boundary. No v3 choice may be selected against v2's
-development diagnostics. Native rewrites, official-data training, candidate
-integration, accelerator benchmarking, meta-RL, or paid training remain
-separate owner gates. The controller remains `awaiting_study` with no approved
-study pending, the nine earlier terminal studies remain the entire approved
-evidence set, and no terminal study will be rerun.
+The fresh [`multistep-td-action-prefix-v3` plan](../research/2026-08-28-multistep-td-action-prefix-v3-plan.md)
+is now frozen in a clean plan-only commit before any learner execution. It
+precommits a complete independently replayed four-action family, genuine
+target-swapped twins, physically connected held-out and lazy sentinels, strict
+pending/trace authentication, public-only TD and comparator projections, four
+synchronous fitted-TD sweeps, exact baseline/control gates, complete-field
+whitelists, all-row signal ablation, and terminal-scalar dependency across all
+three bootstrap boundaries. Its deliberately predictive public sign is a toy
+learning signal, so even a pass could not establish delayed-credit necessity or
+the absence of a target-correlated shortcut.
+
+The live next gate is implementation of exactly that frozen v3 contract under
+`experiments/local_lab`, followed by focused tests and independent hostile
+pre-result audits. V3 is not yet in `studies.json` or the worker allowlist, no
+learner or policy has executed, and the guarded controller must not run until a
+second clean pre-result commit proves the fixture conforms without relaxing the
+plan. No v3 choice may be selected against v2's development diagnostics. Native
+rewrites, official-data training, candidate integration, accelerator
+benchmarking, meta-RL, or paid training remain separate owner gates. The
+controller remains `awaiting_study` with no approved study pending, the nine
+earlier terminal studies remain the entire approved evidence set, and no
+terminal study will be rerun.
 
 ## Public deadlines
 
