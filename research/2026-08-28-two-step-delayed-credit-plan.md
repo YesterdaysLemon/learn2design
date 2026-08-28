@@ -207,20 +207,23 @@ always use canonical transitions and rewards without learner updates.
 
 ### Transition shuffle
 
-For every train transition, the evaluator replaces the complete public branch
-output with the opposite branch:
+For every eight-episode train block, the evaluator replaces the complete public
+successor row with the canonical successor row from the episode at donor index
+`(e + 4) mod 8`. The exact within-block donor permutation is therefore
+`[4, 5, 6, 7, 0, 1, 2, 3]`. Because the frozen action schedule uses action zero
+at local indices 0 through 3 and action one at indices 4 through 7, every donor
+has the opposite branch. In symbols:
 
 ```text
-observed_branch = -canonical_branch
-state1 = [1.0, 0.0, observed_branch,
-          nuisance + 0.125*observed_branch]
+state1_control(source e) = state1_canonical(donor (e + 4) mod 8)
 ```
 
 The hidden realized first action and terminal reward remain canonical. This is
-equivalent to the fixed branch-label permutation `(negative, positive) ->
-(positive, negative)`. Because every eight-episode behavior block is balanced,
-the per-regime successor-row multiset is preserved while every rowwise
-transition assignment changes. The learner receives no source or mode flag.
+the fixed complete-row transition permutation
+`[4, 5, 6, 7, 0, 1, 2, 3]`, not a feature rewrite. It preserves the exact
+per-regime successor-row multiset while changing every rowwise transition
+assignment and inverting every observed branch. The learner receives no donor,
+source, or mode flag.
 
 The control must have validation and test macro return at most 0.05, a true
 minus control test gap at least 0.90, and must reject the positive gate.
