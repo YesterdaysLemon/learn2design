@@ -2044,6 +2044,591 @@
       "success_action": "synthetic_contextual_bandit_signal_recovered_for_harness",
       "worker_mode": "contextual-bandit-toy-signal-v1",
       "worker_module": "experiments.local_lab.contextual_bandit_toy_signal_worker"
+    },
+    "two-step-delayed-credit-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "a65a8499ca7509b99c60e538a482d11caf670f7d6f6c9b1d01c5d35228b0fbb9",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "64263bee6dd2471bf2f182550c149bef169a279472e86b6127896e23f082d40b",
+        "worker_source": "9b5c2ab937be7fbf5675ea80aa916f41118a8aefa1d02a1b7827835ff94da03b"
+      },
+      "case_contract": {
+        "typed_episodic_contract": {
+          "action_dtype": "int8",
+          "action_values": [0, 1],
+          "done_pattern": [false, true],
+          "event_order": [
+            "observe0",
+            "select0",
+            "transition",
+            "observe1",
+            "select1",
+            "terminal_reward",
+            "update_episode",
+            "log_episode"
+          ],
+          "horizon": 2,
+          "observation_dtype": "float64",
+          "observation_fields": ["phase", "signal", "branch", "nuisance"],
+          "observation_shape": [4],
+          "policy_input_fields": ["observation"],
+          "reward_dtype": "float64",
+          "reward_values": [0.0, 1.0],
+          "structure_kind": "none"
+        },
+        "generator_partition": {
+          "episodes_per_regime": 32,
+          "expected_dataset_sha256": "fdeed53ae38fed818dba8ec5d3aa203d982ee0f3d92e6bd179cfa87d47970b89",
+          "regime_counts": {
+            "test": 2,
+            "train": 4,
+            "validation": 2
+          },
+          "regimes": [
+            {
+              "code": 701,
+              "nuisance_scale": 0.85,
+              "nuisance_shift": -0.8,
+              "signal_scale": 0.8,
+              "split": "train"
+            },
+            {
+              "code": 709,
+              "nuisance_scale": 1.1,
+              "nuisance_shift": -0.25,
+              "signal_scale": 0.95,
+              "split": "train"
+            },
+            {
+              "code": 719,
+              "nuisance_scale": 0.75,
+              "nuisance_shift": 0.25,
+              "signal_scale": 1.1,
+              "split": "train"
+            },
+            {
+              "code": 727,
+              "nuisance_scale": 1.2,
+              "nuisance_shift": 0.8,
+              "signal_scale": 1.25,
+              "split": "train"
+            },
+            {
+              "code": 803,
+              "nuisance_scale": 0.65,
+              "nuisance_shift": -1.35,
+              "signal_scale": 0.65,
+              "split": "validation"
+            },
+            {
+              "code": 811,
+              "nuisance_scale": 1.25,
+              "nuisance_shift": 1.35,
+              "signal_scale": 1.35,
+              "split": "validation"
+            },
+            {
+              "code": 907,
+              "nuisance_scale": 0.55,
+              "nuisance_shift": -1.85,
+              "signal_scale": 0.55,
+              "split": "test"
+            },
+            {
+              "code": 919,
+              "nuisance_scale": 1.45,
+              "nuisance_shift": 1.85,
+              "signal_scale": 1.45,
+              "split": "test"
+            }
+          ],
+          "episode_counts": {
+            "test": 64,
+            "train": 128,
+            "validation": 64
+          }
+        },
+        "action_dependent_transition": {
+          "branch_values": [-1.0, 1.0],
+          "done_after_transition": false,
+          "reward_after_transition": "none",
+          "transition_donor_permutation": [4, 5, 6, 7, 0, 1, 2, 3]
+        },
+        "delayed_update_order": {
+          "behavior_action_pairs": [
+            [0, 0],
+            [0, 0],
+            [0, 1],
+            [0, 1],
+            [1, 0],
+            [1, 0],
+            [1, 1],
+            [1, 1]
+          ],
+          "cell_update_order": ["phase1", "phase0"],
+          "episode_updates": 128,
+          "event_order": [
+            "observe0",
+            "select0",
+            "transition",
+            "observe1",
+            "select1",
+            "terminal_reward",
+            "update_episode",
+            "log_episode"
+          ],
+          "table_cell_updates": 256
+        },
+        "leakage_guards": {
+          "forbidden_policy_fields": [
+            "target",
+            "preferred_action",
+            "reward",
+            "transition",
+            "next_observation",
+            "terminal_state",
+            "counterfactual_reward",
+            "regime_code",
+            "split",
+            "episode_key",
+            "action_key",
+            "trajectory_id",
+            "step",
+            "done",
+            "delay",
+            "rng",
+            "generator",
+            "evaluator",
+            "environment",
+            "control_mode",
+            "donor_identity",
+            "reward_origin"
+          ],
+          "heldout_updates": 0,
+          "policy_input_fields": ["observation"],
+          "reorder": "independent_reverse_keyed_components",
+          "train_split": "train_only"
+        },
+        "baseline_replay": {
+          "constant_pairs": [[0, 0], [1, 1]],
+          "myopic": "transition_local_reward_only",
+          "random_seed": 2026082803,
+          "scoring": "macro_mean_terminal_return_equal_weight_by_regime"
+        },
+        "delayed_credit_recovery": {
+          "model": "four_state_two_action_empirical_terminal_return_table",
+          "thresholds": {
+            "maximum_attribution_test_macro_return": 0.55,
+            "maximum_reward_delay_test_macro_return": 0.55,
+            "maximum_reward_delay_validation_macro_return": 0.55,
+            "maximum_transition_shuffle_test_macro_return": 0.05,
+            "maximum_transition_shuffle_validation_macro_return": 0.05,
+            "minimum_heldout_regime_return": 0.98,
+            "minimum_postfit_test_macro_return": 0.99,
+            "minimum_postfit_train_macro_return": 0.99,
+            "minimum_postfit_validation_macro_return": 0.99,
+            "minimum_test_gain_constant": 0.3,
+            "minimum_test_gain_myopic": 0.3,
+            "minimum_test_gain_random": 0.3,
+            "minimum_transition_shuffle_gap": 0.9,
+            "minimum_reward_delay_gap": 0.4,
+            "minimum_validation_gain_constant": 0.3,
+            "minimum_validation_gain_myopic": 0.3,
+            "minimum_validation_gain_random": 0.3
+          },
+          "tie_action": 0
+        },
+        "transition_shuffle_control": {
+          "scope": "train_successor_rows_within_each_eight_episode_block",
+          "transition_donor_permutation": [4, 5, 6, 7, 0, 1, 2, 3],
+          "thresholds": {
+            "maximum_test_macro_return": 0.05,
+            "maximum_validation_macro_return": 0.05,
+            "minimum_true_test_gap": 0.9
+          }
+        },
+        "reward_delay_control": {
+          "boundary_queue": "must_be_empty",
+          "reward_origin_permutation": [
+            3,
+            7,
+            4,
+            5,
+            6,
+            23,
+            9,
+            10,
+            11,
+            12,
+            8,
+            13,
+            14,
+            17,
+            24,
+            18,
+            19,
+            20,
+            21,
+            15,
+            22,
+            25,
+            26,
+            31,
+            0,
+            27,
+            28,
+            29,
+            16,
+            30,
+            1,
+            2
+          ],
+          "scope": "train_terminal_reward_origin_within_each_regime",
+          "thresholds": {
+            "maximum_test_macro_return": 0.55,
+            "maximum_validation_macro_return": 0.55,
+            "minimum_true_test_gap": 0.4
+          }
+        },
+        "signal_attribution_control": {
+          "maximum_test_macro_return": 0.55,
+          "signal_index": 1,
+          "variants": ["refit_without_signal", "true_policy_without_signal"]
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        }
+      },
+      "case_required_fields": {
+        "action_dependent_transition": [
+          "action_changes_successor_count",
+          "authenticated_transition_count",
+          "branch_values",
+          "done_after_transition",
+          "passed",
+          "reward_exposed_after_first_action",
+          "trace_sha256"
+        ],
+        "baseline_replay": [
+          "best_constant_test_macro_return",
+          "best_constant_validation_macro_return",
+          "constant_one_test_macro_return",
+          "constant_one_validation_macro_return",
+          "constant_zero_test_macro_return",
+          "constant_zero_validation_macro_return",
+          "finite_metrics",
+          "myopic_test_macro_return",
+          "myopic_validation_macro_return",
+          "passed",
+          "random_seed",
+          "random_test_macro_return",
+          "random_validation_macro_return",
+          "replay_exact",
+          "same_evaluation_rows",
+          "trace_sha256"
+        ],
+        "delayed_credit_recovery": [
+          "behavior_train_mean_return",
+          "behavior_train_regret",
+          "cell_update_count",
+          "episode_update_count",
+          "learned_projection_sha256",
+          "min_heldout_regime_return",
+          "passed",
+          "postfit_train_macro_return",
+          "test_gain_over_constant",
+          "test_gain_over_myopic",
+          "test_gain_over_random",
+          "test_macro_return",
+          "validation_gain_over_constant",
+          "validation_gain_over_myopic",
+          "validation_gain_over_random",
+          "validation_macro_return"
+        ],
+        "delayed_update_order": [
+          "cell_update_count",
+          "cell_update_order",
+          "chosen_cell_only_checks",
+          "episode_update_count",
+          "event_order_exact",
+          "no_preterminal_table_mutation",
+          "passed",
+          "pending_cleared_at_boundary",
+          "sentinels_checked",
+          "sentinels_rejected",
+          "trace_sha256",
+          "update_order_exact"
+        ],
+        "generator_partition": [
+          "balanced_targets_per_regime",
+          "dataset_sha256",
+          "deterministic_replay",
+          "episode_counts",
+          "episode_keys_disjoint",
+          "episodes_per_regime",
+          "exact_key_order",
+          "exact_regime_order",
+          "expected_dataset_commitment",
+          "finite_observations",
+          "passed",
+          "phase_zero_observation_overlap_count",
+          "phase_zero_observations_disjoint",
+          "regime_counts",
+          "regimes_disjoint",
+          "validated_episodes",
+          "within_split_keys_unique"
+        ],
+        "leakage_guards": [
+          "component_reorder_exact",
+          "forbidden_fields_checked",
+          "forbidden_fields_rejected",
+          "heldout_state_unchanged",
+          "heldout_updates",
+          "passed",
+          "pending_state_empty",
+          "policy_input_fields",
+          "scoring_sentinels_checked",
+          "scoring_sentinels_rejected",
+          "trace_sha256",
+          "train_scope_sentinels_checked",
+          "train_scope_sentinels_rejected",
+          "train_without_heldout_exact"
+        ],
+        "process_isolation": ["passed", "trace_sha256"],
+        "reward_delay_control": [
+          "action_commitment_unchanged",
+          "assignment_changed_count",
+          "evaluator_terminal_commitment_unchanged",
+          "nonidentity_no_fixed_point_permutation",
+          "origin_assignment_exact",
+          "passed",
+          "per_cell_assigned_return_exact",
+          "positive_gate_rejected",
+          "reward_multiset_unchanged",
+          "reward_queue_empty_at_boundary",
+          "test_macro_return",
+          "timing_sentinels_checked",
+          "timing_sentinels_rejected",
+          "trace_sha256",
+          "transition_commitment_unchanged",
+          "true_test_gap",
+          "validation_macro_return"
+        ],
+        "signal_attribution_control": [
+          "evaluator_metadata_unchanged",
+          "only_signal_changed",
+          "passed",
+          "refit_test_macro_return",
+          "trace_sha256",
+          "true_policy_ablated_test_macro_return"
+        ],
+        "transition_shuffle_control": [
+          "action_commitment_unchanged",
+          "donor_mapping_exact",
+          "evaluator_terminal_commitment_unchanged",
+          "heldout_commitment_unchanged",
+          "nonidentity_permutation",
+          "passed",
+          "positive_gate_rejected",
+          "rowwise_transition_changed_count",
+          "successor_multiset_unchanged",
+          "test_macro_return",
+          "trace_sha256",
+          "true_test_gap",
+          "validation_macro_return"
+        ],
+        "typed_episodic_contract": [
+          "action_dtype",
+          "action_values",
+          "completed_episodes",
+          "done_pattern_exact",
+          "event_order",
+          "horizon",
+          "immutable_observations",
+          "observation_dtype",
+          "observation_fields",
+          "observation_shape",
+          "passed",
+          "policy_input_fields",
+          "reward_dtype",
+          "reward_values",
+          "structure_kind",
+          "typed_trajectory_records"
+        ]
+      },
+      "failure_action": "park_delayed_credit_research",
+      "fixture_identity": {
+        "action_dtype": "int8",
+        "action_pair_pattern": [
+          [0, 0],
+          [0, 0],
+          [0, 1],
+          [0, 1],
+          [1, 0],
+          [1, 0],
+          [1, 1],
+          [1, 1]
+        ],
+        "action_values": [0, 1],
+        "claim_boundary": "synthetic_cpu_two_step_delayed_credit_harness_only",
+        "episode_counts": {
+          "test": 64,
+          "train": 128,
+          "validation": 64
+        },
+        "episodes_per_regime": 32,
+        "event_order": [
+          "observe0",
+          "select0",
+          "transition",
+          "observe1",
+          "select1",
+          "terminal_reward",
+          "update_episode",
+          "log_episode"
+        ],
+        "expected_dataset_sha256": "fdeed53ae38fed818dba8ec5d3aa203d982ee0f3d92e6bd179cfa87d47970b89",
+        "generator_regimes": [
+          {
+            "code": 701,
+            "nuisance_scale": 0.85,
+            "nuisance_shift": -0.8,
+            "signal_scale": 0.8,
+            "split": "train"
+          },
+          {
+            "code": 709,
+            "nuisance_scale": 1.1,
+            "nuisance_shift": -0.25,
+            "signal_scale": 0.95,
+            "split": "train"
+          },
+          {
+            "code": 719,
+            "nuisance_scale": 0.75,
+            "nuisance_shift": 0.25,
+            "signal_scale": 1.1,
+            "split": "train"
+          },
+          {
+            "code": 727,
+            "nuisance_scale": 1.2,
+            "nuisance_shift": 0.8,
+            "signal_scale": 1.25,
+            "split": "train"
+          },
+          {
+            "code": 803,
+            "nuisance_scale": 0.65,
+            "nuisance_shift": -1.35,
+            "signal_scale": 0.65,
+            "split": "validation"
+          },
+          {
+            "code": 811,
+            "nuisance_scale": 1.25,
+            "nuisance_shift": 1.35,
+            "signal_scale": 1.35,
+            "split": "validation"
+          },
+          {
+            "code": 907,
+            "nuisance_scale": 0.55,
+            "nuisance_shift": -1.85,
+            "signal_scale": 0.55,
+            "split": "test"
+          },
+          {
+            "code": 919,
+            "nuisance_scale": 1.45,
+            "nuisance_shift": 1.85,
+            "signal_scale": 1.45,
+            "split": "test"
+          }
+        ],
+        "horizon": 2,
+        "observation_dtype": "float64",
+        "observation_fields": ["phase", "signal", "branch", "nuisance"],
+        "observation_shape": [4],
+        "policy_input_fields": ["observation"],
+        "random_baseline_seed": 2026082803,
+        "regime_counts": {
+          "test": 2,
+          "train": 4,
+          "validation": 2
+        },
+        "reward_dtype": "float64",
+        "reward_origin_permutation": [
+          3,
+          7,
+          4,
+          5,
+          6,
+          23,
+          9,
+          10,
+          11,
+          12,
+          8,
+          13,
+          14,
+          17,
+          24,
+          18,
+          19,
+          20,
+          21,
+          15,
+          22,
+          25,
+          26,
+          31,
+          0,
+          27,
+          28,
+          29,
+          16,
+          30,
+          1,
+          2
+        ],
+        "reward_values": [0.0, 1.0],
+        "structure_kind": "none",
+        "thresholds": {
+          "maximum_attribution_test_macro_return": 0.55,
+          "maximum_reward_delay_test_macro_return": 0.55,
+          "maximum_reward_delay_validation_macro_return": 0.55,
+          "maximum_transition_shuffle_test_macro_return": 0.05,
+          "maximum_transition_shuffle_validation_macro_return": 0.05,
+          "minimum_heldout_regime_return": 0.98,
+          "minimum_postfit_test_macro_return": 0.99,
+          "minimum_postfit_train_macro_return": 0.99,
+          "minimum_postfit_validation_macro_return": 0.99,
+          "minimum_test_gain_constant": 0.3,
+          "minimum_test_gain_myopic": 0.3,
+          "minimum_test_gain_random": 0.3,
+          "minimum_transition_shuffle_gap": 0.9,
+          "minimum_reward_delay_gap": 0.4,
+          "minimum_validation_gain_constant": 0.3,
+          "minimum_validation_gain_myopic": 0.3,
+          "minimum_validation_gain_random": 0.3
+        },
+        "transition_donor_permutation": [4, 5, 6, 7, 0, 1, 2, 3]
+      },
+      "plan_path": "research/2026-08-28-two-step-delayed-credit-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/two_step_delayed_credit.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-28-two-step-delayed-credit-plan.md",
+        "worker_source": "experiments/local_lab/two_step_delayed_credit_worker.py"
+      },
+      "success_action": "synthetic_two_step_delayed_credit_recovered_for_harness",
+      "worker_mode": "two-step-delayed-credit-v1",
+      "worker_module": "experiments.local_lab.two_step_delayed_credit_worker"
     }
   }
 }

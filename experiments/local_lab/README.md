@@ -26,9 +26,10 @@ The terminal follow-on studies are `feasible-progress-clock-v1`,
 `public-signal-surface-v1`, followed by
 `full-surface-prefix-indistinguishability-v1` and
 `normal-path-jax-boundary-v1`, `supervised-toy-signal-v1`, and
-`contextual-bandit-toy-signal-v1`. Their sanitized conclusions live under
-`research/`; terminal study IDs must never be reused even though the controller
-remains available for a newly frozen registry entry.
+`contextual-bandit-toy-signal-v1`, then `two-step-delayed-credit-v1`. Their
+sanitized conclusions live under `research/`; terminal study IDs must never be
+reused even though the controller remains available for a newly frozen
+registry entry.
 
 The JAX-boundary checkpoint passed its one-batch CPU systems contract. It is
 not a candidate treatment or timing benchmark. The supervised toy-signal
@@ -37,9 +38,16 @@ attribution, leakage, and process-isolation controls. It validates only the
 synthetic supervised harness. The contextual-bandit checkpoint then passed its
 frozen online-update, held-out, baseline, context-shuffle, attribution,
 leakage, and process-isolation controls. It validates only the synthetic
-immediate-reward bandit harness. The next registry entry may freeze a narrow
-delayed-credit mechanics question; production RL and candidate integration
+immediate-reward bandit harness. The delayed-credit checkpoint then passed its
+frozen terminal-return, transition-assignment, reward-origin, held-out,
+attribution, leakage, and process-isolation controls. It validates only the
+fixed synthetic two-step harness; production RL and candidate integration
 remain outside this laboratory's authority.
+
+No approved study is currently pending. The next admissible learning rung is a
+newly frozen bootstrapped multi-step value-propagation question with exact TD
+targets and negative controls. It is not meta-RL, production RL, an optimizer
+treatment, or candidate evidence.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,
