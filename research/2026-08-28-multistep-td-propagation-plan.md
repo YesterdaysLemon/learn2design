@@ -1,8 +1,10 @@
 # Frozen plan: multi-step TD value propagation
 
-Status: **frozen before implementation or result-bearing execution**  
-Study ID: `multistep-td-propagation-v1`  
-Date frozen: 2026-08-28  
+Status: **frozen before implementation or result-bearing execution**
+
+Study ID: `multistep-td-propagation-v1`
+
+Date frozen: 2026-08-28
 Execution budget: one guarded local-CPU terminal invocation
 
 ## Narrow question
