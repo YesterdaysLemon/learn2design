@@ -1721,6 +1721,7 @@ def test_seventh_study_end_to_end_leaves_eighth_study_pending(
         set(registry["studies"])
         - {
             "contextual-bandit-toy-signal-v1",
+            "multistep-td-action-prefix-v3",
             "two-step-delayed-credit-v1",
         }
     )

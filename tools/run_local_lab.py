@@ -310,7 +310,9 @@ def _validate_study_result(
     }
     if set(result) != expected_top_level:
         raise RuntimeError("worker returned an unexpected top-level result field")
-    _validate_sanitized_value(result)
+    _validate_sanitized_value(
+        result, strict_v3=study == "multistep-td-action-prefix-v3"
+    )
     if result.get("study_id") != study:
         raise RuntimeError("worker returned the wrong study identity")
     if result.get("schema_version") != entry.get("result_schema_version"):
@@ -472,7 +474,9 @@ def _validate_study_result(
         raise RuntimeError("worker did not authenticate the CPU backend")
 
 
-def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
+def _validate_sanitized_value(
+    value: object, *, depth: int = 0, strict_v3: bool = True
+) -> None:
     if depth > 8:
         raise RuntimeError("worker result exceeded the sanitized nesting limit")
     if value is None or isinstance(value, (bool, int)):
@@ -484,9 +488,10 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
     if isinstance(value, str):
         if len(value) > 512:
             raise RuntimeError("worker result contained an oversized string")
-        if (
-            str(ROOT).lower() in value.lower()
-            or re.match(r"^[a-zA-Z]:", value) is not None
+        if str(ROOT).lower() in value.lower():
+            raise RuntimeError("worker result exposed a repository path")
+        if strict_v3 and (
+            re.match(r"^[a-zA-Z]:", value) is not None
             or "/" in value
             or "\\" in value
         ):
@@ -496,16 +501,18 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
         if len(value) > 64:
             raise RuntimeError("worker result contained an oversized list")
         for item in value:
-            _validate_sanitized_value(item, depth=depth + 1)
+            _validate_sanitized_value(
+                item, depth=depth + 1, strict_v3=strict_v3
+            )
         return
     if isinstance(value, dict):
         if len(value) > 64:
             raise RuntimeError("worker result contained an oversized object")
         for key, item in value.items():
-            if (
-                not isinstance(key, str)
-                or len(key) > 128
-                or re.match(r"^[a-zA-Z]:", key) is not None
+            if not isinstance(key, str) or len(key) > 128:
+                raise RuntimeError("worker result contained a malformed key")
+            if strict_v3 and (
+                re.match(r"^[a-zA-Z]:", key) is not None
                 or "/" in key
                 or "\\" in key
             ):
@@ -577,13 +584,17 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
                 "transition",
                 "weight",
             }
-            forbidden_fragments = (
+            base_forbidden_fragments = (
                 "credential",
                 "history",
                 "parameter_values",
+                "raw_gradient",
+                "secret",
+                "topology",
+            )
+            v3_forbidden_fragments = (
                 "policy_parameters",
                 "private_evidence",
-                "raw_gradient",
                 "raw_action",
                 "raw_observation",
                 "raw_reward",
@@ -591,8 +602,6 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
                 "raw_target",
                 "raw_transition",
                 "raw_trajectory",
-                "secret",
-                "topology",
             )
             tokens = tuple(
                 token for token in re.split(r"[^a-z0-9]+", lowered) if token
@@ -626,11 +635,17 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
                 "table",
                 "vector",
             }
-            if (
+            if any(
+                fragment in lowered for fragment in base_forbidden_fragments
+            ):
+                raise RuntimeError("worker result contained a forbidden field")
+            if strict_v3 and (
                 (lowered in raw_exact and not (
                     lowered == "action" and depth == 0 and isinstance(item, str)
                 ))
-                or any(fragment in lowered for fragment in forbidden_fragments)
+                or any(
+                    fragment in lowered for fragment in v3_forbidden_fragments
+                )
                 or (
                     isinstance(item, (list, dict))
                     and lowered in raw_container_exact
@@ -647,7 +662,9 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
                 or SHA256_PATTERN.fullmatch(item) is None
             ):
                 raise RuntimeError("worker result contained a malformed SHA-256")
-            _validate_sanitized_value(item, depth=depth + 1)
+            _validate_sanitized_value(
+                item, depth=depth + 1, strict_v3=strict_v3
+            )
         return
     raise RuntimeError("worker result contained a non-JSON value")
 

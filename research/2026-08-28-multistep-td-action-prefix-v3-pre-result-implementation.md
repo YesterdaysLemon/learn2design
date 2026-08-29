@@ -68,6 +68,16 @@ mapping, split, stopping rule, or claim.
   container closure complete.
 - `git diff --check` was clean apart from Git's informational Windows
   line-ending warnings.
+- The single allowed full-repository pass completed and exposed five
+  integration failures after all V3 runtime checks had passed. Four showed that
+  the new raw-container/path sanitizer had been applied to historical terminal
+  result schemas; one older state-transition test had not excluded the newly
+  pending V3 registry entry. The strict sanitizer was scoped to V3 while the
+  preceding studies retain their frozen validator behavior, and the stale
+  pending-set assertion was corrected. All 74 focused cases covering those
+  five failures plus the V3 strict sanitizer and result validator then passed.
+  The full suite was not repeated because this protocol permits at most one
+  full-repository pass per cycle.
 
 The approved committed-source digests are:
 
