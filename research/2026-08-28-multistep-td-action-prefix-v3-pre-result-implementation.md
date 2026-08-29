@@ -78,6 +78,12 @@ mapping, split, stopping rule, or claim.
   five failures plus the V3 strict sanitizer and result validator then passed.
   The full suite was not repeated because this protocol permits at most one
   full-repository pass per cycle.
+- The first pushed PR contract job then exposed a dependency-light collection
+  boundary: the dedicated V3 test module lacked the repository-standard
+  integration marker and pre-import JAX/NumPy skips. Adding only those test
+  annotations makes the contract selection deselect the six integration tests
+  without importing unavailable dependencies; no fixture, worker, registry,
+  controller, case, threshold, or result behavior changed.
 
 The approved committed-source digests are:
 

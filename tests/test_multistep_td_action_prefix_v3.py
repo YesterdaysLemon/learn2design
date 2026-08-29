@@ -5,6 +5,12 @@ import json
 import subprocess
 import sys
 
+import pytest
+
+pytest.importorskip("jax")
+pytest.importorskip("numpy")
+pytestmark = pytest.mark.integration
+
 from experiments.local_lab.multistep_td_action_prefix_v3 import (
     CASE_REQUIRED_FIELDS,
     EXPECTED_FAMILY_SHA256,
