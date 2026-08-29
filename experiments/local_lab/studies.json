@@ -2629,6 +2629,669 @@
       "success_action": "synthetic_two_step_delayed_credit_recovered_for_harness",
       "worker_mode": "two-step-delayed-credit-v1",
       "worker_module": "experiments.local_lab.two_step_delayed_credit_worker"
+    },
+    "multistep-td-action-prefix-v3": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "620d9246a1d27c0b2915367db07648a62eb573d2369b03a240e77b015b078460",
+        "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
+        "study_plan": "bdf1aa2257a48c96a21bef7b1662c73f8a6ab05c44e1eadc8a010af88ba99cb0",
+        "worker_source": "be69c77b63234d8ed11d599961cabac11b2304b5f235301954c06a825abe2ce7"
+      },
+      "case_contract": {
+        "all_boundary_terminal_dependency": {
+          "changed_cells_by_sweep": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "probe_signs": [
+            0,
+            1
+          ],
+          "selected_scalar_reads_per_probe": 64
+        },
+        "baseline_replay": {
+          "comparators": [
+            "constant_zero",
+            "constant_one",
+            "feedback_only_myopic",
+            "no_bootstrap",
+            "seeded_random"
+          ],
+          "random_seed": 314159265,
+          "random_stream_sha256": "8fe33e0832d9fe4b705f97bf20d8559223e8af217ca8f6a97c587b8bea9e6803"
+        },
+        "complete_family_replay": {
+          "expected_family_sha256": "c3e093639b05690016f8f39ed7dba75c0b493e30d1508664ec7225748c744c11",
+          "nonterminal_rows": 57344,
+          "predecessor_nodes": 61440,
+          "rows": 122880,
+          "terminal_rows": 65536,
+          "unique_transition_keys": 122880
+        },
+        "control_difference_whitelists": {
+          "all_legal_rows": 122880,
+          "controls": [
+            "target_swap",
+            "transition_target",
+            "reward_origin",
+            "signal_ablation"
+          ]
+        },
+        "generator_partition": {
+          "episode_counts": {
+            "test": 1024,
+            "train": 2048,
+            "validation": 1024
+          },
+          "episodes_per_regime": 512,
+          "regime_counts": {
+            "test": 2,
+            "train": 4,
+            "validation": 2
+          },
+          "rng": "none"
+        },
+        "keyed_trace_authentication": {
+          "attack_classes": [
+            "missing_component",
+            "duplicate_component",
+            "unknown_key",
+            "malformed_key",
+            "cross_episode_key",
+            "wrong_predecessor",
+            "wrong_successor",
+            "wrong_action",
+            "wrong_source",
+            "wrong_donor",
+            "wrong_origin",
+            "wrong_reward_slot",
+            "wrong_close_link",
+            "wrong_observation_layout",
+            "wrong_action_type",
+            "wrong_reward_type",
+            "non_boolean_done",
+            "wrong_canonical_reward",
+            "wrong_update_reward",
+            "independent_component_swap"
+          ],
+          "reorder": "independent_nonidentity_component_permutations"
+        },
+        "lazy_information_boundary": {
+          "attack_classes": [
+            "successor_during_select",
+            "reward_during_select",
+            "invalid_action_successor_resolution",
+            "invalid_action_reward_resolution",
+            "successor_before_action_validation",
+            "nonterminal_terminal_scalar",
+            "missing_nonterminal_zero",
+            "duplicate_nonterminal_feedback",
+            "next_transition_before_pending_append",
+            "terminal_scalar_before_phase_three_action",
+            "terminal_scalar_after_extra_transition",
+            "duplicate_terminal_scalar",
+            "origin_resolution_before_terminal",
+            "origin_bearing_policy_feedback",
+            "reentrant_select_environment_step",
+            "reentrant_update_callback",
+            "duplicate_episode_close",
+            "nonempty_pending_transition_at_split",
+            "nonempty_origin_queue_at_split",
+            "heldout_source_during_fit"
+          ],
+          "policy_input_fields": [
+            "observation"
+          ]
+        },
+        "multistep_td_recovery": {
+          "metric": "macro_mean_terminal_return_equal_weight_by_regime",
+          "thresholds": {
+            "maximum_reward_origin_test_macro_return": 0.55,
+            "maximum_reward_origin_validation_macro_return": 0.55,
+            "maximum_signal_attribution_macro_return": 0.55,
+            "maximum_transition_control_test_macro_return": 0.55,
+            "maximum_transition_control_validation_macro_return": 0.55,
+            "minimum_heldout_regime_return": 0.98,
+            "minimum_postfit_test_macro_return": 0.99,
+            "minimum_postfit_train_macro_return": 0.99,
+            "minimum_postfit_validation_macro_return": 0.99,
+            "minimum_reward_origin_test_gap": 0.4,
+            "minimum_test_gain_constant": 0.3,
+            "minimum_test_gain_myopic": 0.3,
+            "minimum_test_gain_no_bootstrap": 0.3,
+            "minimum_test_gain_random": 0.3,
+            "minimum_transition_control_test_gap": 0.4,
+            "minimum_validation_gain_constant": 0.3,
+            "minimum_validation_gain_myopic": 0.3,
+            "minimum_validation_gain_no_bootstrap": 0.3,
+            "minimum_validation_gain_random": 0.3
+          },
+          "tie_action": 0
+        },
+        "pending_transition_authentication": {
+          "append": "exact_pending_identity_once",
+          "rejection": "abort_and_clear"
+        },
+        "process_isolation": {
+          "source_projection": "complete_non_process_cases",
+          "workers": 2
+        },
+        "realized_path_disjointness": {
+          "identity_fields_excluded": true,
+          "path_count": 4096,
+          "rows": 16384
+        },
+        "reward_origin_control": {
+          "mapping": "block_plus_one_action_code_plus_block",
+          "per_cell_count": 16,
+          "per_cell_mean": 0.0625,
+          "thresholds": {
+            "maximum_test": 0.55,
+            "maximum_validation": 0.55,
+            "minimum_test_gap": 0.4
+          }
+        },
+        "sanitized_result_contract": {
+          "top_level_fields": [
+            "action",
+            "cases",
+            "environment",
+            "fixture",
+            "schema_version",
+            "status",
+            "study_id"
+          ],
+          "worker_projection": "bounded_non_process_aggregate_cases"
+        },
+        "signal_attribution_control": {
+          "maximum_macro_return": 0.55,
+          "signal_index": 1,
+          "variants": [
+            "refit_without_signal",
+            "true_policy_without_signal"
+          ]
+        },
+        "synchronous_td_order": {
+          "gamma": 1.0,
+          "positive_cells_by_sweep": [
+            2,
+            4,
+            6,
+            8
+          ],
+          "sweeps": 4,
+          "writes_by_sweep": [
+            60,
+            60,
+            60,
+            60
+          ]
+        },
+        "target_swap_twin": {
+          "public_bytes": "frozen",
+          "reward_changes": 8192,
+          "rows": 122880,
+          "target_field": "separate_hidden_evaluator_target"
+        },
+        "train_only_source_boundary": {
+          "fit_scope": "authenticated_train_source_only",
+          "heldout_updates": 0,
+          "source_constructions": [
+            "absent",
+            "exploding",
+            "lazy"
+          ]
+        },
+        "transition_target_control": {
+          "mapping": "opposite_target_slot_same_regime_block_action_code",
+          "thresholds": {
+            "maximum_test": 0.55,
+            "maximum_validation": 0.55,
+            "minimum_test_gap": 0.4
+          }
+        },
+        "typed_episodic_contract": {
+          "action_dtype": "int8",
+          "action_values": [
+            0,
+            1
+          ],
+          "done_pattern": [
+            false,
+            false,
+            false,
+            true
+          ],
+          "event_order": [
+            "observe0",
+            "select0",
+            "validate0",
+            "resolve_successor0",
+            "resolve_zero0",
+            "append0",
+            "observe1",
+            "select1",
+            "validate1",
+            "resolve_successor1",
+            "resolve_zero1",
+            "append1",
+            "observe2",
+            "select2",
+            "validate2",
+            "resolve_successor2",
+            "resolve_zero2",
+            "append2",
+            "observe3",
+            "select3",
+            "validate3",
+            "resolve_terminal3",
+            "append3",
+            "close_episode"
+          ],
+          "horizon": 4,
+          "observation_dtype": "float64",
+          "observation_fields": [
+            "phase",
+            "signed_signal",
+            "prefix_a0",
+            "prefix_a1",
+            "prefix_a2",
+            "nuisance"
+          ],
+          "observation_shape": [
+            6
+          ],
+          "policy_input_fields": [
+            "observation"
+          ],
+          "reward_dtype": "float64",
+          "reward_values": [
+            0.0,
+            1.0
+          ],
+          "structure_kind": "none"
+        }
+      },
+      "case_required_fields": {
+        "all_boundary_terminal_dependency": [
+          "aggregate_lookups_by_sweep",
+          "changed_cells_by_sweep",
+          "manifest_sha256",
+          "opposite_chain_unchanged",
+          "passed",
+          "probe_count",
+          "selected_scalar_reads",
+          "unselected_scalar_reads"
+        ],
+        "baseline_replay": [
+          "constant_one_test_macro_return",
+          "constant_zero_test_macro_return",
+          "myopic_test_macro_return",
+          "no_bootstrap_test_macro_return",
+          "numpy_version",
+          "passed",
+          "random_stream_sha256",
+          "random_test_macro_return",
+          "replay_exact"
+        ],
+        "complete_family_replay": [
+          "action_balance",
+          "corruption_classes",
+          "corruptions_rejected",
+          "expected_digest_exact",
+          "nonterminal_rows",
+          "passed",
+          "predecessor_nodes",
+          "primary_sha256",
+          "replay_exact",
+          "replay_sha256",
+          "rows",
+          "target_balance",
+          "terminal_rows",
+          "train_cell_coverage_exact",
+          "unique_transition_keys"
+        ],
+        "control_difference_whitelists": [
+          "all_rows_checked",
+          "canonical_rows",
+          "combined_signal_rows_checked",
+          "passed",
+          "protected_mutation_rejections",
+          "reward_origin_bijection",
+          "reward_origin_rows_checked",
+          "signal_ablation_rows_checked",
+          "successor_multiset_preserved",
+          "target_swap_rows_checked",
+          "transition_involution",
+          "transition_rows_checked"
+        ],
+        "generator_partition": [
+          "episode_counts",
+          "episodes_per_regime",
+          "family_sha256",
+          "generator_rng_calls",
+          "passed",
+          "regime_counts",
+          "regime_sha256",
+          "structure_kind"
+        ],
+        "keyed_trace_authentication": [
+          "attack_classes",
+          "attacks_rejected",
+          "component_reorder_exact",
+          "passed",
+          "td_projection_sha256",
+          "trace_sha256"
+        ],
+        "lazy_information_boundary": [
+          "attack_classes",
+          "attacks_rejected",
+          "canonical_lazy_attempts",
+          "canonical_lazy_permitted",
+          "event_order_exact",
+          "lazy_audit_sha256",
+          "passed",
+          "policy_input_fields",
+          "table_unchanged_after_attacks"
+        ],
+        "multistep_td_recovery": [
+          "behavior_regret",
+          "behavior_reward_sum",
+          "behavior_train_macro_return",
+          "heldout_state_unchanged",
+          "heldout_updates",
+          "minimum_test_regime_return",
+          "minimum_validation_regime_return",
+          "passed",
+          "postfit_test_macro_return",
+          "postfit_train_macro_return",
+          "postfit_validation_macro_return",
+          "table_sha256",
+          "train_transitions"
+        ],
+        "pending_transition_authentication": [
+          "cross_episode_rejected",
+          "duplicate_append_rejected",
+          "exact_identity_rejected",
+          "passed",
+          "pending_cleared_after_rejection"
+        ],
+        "process_isolation": [
+          "passed",
+          "trace_sha256"
+        ],
+        "realized_path_disjointness": [
+          "identity_fields_excluded",
+          "passed",
+          "public_paths_split_disjoint",
+          "public_rows_split_disjoint",
+          "realized_rows",
+          "unique_public_path_sha256_count",
+          "unique_public_row_sha256_count"
+        ],
+        "reward_origin_control": [
+          "behavior_exact",
+          "origin_mapping_exact",
+          "passed",
+          "per_cell_count_mean_exact",
+          "positive_cells_by_sweep",
+          "positive_gate_rejected",
+          "reward_multiset_unchanged",
+          "test_macro_return",
+          "trace_sha256",
+          "true_test_gap",
+          "validation_macro_return",
+          "zero_early_origin_materializations"
+        ],
+        "sanitized_result_contract": [
+          "case_count",
+          "forbidden_samples_rejected",
+          "passed",
+          "schema_sha256",
+          "top_level_fields"
+        ],
+        "signal_attribution_control": [
+          "only_signal_changed",
+          "passed",
+          "positive_gate_rejected",
+          "refit_test_macro_return",
+          "refit_validation_macro_return",
+          "trace_sha256",
+          "true_policy_ablated_test_macro_return",
+          "true_policy_ablated_validation_macro_return"
+        ],
+        "synchronous_td_order": [
+          "aggregate_lookups_by_sweep",
+          "exact_positive_sets",
+          "invalid_sweeps_rejected",
+          "passed",
+          "positive_cells_by_sweep",
+          "raw_terminal_reads",
+          "raw_terminal_unreachable",
+          "table_float64_exact",
+          "total_writes",
+          "writes_by_sweep"
+        ],
+        "target_swap_twin": [
+          "invalid_twin_rejections",
+          "passed",
+          "public_bytes_preserved",
+          "public_sha256",
+          "rows",
+          "target_flips",
+          "terminal_reward_changes",
+          "twin_public_sha256"
+        ],
+        "train_only_source_boundary": [
+          "absent_exploding_lazy_exact",
+          "exploding_source_operations",
+          "heldout_materializations",
+          "heldout_state_unchanged",
+          "heldout_updates",
+          "inverse_train_operations",
+          "passed",
+          "sealed_fit_sha256",
+          "train_trace_sha256"
+        ],
+        "transition_target_control": [
+          "behavior_exact",
+          "donor_involution_exact",
+          "passed",
+          "positive_gate_rejected",
+          "successor_multiset_unchanged",
+          "test_macro_return",
+          "trace_sha256",
+          "true_test_gap",
+          "validation_macro_return"
+        ],
+        "typed_episodic_contract": [
+          "action_dtype",
+          "action_values",
+          "completed_episodes",
+          "done_pattern_exact",
+          "event_order",
+          "horizon",
+          "immutable_observations",
+          "invalid_actions_rejected",
+          "observation_dtype",
+          "observation_fields",
+          "observation_shape",
+          "passed",
+          "policy_input_fields",
+          "reward_dtype",
+          "reward_values",
+          "structure_kind",
+          "typed_keys_exact"
+        ]
+      },
+      "failure_action": "park_multistep_td_research",
+      "fixture_identity": {
+        "action_dtype": "int8",
+        "action_values": [
+          0,
+          1
+        ],
+        "claim_boundary": "synthetic_cpu_four_step_synchronous_td_harness_only",
+        "episode_counts": {
+          "test": 1024,
+          "train": 2048,
+          "validation": 1024
+        },
+        "episodes_per_regime": 512,
+        "event_order": [
+          "observe0",
+          "select0",
+          "validate0",
+          "resolve_successor0",
+          "resolve_zero0",
+          "append0",
+          "observe1",
+          "select1",
+          "validate1",
+          "resolve_successor1",
+          "resolve_zero1",
+          "append1",
+          "observe2",
+          "select2",
+          "validate2",
+          "resolve_successor2",
+          "resolve_zero2",
+          "append2",
+          "observe3",
+          "select3",
+          "validate3",
+          "resolve_terminal3",
+          "append3",
+          "close_episode"
+        ],
+        "expected_family_sha256": "c3e093639b05690016f8f39ed7dba75c0b493e30d1508664ec7225748c744c11",
+        "expected_random_stream_sha256": "8fe33e0832d9fe4b705f97bf20d8559223e8af217ca8f6a97c587b8bea9e6803",
+        "generator_regimes": [
+          {
+            "code": 1009,
+            "nuisance_scale": 0.82,
+            "nuisance_shift": -1.1,
+            "signal_scale": 0.72,
+            "split": "train"
+          },
+          {
+            "code": 1013,
+            "nuisance_scale": 1.07,
+            "nuisance_shift": -0.35,
+            "signal_scale": 0.91,
+            "split": "train"
+          },
+          {
+            "code": 1019,
+            "nuisance_scale": 0.74,
+            "nuisance_shift": 0.35,
+            "signal_scale": 1.13,
+            "split": "train"
+          },
+          {
+            "code": 1021,
+            "nuisance_scale": 1.19,
+            "nuisance_shift": 1.1,
+            "signal_scale": 1.34,
+            "split": "train"
+          },
+          {
+            "code": 2003,
+            "nuisance_scale": 0.67,
+            "nuisance_shift": -1.6,
+            "signal_scale": 0.63,
+            "split": "validation"
+          },
+          {
+            "code": 2011,
+            "nuisance_scale": 1.31,
+            "nuisance_shift": 1.6,
+            "signal_scale": 1.43,
+            "split": "validation"
+          },
+          {
+            "code": 3001,
+            "nuisance_scale": 0.58,
+            "nuisance_shift": -2.1,
+            "signal_scale": 0.54,
+            "split": "test"
+          },
+          {
+            "code": 3011,
+            "nuisance_scale": 1.42,
+            "nuisance_shift": 2.1,
+            "signal_scale": 1.52,
+            "split": "test"
+          }
+        ],
+        "horizon": 4,
+        "observation_dtype": "float64",
+        "observation_fields": [
+          "phase",
+          "signed_signal",
+          "prefix_a0",
+          "prefix_a1",
+          "prefix_a2",
+          "nuisance"
+        ],
+        "observation_shape": [
+          6
+        ],
+        "policy_input_fields": [
+          "observation"
+        ],
+        "random_baseline_seed": 314159265,
+        "regime_counts": {
+          "test": 2,
+          "train": 4,
+          "validation": 2
+        },
+        "reward_dtype": "float64",
+        "reward_values": [
+          0.0,
+          1.0
+        ],
+        "structure_kind": "none",
+        "td_gamma": 1.0,
+        "td_sweeps": 4,
+        "thresholds": {
+          "maximum_reward_origin_test_macro_return": 0.55,
+          "maximum_reward_origin_validation_macro_return": 0.55,
+          "maximum_signal_attribution_macro_return": 0.55,
+          "maximum_transition_control_test_macro_return": 0.55,
+          "maximum_transition_control_validation_macro_return": 0.55,
+          "minimum_heldout_regime_return": 0.98,
+          "minimum_postfit_test_macro_return": 0.99,
+          "minimum_postfit_train_macro_return": 0.99,
+          "minimum_postfit_validation_macro_return": 0.99,
+          "minimum_reward_origin_test_gap": 0.4,
+          "minimum_test_gain_constant": 0.3,
+          "minimum_test_gain_myopic": 0.3,
+          "minimum_test_gain_no_bootstrap": 0.3,
+          "minimum_test_gain_random": 0.3,
+          "minimum_transition_control_test_gap": 0.4,
+          "minimum_validation_gain_constant": 0.3,
+          "minimum_validation_gain_myopic": 0.3,
+          "minimum_validation_gain_no_bootstrap": 0.3,
+          "minimum_validation_gain_random": 0.3
+        },
+        "tie_action": 0
+      },
+      "plan_path": "research/2026-08-28-multistep-td-action-prefix-v3-plan.md",
+      "result_schema_version": 1,
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/multistep_td_action_prefix_v3.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-28-multistep-td-action-prefix-v3-plan.md",
+        "worker_source": "experiments/local_lab/multistep_td_action_prefix_v3_worker.py"
+      },
+      "success_action": "synthetic_four_step_synchronous_td_propagation_confirmed_for_harness",
+      "worker_mode": "multistep-td-action-prefix-v3",
+      "worker_module": "experiments.local_lab.multistep_td_action_prefix_v3_worker"
     }
   }
 }

@@ -64,7 +64,7 @@ the frozen
 [`research/2026-08-24-h100-coverage-triage-plan.md`](research/2026-08-24-h100-coverage-triage-plan.md),
 and [`docs/H100_COVERAGE_TRIAGE_RUNBOOK.md`](docs/H100_COVERAGE_TRIAGE_RUNBOOK.md).
 
-The guarded autonomous local laboratory has completed nine unpaid CPU
+The guarded autonomous local laboratory has completed ten unpaid CPU
 checkpoints. `anchor-lane-stability-v1` confirmed its narrow lane-local/shared-
 boundary mechanics; `feasible-progress-clock-v1` confirmed that finite
 infeasible loss improvements reset the current member clock; and
@@ -94,7 +94,15 @@ candidate treatment. `two-step-delayed-credit-v1` then learned the frozen
 two-action terminal-return mapping, scored `1.0` on all held-out regimes, and
 returned to `0.0`, `0.5`, and `0.5` under transition-shuffle,
 reward-origin-misalignment, and signal-ablation controls respectively. This
-validates only that fixed synthetic delayed-credit harness. See the sanitized
+validates only that fixed synthetic delayed-credit harness.
+`multistep-td-action-prefix-v3` then passed all nineteen frozen cases in one
+guarded run. Its four-sweep synchronous tabular TD learner propagated the toy
+terminal signal across three bootstrap boundaries and scored `1.0` on every
+post-fit split; constants, myopic, and no-bootstrap scored `0.5`, while the
+transition-target, reward-origin, and signal-ablation controls returned to
+`0.5`. Its public signed signal deliberately encodes evaluator truth, so this
+validates only the fixed propagation harness—not delayed-credit necessity,
+general RL, optimizer value, or candidate performance. See the sanitized
 [`anchor result`](research/2026-08-26-anchor-lane-stability-results.md),
 [`clock result`](research/2026-08-27-feasible-progress-clock-results.md),
 [`information-boundary result`](research/2026-08-27-infeasible-prefix-indistinguishability-results.md),
@@ -104,10 +112,10 @@ validates only that fixed synthetic delayed-credit harness. See the sanitized
 [`supervised toy-signal result`](research/2026-08-27-supervised-toy-signal-results.md),
 [`contextual-bandit result`](research/2026-08-27-contextual-bandit-toy-signal-results.md),
 [`two-step delayed-credit result`](research/2026-08-28-two-step-delayed-credit-results.md),
+[`multi-step TD result`](research/2026-08-29-multistep-td-action-prefix-v3-results.md),
 and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is back in
-`awaiting_study` with no approved study pending. The next admissible learning
-rung is a newly frozen bootstrapped multi-step value-propagation question, not
-meta-RL or candidate integration. The first proposed fixture,
+`awaiting_study` with no approved study pending. The two earlier proposed
+multi-step fixtures remain quarantined. The first,
 `multistep-td-propagation-v1`, was rejected before terminal execution because
 its public state leaked prior target agreement and its complete-family,
 held-out, scoring, timing, and negative-control proofs were incomplete. Its
@@ -115,12 +123,16 @@ target-independent successor, `multistep-td-action-prefix-v2`, was also
 rejected before terminal execution: independent audits found false-positive
 paths in its target-swap, feedback-only baseline, held-out, trace
 authentication, timing, control-difference, and multi-boundary dependency
-proofs. Neither rejected fixture is registered or approved for execution. A
-successor must use a fresh v3 ID and plan; see the sanitized
+proofs. Neither rejected fixture is registered or approved for execution; see
+the sanitized
 [`v1 preflight rejection`](research/2026-08-28-multistep-td-propagation-preflight-rejection.md)
 and
 [`v2 preflight rejection`](research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
-The nine earlier terminal studies remain the complete evidence set, and no
+The live next rung is a fresh plan-only contract for deterministic online
+bootstrapped control with behavior-policy exploration and train-only updates on
+a topology-independent toy family. No learner implementation or execution is
+authorized in that same checkpoint. Meta-RL, native rewrites, candidate
+integration, accelerators, and paid training remain later owner gates, and no
 terminal fixture will be repeated.
 
 New contributors should begin with

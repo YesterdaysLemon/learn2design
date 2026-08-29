@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-28
+Updated: 2026-08-29
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -134,7 +134,7 @@ are the evidence record, not a competing task list.
   This validates immediate-reward bandit mechanics only, not delayed credit,
   optimizer value, or competition performance.
 - The ninth autonomous checkpoint, `two-step-delayed-credit-v1`, passed all
-  eleven frozen CPU cases and remains the last terminal learning result.
+  eleven frozen CPU cases.
   Its fixed empirical value table reached `1.0` on untouched held-out regimes
   and lost the signal under its transition, reward-origin, and signal-ablation
   controls. This validates only that synthetic two-step harness.
@@ -154,6 +154,24 @@ are the evidence record, not a competing task list.
   invoked, v2 is absent from the registry and allowlist, and it contributes no
   evidence; see
   [`2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
+- The tenth autonomous checkpoint, `multistep-td-action-prefix-v3`, passed all
+  nineteen frozen CPU cases in its single guarded invocation at revision
+  `9d8c64887c730043d2da7c313ac9240fd3f3e85c`. Its four-sweep synchronous
+  tabular TD learner propagated the toy terminal scalar across three bootstrap
+  boundaries and returned `1.0` on train, validation, test, and every minimum
+  held-out regime without held-out updates. Constants, feedback-only myopic,
+  and no-bootstrap returned `0.5`; seeded-random returned `0.0703125`; and the
+  transition-target, reward-origin, and complete signal-ablation controls
+  returned `0.5`. All complete-family, target-swap, split-disjointness, typed
+  trajectory, physical timing, trace authentication, train-only source,
+  synchronous-order, comparator replay, all-boundary dependency,
+  control-difference, sanitizer, and fresh-process cases passed. The private
+  immutable result SHA-256 is
+  `c6e7cecd8d6e9fa7e12aee116f141522321f400a9286940b38a2023e54f5d86f`.
+  Its public signed signal deliberately encodes evaluator truth, so this
+  validates only the fixed synthetic synchronous-TD harness and toy
+  propagation mechanics. See the
+  [`V3 terminal result`](../research/2026-08-29-multistep-td-action-prefix-v3-results.md).
 
 ## Next decision
 
@@ -173,7 +191,7 @@ aggregate direction in Stage A is exploratory and cannot override the frozen
 5/8-win failure.
 
 Unpaid mechanism work now follows the guarded
-[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first nine terminal
+[`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first ten terminal
 checkpoints passed. The third resolves the scalar/Boolean online-information
 question; the fourth closes the public aux inventory and confirms that richer
 current constraint diagnostics exist. It does not establish that any such
@@ -234,19 +252,37 @@ reuse `multistep-td-action-prefix-v2`; its full disposition and successor
 requirements are in the
 [`v2 preflight rejection`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 
-The live next gate is a fresh `multistep-td-action-prefix-v3` plan committed
-before any learner executes. It must fail closed on a complete independent
-family replay; construct a real target-swapped twin; connect held-out and lazy
-sentinels to the exercised source and environment boundaries; authenticate the
-exact pending transition and strictly typed trace components; fit and replay
-all comparators from authenticated behavior feedback only; prove complete-field
-control whitelists and all-row ablation; and test terminal-scalar propagation
-across every bootstrap boundary. No v3 choice may be selected against v2's
-development diagnostics. Native rewrites, official-data training, candidate
-integration, accelerator benchmarking, meta-RL, or paid training remain
-separate owner gates. The controller remains `awaiting_study` with no approved
-study pending, the nine earlier terminal studies remain the entire approved
-evidence set, and no terminal study will be rerun.
+The fresh [`multistep-td-action-prefix-v3` plan](../research/2026-08-28-multistep-td-action-prefix-v3-plan.md)
+was frozen in a clean plan-only commit before implementation. Its exact
+topology-independent fixture, dedicated network-disabled worker, 19-case
+registry contract, source approvals, and controller allowlist were committed
+at a separate clean pre-result boundary. The controller then invoked it exactly
+once on local CPU. All nineteen cases passed and the controller returned to
+`awaiting_study` with no approved study pending, no active cycle, no lease, and
+failure streak zero. The durable aggregate evidence and exact claim boundary
+are in the
+[`V3 terminal result`](../research/2026-08-29-multistep-td-action-prefix-v3-results.md).
+
+The live next rung is online bootstrapped control with an explicit
+behavior-policy exploration contract and train-only updates on a fresh
+topology-independent toy family. The next checkpoint is plan-only: assign one
+new versioned study ID and freeze the complete generator, typed trajectory,
+action-selection, exploration, bootstrap-target, update-order, untouched
+held-out, comparator, transition-target, behavior-assignment, signal-
+attribution, leakage, stopping, and claim contracts before implementing or
+executing any learner. The narrow question is whether a deterministic tabular
+on-policy control learner can acquire a deliberately learnable multi-step
+choice from its own frozen exploratory behavior, retain it on untouched
+held-out generator regimes, beat precommitted constant, myopic, no-bootstrap,
+and seeded-random baselines, and lose the association under the frozen negative
+controls.
+
+A pass on that future toy family could support only its online-control harness.
+It could not establish general RL, optimizer value, candidate value,
+competition performance, or score. No V3 choice may be selected against V1 or
+V2 development diagnostics; native rewrites, official-data training, candidate
+integration, accelerator benchmarking, meta-RL, and paid training remain
+separate owner gates. No terminal study will be rerun.
 
 ## Public deadlines
 

@@ -63,9 +63,14 @@ dependency checks could pass without establishing their frozen claims. V2 is
 absent from `studies.json` and the controller allowlist and must not be repaired,
 registered, executed, or reused. See the sanitized
 [`v2 preflight rejection`](../../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
-A successor requires a fresh `multistep-td-action-prefix-v3` ID and frozen plan
-before any learner executes. It is not meta-RL, production RL, an optimizer
-treatment, or candidate evidence.
+The fresh
+[`multistep-td-action-prefix-v3` plan](../../research/2026-08-28-multistep-td-action-prefix-v3-plan.md)
+is now frozen before any learner execution. The live gate is exact
+implementation plus focused and independent hostile pre-result checks. V3 is
+not yet in `studies.json` or the controller allowlist, so no study is approved
+to run. Its public sign is an intentionally target-correlated toy learning
+signal; it is not meta-RL, production RL, an optimizer treatment,
+delayed-credit necessity, or candidate evidence.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,
