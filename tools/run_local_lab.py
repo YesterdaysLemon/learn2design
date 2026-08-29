@@ -22,7 +22,7 @@ ROOT = Path(__file__).parents[1].resolve()
 PRIVATE_ROOT = ROOT.with_name(f"{ROOT.name}-local-lab").resolve()
 STUDY_REGISTRY_PATH = ROOT / "experiments" / "local_lab" / "studies.json"
 EXPECTED_STUDY_REGISTRY_SHA256 = (
-    "fe7653598d0433e4109a2f95254ab23776ee0025d5eaed71d3946acd6142615d"
+    "d0946cdd96affba3878219d66041d4656de4e4894d62ea85ceef4cbcd4c4925b"
 )
 EXPECTED_SUBMISSION_SOURCE_SHA256 = (
     "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
@@ -77,6 +77,21 @@ V3_EXTRA_CONTAINER_EXPECTATIONS = {
     ],
     ("reward_origin_control", "positive_cells_by_sweep"): [32, 48, 56, 60],
     ("synchronous_td_order", "aggregate_lookups_by_sweep"): [32, 32, 32, 32],
+}
+V3_CASE_CONTRACT_CONTAINER_FIELDS = {
+    ("all_boundary_terminal_dependency", "changed_cells_by_sweep"),
+    ("generator_partition", "episode_counts"),
+    ("generator_partition", "regime_counts"),
+    ("lazy_information_boundary", "policy_input_fields"),
+    ("sanitized_result_contract", "top_level_fields"),
+    ("synchronous_td_order", "positive_cells_by_sweep"),
+    ("synchronous_td_order", "writes_by_sweep"),
+    ("typed_episodic_contract", "action_values"),
+    ("typed_episodic_contract", "event_order"),
+    ("typed_episodic_contract", "observation_fields"),
+    ("typed_episodic_contract", "observation_shape"),
+    ("typed_episodic_contract", "policy_input_fields"),
+    ("typed_episodic_contract", "reward_values"),
 }
 WORKER_MODULE_PATHS = {
     "experiments.local_lab.multistep_td_action_prefix_v3_worker": (
@@ -337,10 +352,21 @@ def _validate_study_result(
         )
         for field_name, field_value in case.items():
             if study == "multistep-td-action-prefix-v3":
-                expected_container = V3_EXTRA_CONTAINER_EXPECTATIONS.get(
-                    (case_name, field_name), frozen_case.get(field_name)
-                )
-                if isinstance(expected_container, (list, dict)):
+                container_key = (case_name, field_name)
+                if container_key in V3_EXTRA_CONTAINER_EXPECTATIONS:
+                    expected_container = V3_EXTRA_CONTAINER_EXPECTATIONS[
+                        container_key
+                    ]
+                elif container_key in V3_CASE_CONTRACT_CONTAINER_FIELDS:
+                    expected_container = frozen_case.get(field_name)
+                    if not isinstance(expected_container, (list, dict)):
+                        raise RuntimeError(
+                            f"registry has a malformed V3 container contract: "
+                            f"{case_name}.{field_name}"
+                        )
+                else:
+                    expected_container = None
+                if expected_container is not None:
                     if (
                         type(expected_container) is not type(field_value)
                         or field_value != expected_container

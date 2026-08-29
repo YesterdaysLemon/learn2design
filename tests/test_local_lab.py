@@ -642,11 +642,16 @@ def _completed_multistep_v3_result(entry: dict[str, object]) -> dict[str, object
     for case_name, fields in required.items():
         case = {}
         for field in fields:
-            expected_container = lab_controller.V3_EXTRA_CONTAINER_EXPECTATIONS.get(
-                (case_name, field), entry["case_contract"][case_name].get(field)
-            )
-            if isinstance(expected_container, (list, dict)):
+            container_key = (case_name, field)
+            if container_key in lab_controller.V3_EXTRA_CONTAINER_EXPECTATIONS:
+                expected_container = (
+                    lab_controller.V3_EXTRA_CONTAINER_EXPECTATIONS[container_key]
+                )
                 case[field] = copy.deepcopy(expected_container)
+            elif container_key in lab_controller.V3_CASE_CONTRACT_CONTAINER_FIELDS:
+                case[field] = copy.deepcopy(
+                    entry["case_contract"][case_name][field]
+                )
             elif field == "passed":
                 case[field] = True
             elif field in lab_controller.V3_BOOLEAN_CASE_FIELDS:

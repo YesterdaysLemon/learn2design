@@ -2633,7 +2633,7 @@
     "multistep-td-action-prefix-v3": {
       "approved_file_sha256": {
         "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
-        "fixture_source": "a88906d0bde4fd3ff1a6783372be00ca93f7f5a11d593e3a0315ec4946171040",
+        "fixture_source": "620d9246a1d27c0b2915367db07648a62eb573d2369b03a240e77b015b078460",
         "lab_protocol": "680b5b555b41f3e8b8c280c32574caf720ee1f31ff651ca741eb76376097b2af",
         "study_plan": "bdf1aa2257a48c96a21bef7b1662c73f8a6ab05c44e1eadc8a010af88ba99cb0",
         "worker_source": "be69c77b63234d8ed11d599961cabac11b2304b5f235301954c06a825abe2ce7"

@@ -154,6 +154,15 @@ are the evidence record, not a competing task list.
   invoked, v2 is absent from the registry and allowlist, and it contributes no
   evidence; see
   [`2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
+- The fresh `multistep-td-action-prefix-v3` contract is now implemented at a
+  clean pre-result boundary. All 18 non-process cases, two fresh-worker
+  projections, the physical attack gates, sanitizer, and exact controller
+  result validation passed development tests after one controller-only
+  metadata/container classification defect was corrected. Three independent
+  static audits found no remaining pre-result blocker. The guarded controller
+  has not been invoked: there is no private V3 result, sidecar, state
+  transition, terminal event, or evidentiary claim. See the
+  [`V3 pre-result implementation checkpoint`](../research/2026-08-28-multistep-td-action-prefix-v3-pre-result-implementation.md).
 
 ## Next decision
 
@@ -235,26 +244,30 @@ requirements are in the
 [`v2 preflight rejection`](../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 
 The fresh [`multistep-td-action-prefix-v3` plan](../research/2026-08-28-multistep-td-action-prefix-v3-plan.md)
-is now frozen in a clean plan-only commit before any learner execution. It
-precommits a complete independently replayed four-action family, genuine
-target-swapped twins, physically connected held-out and lazy sentinels, strict
-pending/trace authentication, public-only TD and comparator projections, four
-synchronous fitted-TD sweeps, exact baseline/control gates, complete-field
-whitelists, all-row signal ablation, and terminal-scalar dependency across all
-three bootstrap boundaries. Its deliberately predictive public sign is a toy
-learning signal, so even a pass could not establish delayed-credit necessity or
-the absence of a target-correlated shortcut.
+was frozen in a clean plan-only commit before implementation. Its exact
+topology-independent fixture, dedicated network-disabled worker, 19-case
+registry contract, source approvals, and controller allowlist are now complete
+at a separate clean pre-result commit. The implementation independently
+replays the complete four-action family, genuine target-swapped twins,
+physically connected held-out and lazy sentinels, strict pending/trace
+authentication, public-only TD and comparator projections, four synchronous
+fitted-TD sweeps, exact baseline/control gates, complete-field whitelists,
+all-row signal ablation, and terminal-scalar dependency across all three
+bootstrap boundaries.
 
-The live next gate is implementation of exactly that frozen v3 contract under
-`experiments/local_lab`, followed by focused tests and independent hostile
-pre-result audits. V3 is not yet in `studies.json` or the worker allowlist, no
-learner or policy has executed, and the guarded controller must not run until a
-second clean pre-result commit proves the fixture conforms without relaxing the
-plan. No v3 choice may be selected against v2's development diagnostics. Native
-rewrites, official-data training, candidate integration, accelerator
-benchmarking, meta-RL, or paid training remain separate owner gates. The
-controller remains `awaiting_study` with no approved study pending, the nine
-earlier terminal studies remain the entire approved evidence set, and no
+The live next gate is exactly one guarded local-CPU invocation of V3 in a later
+heartbeat, after fresh clean-state, approval-hash, stop-marker, lease, and CI
+checks. The controller remains `awaiting_study`; it has not produced or
+observed a V3 result. The nine earlier terminal studies therefore remain the
+entire approved evidence set. If V3 passes, it may validate only the fixed
+synthetic synchronous-TD harness and deliberately predictive toy propagation
+signal. It cannot establish delayed-credit necessity, absence of a
+target-correlated public shortcut, general RL, optimizer value, candidate
+value, competition performance, or score. A failed, malformed, timed-out,
+nondeterministic, or drifted invocation must park the controller and stop
+mutation. No V3 choice may be selected against V2's development diagnostics;
+native rewrites, official-data training, candidate integration, accelerator
+benchmarking, meta-RL, and paid training remain separate owner gates. No
 terminal study will be rerun.
 
 ## Public deadlines
