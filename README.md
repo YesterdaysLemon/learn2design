@@ -128,12 +128,14 @@ the sanitized
 [`v1 preflight rejection`](research/2026-08-28-multistep-td-propagation-preflight-rejection.md)
 and
 [`v2 preflight rejection`](research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
-The live next rung is a fresh plan-only contract for deterministic online
-bootstrapped control with behavior-policy exploration and train-only updates on
-a topology-independent toy family. No learner implementation or execution is
-authorized in that same checkpoint. Meta-RL, native rewrites, candidate
-integration, accelerators, and paid training remain later owner gates, and no
-terminal fixture will be repeated.
+The fresh
+[`online-sarsa-latched-choice-v1` plan](research/2026-08-29-online-sarsa-latched-choice-v1-plan.md)
+now freezes the next topology-independent online-control question before any
+fixture or learner execution. The live gate is exact implementation plus
+hostile pre-result audit; guarded execution remains a separate later
+checkpoint. Meta-RL, native rewrites, candidate integration, accelerators, and
+paid training remain later owner gates, and no terminal fixture will be
+repeated.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and
