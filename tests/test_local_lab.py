@@ -635,6 +635,51 @@ def _completed_two_step_delayed_credit_result() -> dict[str, object]:
     return result
 
 
+def _completed_multistep_v3_result(entry: dict[str, object]) -> dict[str, object]:
+    required = entry["case_required_fields"]
+    cases = {}
+    for case_name, fields in required.items():
+        case = {}
+        for field in fields:
+            if field == "passed":
+                case[field] = True
+            elif field in lab_controller.V3_BOOLEAN_CASE_FIELDS:
+                case[field] = True
+            elif field.endswith("sha256"):
+                case[field] = "0" * 64
+            elif field.endswith(
+                (
+                    "_disjoint",
+                    "_empty",
+                    "_exact",
+                    "_preserved",
+                    "_unchanged",
+                    "_unreachable",
+                )
+            ):
+                case[field] = True
+            else:
+                case[field] = 0
+        cases[case_name] = case
+    return {
+        "action": "synthetic_four_step_synchronous_td_propagation_confirmed_for_harness",
+        "cases": cases,
+        "environment": {
+            "device_kind": "cpu",
+            "jax_version": "test",
+            "platform": "cpu",
+            "python": "test",
+        },
+        "fixture": {
+            "case_contract": entry["case_contract"],
+            **entry["fixture_identity"],
+        },
+        "schema_version": entry["result_schema_version"],
+        "status": "passed",
+        "study_id": "multistep-td-action-prefix-v3",
+    }
+
+
 def test_two_step_delayed_credit_focused_projection_passes() -> None:
     result = run_two_step_delayed_credit_study(
         include_process_isolation=False
@@ -761,6 +806,107 @@ def test_result_validator_requires_exact_sanitized_contract() -> None:
     result["cases"]["mixed_member_clock"]["parameter_values"] = [[1.0]]
     with pytest.raises(RuntimeError, match="forbidden field"):
         _validate_study_result("feasible-progress-clock-v1", entry, result)
+
+
+@pytest.mark.parametrize(
+    "forbidden_key,forbidden_value",
+    [
+        ("observations", [[0.0]]),
+        ("observation", [0.0]),
+        ("raw_actions", [0, 1]),
+        ("action", [0]),
+        ("actions", [0, 1]),
+        ("rewards", [1.0]),
+        ("reward", [1.0]),
+        ("return", [1.0]),
+        ("targets", [0, 1]),
+        ("q_table", [[0.0]]),
+        ("paths", [{"step": 0}]),
+        ("path", [{"step": 0}]),
+        ("transition", [{"step": 0}]),
+        ("trajectory", [{"step": 0}]),
+        ("log", [{"step": 0}]),
+        ("weight", [1.0]),
+        ("gradient", [1.0]),
+        ("q_value", [1.0]),
+        ("private_evidence_alias", "x"),
+        ("policy_parameters_copy", [0.0]),
+        ("raw_trajectory_payload", [{"x": 1}]),
+        ("successor_payload", [[0.0]]),
+        ("successor", [[0.0]]),
+        ("successors", [[0.0]]),
+        ("rows", [{"x": 1}]),
+        ("data", [1]),
+        ("records", [{"x": 1}]),
+        ("raw_state", [0.0]),
+        ("donor_array", [1]),
+        ("origin_array", [1]),
+        ("gradients", [[1.0]]),
+    ],
+)
+def test_controller_sanitizer_rejects_raw_result_variants(
+    forbidden_key: str, forbidden_value: object
+) -> None:
+    with pytest.raises(RuntimeError, match="forbidden field"):
+        lab_controller._validate_sanitized_value(  # noqa: SLF001
+            {forbidden_key: forbidden_value}
+        )
+
+
+@pytest.mark.parametrize(
+    "absolute_path",
+    [
+        r"C:\\private\\result.json",
+        r"\private\result.json",
+        "/private/result.json",
+        r"\\\\server\\share\\result.json",
+    ],
+)
+def test_controller_sanitizer_rejects_absolute_paths(absolute_path: str) -> None:
+    with pytest.raises(RuntimeError, match="absolute path"):
+        lab_controller._validate_sanitized_value({"safe": absolute_path})  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    "case_name,field_name",
+    [
+        ("typed_episodic_contract", "immutable_observations"),
+        ("complete_family_replay", "action_balance"),
+        ("complete_family_replay", "target_balance"),
+        ("realized_path_disjointness", "identity_fields_excluded"),
+        ("pending_transition_authentication", "cross_episode_rejected"),
+        ("synchronous_td_order", "exact_positive_sets"),
+        ("transition_target_control", "positive_gate_rejected"),
+        ("signal_attribution_control", "only_signal_changed"),
+        ("control_difference_whitelists", "reward_origin_bijection"),
+        ("control_difference_whitelists", "transition_involution"),
+    ],
+)
+def test_v3_result_validator_requires_explicit_boolean_invariants(
+    case_name: str, field_name: str
+) -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "multistep-td-action-prefix-v3"
+    entry = lab_controller._study_entry(registry, study_id)
+    result = _completed_multistep_v3_result(entry)
+    result["cases"][case_name][field_name] = [True]
+
+    with pytest.raises(RuntimeError, match="forbidden field|non-Boolean V3 invariant"):
+        lab_controller._validate_study_result(study_id, entry, result)
+
+
+@pytest.mark.parametrize("field_name", ["device_kind", "jax_version", "python"])
+def test_v3_result_validator_requires_scalar_environment_strings(
+    field_name: str,
+) -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "multistep-td-action-prefix-v3"
+    entry = lab_controller._study_entry(registry, study_id)
+    result = _completed_multistep_v3_result(entry)
+    result["environment"][field_name] = ["cpu"]
+
+    with pytest.raises(RuntimeError, match="CPU backend"):
+        lab_controller._validate_study_result(study_id, entry, result)
 
 
 def test_prefix_boundary_validator_requires_exact_fixture_identity() -> None:
@@ -1583,7 +1729,7 @@ def test_eighth_study_end_to_end_leaves_ninth_study_pending(
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_ninth_study_end_to_end_closes_pending_registry(
+def test_ninth_study_end_to_end_leaves_tenth_study_pending(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = lab_controller._load_study_registry()
@@ -1604,7 +1750,7 @@ def test_ninth_study_end_to_end_closes_pending_registry(
             "status": "passed",
         }
         for index, name in enumerate(registry["studies"])
-        if name != study_id
+        if name not in {study_id, "multistep-td-action-prefix-v3"}
     }
     lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
     output = tmp_path / "cycles" / "ninth-study-test" / "result.json"
@@ -1614,6 +1760,74 @@ def test_ninth_study_end_to_end_closes_pending_registry(
         lab_controller, "_repository_snapshot", lambda _entry: snapshot
     )
     monkeypatch.setattr(lab_controller, "_git", lambda *_args: "a" * 40)
+    monkeypatch.setattr(
+        lab_controller,
+        "_run_worker",
+        lambda *_args, **_kwargs: (
+            complete_result,
+            {
+                "stderr_bytes": 0,
+                "stderr_sha256": "0" * 64,
+                "stdout_bytes": 0,
+            },
+        ),
+    )
+    monkeypatch.setattr(
+        lab_controller.sys,
+        "argv",
+        [
+            "run_local_lab.py",
+            "--study",
+            study_id,
+            "--output",
+            str(output),
+        ],
+    )
+
+    lab_controller.main()
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    state = _load_state(tmp_path)
+    assert payload["result"]["status"] == "passed"
+    assert state["status"] == "idle"
+    assert state["stop_reason"] is None
+    assert set(state["completed_studies"]) == (
+        set(registry["studies"]) - {"multistep-td-action-prefix-v3"}
+    )
+    assert not (tmp_path / "lab.lock").exists()
+
+
+def test_tenth_study_end_to_end_closes_pending_registry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "multistep-td-action-prefix-v3"
+    entry = lab_controller._study_entry(registry, study_id)
+    snapshot = {
+        "committed_file_sha256": entry["approved_file_sha256"],
+        "committed_source_paths": entry["source_paths"],
+        "revision": "b" * 40,
+    }
+    initial_state = lab_controller._default_state()
+    initial_state["status"] = "idle"
+    initial_state["completed_studies"] = {
+        name: {
+            "cycle_id": f"prior-{index}",
+            "result_sha256": format(index + 1, "x") * 64,
+            "revision": format(index + 2, "x") * 40,
+            "status": "passed",
+        }
+        for index, name in enumerate(registry["studies"])
+        if name != study_id
+    }
+    lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
+    output = tmp_path / "cycles" / "tenth-study-test" / "result.json"
+    complete_result = _completed_multistep_v3_result(entry)
+    monkeypatch.setattr(lab_controller, "PRIVATE_ROOT", tmp_path)
+    monkeypatch.setattr(
+        lab_controller, "_repository_snapshot", lambda _entry: snapshot
+    )
+    monkeypatch.setattr(lab_controller, "_git", lambda *_args: "b" * 40)
     monkeypatch.setattr(
         lab_controller,
         "_run_worker",

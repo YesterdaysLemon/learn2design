@@ -22,7 +22,7 @@ ROOT = Path(__file__).parents[1].resolve()
 PRIVATE_ROOT = ROOT.with_name(f"{ROOT.name}-local-lab").resolve()
 STUDY_REGISTRY_PATH = ROOT / "experiments" / "local_lab" / "studies.json"
 EXPECTED_STUDY_REGISTRY_SHA256 = (
-    "b14d7e20fd2b06dce8911254f5110cb445fae36287e07dc7d5f1da7a6b9b56e3"
+    "e4168fe2ef34210dc4176829a131d0f173377d68011bacaa1209e082d5584137"
 )
 EXPECTED_SUBMISSION_SOURCE_SHA256 = (
     "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
@@ -43,7 +43,28 @@ REQUIRED_SOURCE_KEYS = {
     "study_plan",
     "worker_source",
 }
+V3_BOOLEAN_CASE_FIELDS = {
+    "action_balance",
+    "cross_episode_rejected",
+    "duplicate_append_rejected",
+    "exact_identity_rejected",
+    "exact_positive_sets",
+    "identity_fields_excluded",
+    "immutable_observations",
+    "invalid_sweeps_rejected",
+    "only_signal_changed",
+    "pending_cleared_after_rejection",
+    "positive_gate_rejected",
+    "reward_origin_bijection",
+    "table_unchanged_after_attacks",
+    "target_balance",
+    "transition_involution",
+    "zero_early_origin_materializations",
+}
 WORKER_MODULE_PATHS = {
+    "experiments.local_lab.multistep_td_action_prefix_v3_worker": (
+        "experiments/local_lab/multistep_td_action_prefix_v3_worker.py"
+    ),
     "experiments.local_lab.two_step_delayed_credit_worker": (
         "experiments/local_lab/two_step_delayed_credit_worker.py"
     ),
@@ -281,6 +302,30 @@ def _validate_study_result(
             )
         if not isinstance(case.get("passed"), bool):
             raise RuntimeError(f"worker returned non-terminal case: {case_name}")
+        strict_boolean_suffixes = (
+            "_disjoint",
+            "_empty",
+            "_exact",
+            "_preserved",
+            "_unchanged",
+            "_unreachable",
+        )
+        for field_name, field_value in case.items():
+            if field_name.endswith(strict_boolean_suffixes) and not isinstance(
+                field_value, bool
+            ):
+                raise RuntimeError(
+                    f"worker returned a non-Boolean invariant: {case_name}.{field_name}"
+                )
+            if (
+                study == "multistep-td-action-prefix-v3"
+                and field_name in V3_BOOLEAN_CASE_FIELDS
+                and type(field_value) is not bool
+            ):
+                raise RuntimeError(
+                    f"worker returned a non-Boolean V3 invariant: "
+                    f"{case_name}.{field_name}"
+                )
         case_passes.append(case["passed"])
 
     passed = all(case_passes)
@@ -316,6 +361,10 @@ def _validate_study_result(
         not isinstance(environment, dict)
         or set(environment) != {"device_kind", "jax_version", "platform", "python"}
         or environment.get("platform") != "cpu"
+        or any(
+            type(environment.get(name)) is not str or not environment.get(name)
+            for name in ("device_kind", "jax_version", "platform", "python")
+        )
     ):
         raise RuntimeError("worker did not authenticate the CPU backend")
 
@@ -332,8 +381,12 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
     if isinstance(value, str):
         if len(value) > 512:
             raise RuntimeError("worker result contained an oversized string")
-        if str(ROOT).lower() in value.lower():
-            raise RuntimeError("worker result exposed a repository path")
+        if (
+            str(ROOT).lower() in value.lower()
+            or re.match(r"^[a-zA-Z]:[\\/]", value) is not None
+            or value.startswith(("\\", "/"))
+        ):
+            raise RuntimeError("worker result exposed an absolute path")
         return
     if isinstance(value, list):
         if len(value) > 64:
@@ -348,15 +401,112 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
             if not isinstance(key, str) or len(key) > 128:
                 raise RuntimeError("worker result contained a malformed key")
             lowered = key.lower()
-            if any(
-                fragment in lowered
-                for fragment in (
-                    "credential",
-                    "history",
-                    "parameter_values",
-                    "raw_gradient",
-                    "secret",
-                    "topology",
+            raw_exact = {
+                "actions",
+                "contexts",
+                "gradients",
+                "logs",
+                "observations",
+                "paths",
+                "policy_state",
+                "q_table",
+                "q_values",
+                "returns",
+                "rewards",
+                "states",
+                "targets",
+                "trajectories",
+                "transitions",
+                "value_table",
+                "weights",
+            }
+            raw_container_exact = {
+                "action",
+                "array",
+                "arrays",
+                "context",
+                "data",
+                "donor",
+                "gradient",
+                "log",
+                "observation",
+                "origin",
+                "path",
+                "q_value",
+                "record",
+                "records",
+                "return",
+                "reward",
+                "row",
+                "rows",
+                "state",
+                "successor",
+                "successors",
+                "target",
+                "trajectory",
+                "transition",
+                "weight",
+            }
+            forbidden_fragments = (
+                "credential",
+                "history",
+                "parameter_values",
+                "policy_parameters",
+                "private_evidence",
+                "raw_gradient",
+                "raw_action",
+                "raw_observation",
+                "raw_reward",
+                "raw_state",
+                "raw_target",
+                "raw_transition",
+                "raw_trajectory",
+                "secret",
+                "topology",
+            )
+            tokens = tuple(
+                token for token in re.split(r"[^a-z0-9]+", lowered) if token
+            )
+            raw_container_tokens = {
+                "action",
+                "context",
+                "donor",
+                "gradient",
+                "log",
+                "observation",
+                "origin",
+                "path",
+                "reward",
+                "state",
+                "successor",
+                "target",
+                "trajectory",
+                "transition",
+                "weight",
+            }
+            raw_shape_tokens = {
+                "array",
+                "copy",
+                "data",
+                "list",
+                "payload",
+                "records",
+                "rows",
+                "stream",
+                "table",
+                "vector",
+            }
+            if (
+                lowered in raw_exact
+                or any(fragment in lowered for fragment in forbidden_fragments)
+                or (
+                    isinstance(item, (list, dict))
+                    and lowered in raw_container_exact
+                )
+                or (
+                    isinstance(item, (list, dict))
+                    and any(token in raw_container_tokens for token in tokens)
+                    and any(token in raw_shape_tokens for token in tokens)
                 )
             ):
                 raise RuntimeError("worker result contained a forbidden field")
