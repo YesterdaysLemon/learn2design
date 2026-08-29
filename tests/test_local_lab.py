@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -641,7 +642,12 @@ def _completed_multistep_v3_result(entry: dict[str, object]) -> dict[str, object
     for case_name, fields in required.items():
         case = {}
         for field in fields:
-            if field == "passed":
+            expected_container = lab_controller.V3_EXTRA_CONTAINER_EXPECTATIONS.get(
+                (case_name, field), entry["case_contract"][case_name].get(field)
+            )
+            if isinstance(expected_container, (list, dict)):
+                case[field] = copy.deepcopy(expected_container)
+            elif field == "passed":
                 case[field] = True
             elif field in lab_controller.V3_BOOLEAN_CASE_FIELDS:
                 case[field] = True
@@ -658,6 +664,10 @@ def _completed_multistep_v3_result(entry: dict[str, object]) -> dict[str, object
                 )
             ):
                 case[field] = True
+            elif field in lab_controller.V3_STRING_CASE_FIELDS:
+                case[field] = "test"
+            elif "return" in field or field.endswith("_gap"):
+                case[field] = 0.0
             else:
                 case[field] = 0
         cases[case_name] = case
@@ -818,12 +828,16 @@ def test_result_validator_requires_exact_sanitized_contract() -> None:
         ("actions", [0, 1]),
         ("rewards", [1.0]),
         ("reward", [1.0]),
+        ("reward", 1.0),
         ("return", [1.0]),
+        ("return", 1.0),
         ("targets", [0, 1]),
         ("q_table", [[0.0]]),
         ("paths", [{"step": 0}]),
         ("path", [{"step": 0}]),
+        ("path", "private"),
         ("transition", [{"step": 0}]),
+        ("transition", 1),
         ("trajectory", [{"step": 0}]),
         ("log", [{"step": 0}]),
         ("weight", [1.0]),
@@ -835,12 +849,15 @@ def test_result_validator_requires_exact_sanitized_contract() -> None:
         ("successor_payload", [[0.0]]),
         ("successor", [[0.0]]),
         ("successors", [[0.0]]),
+        ("successors", 0),
         ("rows", [{"x": 1}]),
         ("data", [1]),
         ("records", [{"x": 1}]),
         ("raw_state", [0.0]),
         ("donor_array", [1]),
+        ("donor_array", 1),
         ("origin_array", [1]),
+        ("origin_array", 1),
         ("gradients", [[1.0]]),
     ],
 )
@@ -853,18 +870,34 @@ def test_controller_sanitizer_rejects_raw_result_variants(
         )
 
 
+def test_controller_sanitizer_rejects_nested_scalar_action_alias() -> None:
+    with pytest.raises(RuntimeError, match="forbidden field"):
+        lab_controller._validate_sanitized_value(  # noqa: SLF001
+            {"case": {"action": 0}}
+        )
+
+
 @pytest.mark.parametrize(
     "absolute_path",
     [
         r"C:\\private\\result.json",
+        r"C:private\result.json",
         r"\private\result.json",
         "/private/result.json",
+        "private/result.json",
+        r"private\result.json",
         r"\\\\server\\share\\result.json",
     ],
 )
 def test_controller_sanitizer_rejects_absolute_paths(absolute_path: str) -> None:
     with pytest.raises(RuntimeError, match="absolute path"):
         lab_controller._validate_sanitized_value({"safe": absolute_path})  # noqa: SLF001
+
+
+@pytest.mark.parametrize("unsafe_key", [r"C:private", r"\private", "private/path"])
+def test_controller_sanitizer_rejects_path_keys(unsafe_key: str) -> None:
+    with pytest.raises(RuntimeError, match="malformed key"):
+        lab_controller._validate_sanitized_value({unsafe_key: 1})  # noqa: SLF001
 
 
 @pytest.mark.parametrize(
@@ -891,7 +924,35 @@ def test_v3_result_validator_requires_explicit_boolean_invariants(
     result = _completed_multistep_v3_result(entry)
     result["cases"][case_name][field_name] = [True]
 
-    with pytest.raises(RuntimeError, match="forbidden field|non-Boolean V3 invariant"):
+    with pytest.raises(
+        RuntimeError,
+        match="forbidden field|non-Boolean V3 invariant|non-frozen V3 container",
+    ):
+        lab_controller._validate_study_result(study_id, entry, result)
+
+
+@pytest.mark.parametrize(
+    "case_name,field_name,replacement",
+    [
+        ("typed_episodic_contract", "event_order", [[0.0]]),
+        ("typed_episodic_contract", "event_order", 0),
+        ("typed_episodic_contract", "completed_episodes", [2048]),
+        ("generator_partition", "episode_counts", {"train": [2048]}),
+        ("generator_partition", "episode_counts", 0),
+        ("synchronous_td_order", "aggregate_lookups_by_sweep", [32, 32, 32]),
+        ("reward_origin_control", "positive_cells_by_sweep", [32, 48, 56]),
+    ],
+)
+def test_v3_result_validator_requires_frozen_container_shapes(
+    case_name: str, field_name: str, replacement: object
+) -> None:
+    registry = lab_controller._load_study_registry()
+    study_id = "multistep-td-action-prefix-v3"
+    entry = lab_controller._study_entry(registry, study_id)
+    result = _completed_multistep_v3_result(entry)
+    result["cases"][case_name][field_name] = replacement
+
+    with pytest.raises(RuntimeError, match="non-frozen V3 container"):
         lab_controller._validate_study_result(study_id, entry, result)
 
 

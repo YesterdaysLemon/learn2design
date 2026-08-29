@@ -4179,6 +4179,7 @@ def _run_family_preflight() -> tuple[
     dict[str, object],
     dict[str, object],
     dict[str, object],
+    dict[str, object],
 ]:
     _ISSUED_FAMILY_GATES.clear()
     _ISSUED_TRACE_GATES.clear()
@@ -4190,6 +4191,7 @@ def _run_family_preflight() -> tuple[
     corruptions = _family_corruption_audit()
     target_swap = _target_swap_audit()
     realized_paths = _realized_path_audit()
+    control_whitelists = _control_whitelist_audit()
     gate_projection = {
         "family_sha256": family["primary_sha256"],
         "corruptions_rejected": corruptions["corruptions_rejected"],
@@ -4202,7 +4204,13 @@ def _run_family_preflight() -> tuple[
     )
     _ISSUED_FAMILY_GATES.add(gate.gate_sha256)
     _require_family_gate(gate)
-    return gate, {**family, **corruptions}, target_swap, realized_paths
+    return (
+        gate,
+        {**family, **corruptions},
+        target_swap,
+        realized_paths,
+        control_whitelists,
+    )
 
 
 def _fit_from_train_source(
@@ -4239,6 +4247,8 @@ def _fit_from_train_source(
     reordered_rows = _validate_trace(reordered, specs, mode=mode)
     if _td_rows_sha256(rows) != _td_rows_sha256(reordered_rows):
         raise ContractError("component reorder changed TD input projection")
+    if not bool(_typed_contract_case(trace, collection_audit)["passed"]):
+        raise ContractError("typed runtime contract failed before TD construction")
     fitted = (
         _fit_signal_ablation_td(rows, gate)
         if mode == "signal_ablation"
@@ -6667,30 +6677,46 @@ def _realized_path_case(audit: Mapping[str, object]) -> dict[str, object]:
 
 
 _RAW_RESULT_KEYS = {
+    "action",
     "action_stream",
     "actions",
+    "context",
     "credentials",
+    "donor",
     "donor_array",
+    "gradient",
     "gradients",
+    "log",
     "logs",
     "observation",
     "observations",
+    "origin",
     "origin_array",
     "parameter_values",
+    "path",
     "paths",
     "policy_state",
+    "q_value",
     "q_table",
     "raw_actions",
     "raw_observations",
     "raw_rewards",
+    "return",
+    "reward",
     "rewards",
     "secret",
+    "state",
     "states",
+    "successor",
     "successors",
+    "target",
     "targets",
     "topology",
+    "trajectory",
     "trajectories",
+    "transition",
     "transitions",
+    "weight",
 }
 _RAW_RESULT_FRAGMENTS = (
     "credential",
@@ -6752,11 +6778,13 @@ _RAW_CONTAINER_EXACT_KEYS = {
 }
 
 
-def _sanitized_key_is_raw(key: str, item: object) -> bool:
+def _sanitized_key_is_raw(key: str, item: object, *, depth: int) -> bool:
     normalized = key.lower()
     if normalized in _SAFE_AGGREGATE_RAW_KEYS and type(item) in (bool, int):
         return False
-    if normalized in _RAW_RESULT_KEYS:
+    if normalized in _RAW_RESULT_KEYS and not (
+        normalized == "action" and depth == 0 and type(item) is str
+    ):
         return True
     if any(fragment in normalized for fragment in _RAW_RESULT_FRAGMENTS):
         return True
@@ -6779,8 +6807,9 @@ def _validate_sanitized_projection(value: object, *, depth: int = 0) -> None:
         if (
             len(value) > 512
             or str(REPOSITORY_ROOT).lower() in value.lower()
-            or re.match(r"^[a-zA-Z]:[\\/]", value) is not None
-            or value.startswith(("\\", "/"))
+            or re.match(r"^[a-zA-Z]:", value) is not None
+            or "/" in value
+            or "\\" in value
         ):
             raise ContractError("sanitized projection contains an unsafe string")
         return
@@ -6797,7 +6826,10 @@ def _validate_sanitized_projection(value: object, *, depth: int = 0) -> None:
             if (
                 type(key) is not str
                 or len(key) > 128
-                or _sanitized_key_is_raw(key, item)
+                or re.match(r"^[a-zA-Z]:", key) is not None
+                or "/" in key
+                or "\\" in key
+                or _sanitized_key_is_raw(key, item, depth=depth)
             ):
                 raise ContractError("sanitized projection contains a raw field")
             if key.lower().endswith("sha256") and (
@@ -6817,17 +6849,22 @@ def _sanitizer_case(cases: Mapping[str, object]) -> dict[str, object]:
         {"raw_observations": [0.0]},
         {"observation": [0.0]},
         {"action": [0]},
+        {"case": {"action": 0}},
         {"actions": [0, 1]},
         {"successor": [[0.0]]},
         {"successors": [[0.0]]},
+        {"successors": 0},
         {"rows": [{"x": 1}]},
         {"data": [1]},
         {"records": [{"x": 1}]},
         {"raw_state": [0.0]},
         {"rewards": [1.0]},
         {"reward": [1.0]},
+        {"reward": 1.0},
         {"return": [1.0]},
+        {"return": 1.0},
         {"path": [{"step": 0}]},
+        {"path": "private"},
         {"transition": [{"step": 0}]},
         {"trajectory": [{"step": 0}]},
         {"log": [{"step": 0}]},
@@ -6844,13 +6881,19 @@ def _sanitizer_case(cases: Mapping[str, object]) -> dict[str, object]:
         {"policy_parameters": [0.0]},
         {"private_evidence": "x"},
         {"donor_array_alias": [1]},
+        {"donor_array": 1},
         {"origin_array_alias": [1]},
+        {"origin_array": 1},
         {"q_values": [0.0]},
         {"trace_sha256": "not-a-digest"},
         {"safe": "C:\\private\\evidence.json"},
+        {"safe": "C:private\\evidence.json"},
         {"safe": "\\private\\evidence.json"},
         {"safe": "/private/evidence.json"},
+        {"safe": "private/evidence.json"},
+        {"safe": "private\\evidence.json"},
         {"safe": "\\\\server\\share\\evidence.json"},
+        {"private/evidence": 1},
         {"safe": np.asarray([1.0])},
         {"safe": float("nan")},
     )
@@ -6887,7 +6930,9 @@ def _sanitizer_case(cases: Mapping[str, object]) -> dict[str, object]:
 
 @lru_cache(maxsize=1)
 def _non_process_projection_cached() -> dict[str, object]:
-    gate, family, target_swap, realized_paths = _run_family_preflight()
+    gate, family, target_swap, realized_paths, whitelist_case = (
+        _run_family_preflight()
+    )
     train_specs = tuple(_iter_episode_specs("train"))
     validation_specs = tuple(_iter_episode_specs("validation"))
     test_specs = tuple(_iter_episode_specs("test"))
@@ -6909,7 +6954,6 @@ def _non_process_projection_cached() -> dict[str, object]:
     )
     if _td_rows_sha256(rows) != _td_rows_sha256(reordered_rows):
         raise ContractError("full canonical component reorder changed TD rows")
-    whitelist_case = _control_whitelist_audit()
     baseline_case, comparator_metrics = _baseline_audit(
         trace,
         rows,

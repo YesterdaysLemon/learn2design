@@ -22,7 +22,7 @@ ROOT = Path(__file__).parents[1].resolve()
 PRIVATE_ROOT = ROOT.with_name(f"{ROOT.name}-local-lab").resolve()
 STUDY_REGISTRY_PATH = ROOT / "experiments" / "local_lab" / "studies.json"
 EXPECTED_STUDY_REGISTRY_SHA256 = (
-    "e4168fe2ef34210dc4176829a131d0f173377d68011bacaa1209e082d5584137"
+    "fe7653598d0433e4109a2f95254ab23776ee0025d5eaed71d3946acd6142615d"
 )
 EXPECTED_SUBMISSION_SOURCE_SHA256 = (
     "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
@@ -60,6 +60,23 @@ V3_BOOLEAN_CASE_FIELDS = {
     "target_balance",
     "transition_involution",
     "zero_early_origin_materializations",
+}
+V3_STRING_CASE_FIELDS = {
+    "action_dtype",
+    "numpy_version",
+    "observation_dtype",
+    "reward_dtype",
+    "structure_kind",
+}
+V3_EXTRA_CONTAINER_EXPECTATIONS = {
+    ("all_boundary_terminal_dependency", "aggregate_lookups_by_sweep"): [
+        32,
+        32,
+        32,
+        32,
+    ],
+    ("reward_origin_control", "positive_cells_by_sweep"): [32, 48, 56, 60],
+    ("synchronous_td_order", "aggregate_lookups_by_sweep"): [32, 32, 32, 32],
 }
 WORKER_MODULE_PATHS = {
     "experiments.local_lab.multistep_td_action_prefix_v3_worker": (
@@ -285,8 +302,13 @@ def _validate_study_result(
         raise RuntimeError("worker returned the wrong result schema")
 
     required_case_fields = entry.get("case_required_fields")
+    expected_case_contract = entry.get("case_contract")
     cases = result.get("cases")
-    if not isinstance(required_case_fields, dict) or not isinstance(cases, dict):
+    if (
+        not isinstance(required_case_fields, dict)
+        or not isinstance(expected_case_contract, dict)
+        or not isinstance(cases, dict)
+    ):
         raise RuntimeError("worker returned a malformed case collection")
     if set(cases) != set(required_case_fields):
         raise RuntimeError("worker returned the wrong frozen case set")
@@ -300,6 +322,9 @@ def _validate_study_result(
             raise RuntimeError(
                 f"worker returned the wrong frozen fields for case: {case_name}"
             )
+        frozen_case = expected_case_contract.get(case_name)
+        if not isinstance(frozen_case, dict):
+            raise RuntimeError(f"registry has a malformed case contract: {case_name}")
         if not isinstance(case.get("passed"), bool):
             raise RuntimeError(f"worker returned non-terminal case: {case_name}")
         strict_boolean_suffixes = (
@@ -311,6 +336,59 @@ def _validate_study_result(
             "_unreachable",
         )
         for field_name, field_value in case.items():
+            if study == "multistep-td-action-prefix-v3":
+                expected_container = V3_EXTRA_CONTAINER_EXPECTATIONS.get(
+                    (case_name, field_name), frozen_case.get(field_name)
+                )
+                if isinstance(expected_container, (list, dict)):
+                    if (
+                        type(expected_container) is not type(field_value)
+                        or field_value != expected_container
+                    ):
+                        raise RuntimeError(
+                            f"worker returned a non-frozen V3 container: "
+                            f"{case_name}.{field_name}"
+                        )
+                elif isinstance(field_value, (list, dict)):
+                    raise RuntimeError(
+                        f"worker returned a non-frozen V3 container: "
+                        f"{case_name}.{field_name}"
+                    )
+                elif field_name == "passed":
+                    if type(field_value) is not bool:
+                        raise RuntimeError(
+                            f"worker returned a malformed V3 field: "
+                            f"{case_name}.{field_name}"
+                        )
+                elif (
+                    field_name in V3_BOOLEAN_CASE_FIELDS
+                    or field_name.endswith(strict_boolean_suffixes)
+                ):
+                    if type(field_value) is not bool:
+                        raise RuntimeError(
+                            f"worker returned a malformed V3 field: "
+                            f"{case_name}.{field_name}"
+                        )
+                elif (
+                    field_name.endswith("sha256")
+                    or field_name in V3_STRING_CASE_FIELDS
+                ):
+                    if type(field_value) is not str or not field_value:
+                        raise RuntimeError(
+                            f"worker returned a malformed V3 field: "
+                            f"{case_name}.{field_name}"
+                        )
+                elif "return" in field_name or field_name.endswith("_gap"):
+                    if type(field_value) is not float:
+                        raise RuntimeError(
+                            f"worker returned a malformed V3 field: "
+                            f"{case_name}.{field_name}"
+                        )
+                elif type(field_value) is not int:
+                    raise RuntimeError(
+                        f"worker returned a malformed V3 field: "
+                        f"{case_name}.{field_name}"
+                    )
             if field_name.endswith(strict_boolean_suffixes) and not isinstance(
                 field_value, bool
             ):
@@ -347,7 +425,6 @@ def _validate_study_result(
     if any(fixture.get(name) != value for name, value in expected_fixture.items()):
         raise RuntimeError("worker returned the wrong frozen fixture identity")
     case_contract = fixture.get("case_contract")
-    expected_case_contract = entry.get("case_contract")
     if (
         not isinstance(case_contract, dict)
         or not isinstance(expected_case_contract, dict)
@@ -383,8 +460,9 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
             raise RuntimeError("worker result contained an oversized string")
         if (
             str(ROOT).lower() in value.lower()
-            or re.match(r"^[a-zA-Z]:[\\/]", value) is not None
-            or value.startswith(("\\", "/"))
+            or re.match(r"^[a-zA-Z]:", value) is not None
+            or "/" in value
+            or "\\" in value
         ):
             raise RuntimeError("worker result exposed an absolute path")
         return
@@ -398,26 +476,52 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
         if len(value) > 64:
             raise RuntimeError("worker result contained an oversized object")
         for key, item in value.items():
-            if not isinstance(key, str) or len(key) > 128:
+            if (
+                not isinstance(key, str)
+                or len(key) > 128
+                or re.match(r"^[a-zA-Z]:", key) is not None
+                or "/" in key
+                or "\\" in key
+            ):
                 raise RuntimeError("worker result contained a malformed key")
             lowered = key.lower()
             raw_exact = {
+                "action",
                 "actions",
+                "context",
                 "contexts",
+                "donor",
+                "donor_array",
+                "gradient",
                 "gradients",
+                "log",
                 "logs",
+                "observation",
                 "observations",
+                "origin",
+                "origin_array",
+                "path",
                 "paths",
                 "policy_state",
                 "q_table",
+                "q_value",
                 "q_values",
+                "return",
                 "returns",
+                "reward",
                 "rewards",
+                "state",
                 "states",
+                "successor",
+                "successors",
+                "target",
                 "targets",
+                "trajectory",
                 "trajectories",
+                "transition",
                 "transitions",
                 "value_table",
+                "weight",
                 "weights",
             }
             raw_container_exact = {
@@ -497,7 +601,9 @@ def _validate_sanitized_value(value: object, *, depth: int = 0) -> None:
                 "vector",
             }
             if (
-                lowered in raw_exact
+                (lowered in raw_exact and not (
+                    lowered == "action" and depth == 0 and isinstance(item, str)
+                ))
                 or any(fragment in lowered for fragment in forbidden_fragments)
                 or (
                     isinstance(item, (list, dict))
