@@ -65,12 +65,20 @@ registered, executed, or reused. See the sanitized
 [`v2 preflight rejection`](../../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 The fresh
 [`multistep-td-action-prefix-v3` plan](../../research/2026-08-28-multistep-td-action-prefix-v3-plan.md)
-is now frozen before any learner execution. The live gate is exact
-implementation plus focused and independent hostile pre-result checks. V3 is
-not yet in `studies.json` or the controller allowlist, so no study is approved
-to run. Its public sign is an intentionally target-correlated toy learning
-signal; it is not meta-RL, production RL, an optimizer treatment,
-delayed-credit necessity, or candidate evidence.
+was implemented, registered, invoked exactly once through the guarded local-CPU
+controller, and passed all nineteen frozen cases. Its terminal conclusion is
+recorded in the
+[`V3 result`](../../research/2026-08-29-multistep-td-action-prefix-v3-results.md).
+It validates only that synthetic synchronous-TD harness and toy signal.
+
+The next
+[`online-sarsa-latched-choice-v1` plan](../../research/2026-08-29-online-sarsa-latched-choice-v1-plan.md)
+is frozen before implementation or learner execution. The live gate is exact
+implementation plus focused and independent hostile pre-result checks. This ID
+is not yet in `studies.json` or the controller allowlist, so no study is
+approved to run. Its deliberately exposed cue can support only a synthetic
+online-control harness claim, not production RL, optimizer, candidate, or
+competition evidence.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,

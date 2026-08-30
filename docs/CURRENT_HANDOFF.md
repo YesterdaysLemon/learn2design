@@ -263,24 +263,32 @@ failure streak zero. The durable aggregate evidence and exact claim boundary
 are in the
 [`V3 terminal result`](../research/2026-08-29-multistep-td-action-prefix-v3-results.md).
 
-The live next rung is online bootstrapped control with an explicit
-behavior-policy exploration contract and train-only updates on a fresh
-topology-independent toy family. The next checkpoint is plan-only: assign one
-new versioned study ID and freeze the complete generator, typed trajectory,
-action-selection, exploration, bootstrap-target, update-order, untouched
-held-out, comparator, transition-target, behavior-assignment, signal-
-attribution, leakage, stopping, and claim contracts before implementing or
-executing any learner. The narrow question is whether a deterministic tabular
-on-policy control learner can acquire a deliberately learnable multi-step
-choice from its own frozen exploratory behavior, retain it on untouched
-held-out generator regimes, beat precommitted constant, myopic, no-bootstrap,
-and seeded-random baselines, and lose the association under the frozen negative
-controls.
+The fresh
+[`online-sarsa-latched-choice-v1` plan](../research/2026-08-29-online-sarsa-latched-choice-v1-plan.md)
+was rejected during hostile pre-result audit and never invoked through the
+guarded controller. Its frozen schema requires several `_rejected` fields to be
+exact integer counts while also requiring every `_rejected` field to be an
+exact JSON Boolean, so no result can satisfy the complete contract. The
+incomplete task-owned skeleton was removed; no worker, registry entry,
+controller allowlist, source approval, private result, sidecar, state
+transition, lease, terminal event, or evidentiary claim exists for this ID.
+See the
+[`v1 preflight rejection`](../research/2026-08-29-online-sarsa-latched-choice-v1-preflight-rejection.md).
 
-A pass on that future toy family could support only its online-control harness.
-It could not establish general RL, optimizer value, candidate value,
-competition performance, or score. No V3 choice may be selected against V1 or
-V2 development diagnostics; native rewrites, official-data training, candidate
+The v1 plan, family, schedule, regimes, seeds, thresholds, cases, discarded
+skeleton, and any development diagnostics are quarantined. Do not repair,
+register, allowlist, execute, import, reuse, or select a successor against them.
+The private controller remains `awaiting_study`, and the ten earlier terminal
+studies remain the complete approved local evidence set.
+
+The live next checkpoint is plan-only for a fresh
+`online-sarsa-latched-choice-v2` ID. Before any implementation or learner
+execution, freeze a new topology-independent online-control contract with an
+explicit field-by-field scalar-type table consistent with every exact count and
+equality gate. Independently restate the full family, behavior exploration,
+online SARSA order, held-out isolation, comparators, negative controls,
+stopping actions, and synthetic-harness-only claim boundary without selecting
+against v1 diagnostics. Native rewrites, official-data training, candidate
 integration, accelerator benchmarking, meta-RL, and paid training remain
 separate owner gates. No terminal study will be rerun.
 
