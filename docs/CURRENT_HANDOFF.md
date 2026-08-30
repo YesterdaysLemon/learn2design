@@ -295,23 +295,35 @@ lease, terminal event, or evidence. See the
 
 V1 and V2 remain rejected and quarantined. The fresh
 [`online-sarsa-latched-choice-v3` plan](../research/2026-08-30-online-sarsa-latched-choice-v3-plan.md)
-is now the frozen plan-only contract for a new independent repeated-code online
-SARSA toy family. There is no V3 fixture, worker, registry entry, allowlist,
-source approval, learner execution, private result, sidecar, controller
-transition, lease, terminal event, or evidentiary claim. The private controller
-remains `awaiting_study`, and the ten earlier terminal studies remain the
-complete approved local evidence set.
+was also rejected during hostile pre-result audit and never implemented or
+invoked. Its frozen isolation profile commits the complete loaded Python PE
+module closure, including Windows KnownDLLs, while requiring every DLL and
+parent to carry an exact controller-owned DACL. The actual core System32 DLLs
+are TrustedInstaller-owned and cannot be made to satisfy that rule without an
+unsafe destructive system mutation. No V3 fixture, worker, registry entry,
+allowlist, source approval, learner execution, private result, sidecar,
+controller transition, lease, terminal event, or evidence exists. See the
+[`v3 preflight rejection`](../research/2026-08-30-online-sarsa-latched-choice-v3-preflight-rejection.md).
+
+V1, V2, and V3 remain rejected and quarantined. The private controller remains
+`awaiting_study`, and the ten earlier terminal studies remain the complete
+approved local evidence set.
 
 The README's older online-learning paragraph is historical status prose that
 still points at the quarantined V1 plan. This handoff is the authoritative live
 gate; the plan-only checkpoint deliberately does not broaden its diff to that
 entrypoint.
 
-The live next checkpoint is exact V3 implementation plus hostile pre-result
-audit on the immutable plan revision. It must leave result-bearing execution to
-a separate later gate. Native rewrites, official-data training, candidate
-integration, accelerator benchmarking, meta-RL, and paid training remain
-separate owner gates. No terminal or rejected study will be rerun.
+The live next checkpoint is plan-only for one unique fresh
+`online-sarsa-latched-choice-v4` study ID. Before freezing any new learning
+contract, its runtime boundary must be demonstrated host-feasible without
+changing ownership or access rules on Windows system files. The new plan must
+independently define its family, chronology, controls, result schema, stopping
+actions, and narrow synthetic-harness-only claim without selecting against the
+quarantined V1, V2, or V3 diagnostics. Implementation and any result-bearing
+execution remain separate later gates. Native rewrites, official-data training,
+candidate integration, accelerator benchmarking, meta-RL, and paid training
+remain separate owner gates. No terminal or rejected study will be rerun.
 
 ## Public deadlines
 
