@@ -314,14 +314,29 @@ still points at the quarantined V1 plan. This handoff is the authoritative live
 gate; the plan-only checkpoint deliberately does not broaden its diff to that
 entrypoint.
 
-The live next checkpoint is plan-only for one unique fresh
-`online-sarsa-latched-choice-v4` study ID. Before freezing any new learning
-contract, its runtime boundary must be demonstrated host-feasible without
-changing ownership or access rules on Windows system files. The new plan must
-independently define its family, chronology, controls, result schema, stopping
-actions, and narrow synthetic-harness-only claim without selecting against the
-quarantined V1, V2, or V3 diagnostics. Implementation and any result-bearing
-execution remain separate later gates. Native rewrites, official-data training,
+The fresh
+[`online-sarsa-latched-choice-v4` plan](../research/2026-08-30-online-sarsa-latched-choice-v4-plan.md)
+is frozen by the commit containing it after three independent hostile read-only
+audits and non-study host-feasibility probes. Its paired-fork family, online
+SARSA chronology, comparator and negative-control streams, typed case-local
+evidence ledgers, closed scalar/root schema, direct-base-interpreter Job and
+READY/GO process boundary, and read-only operating-system dependency treatment
+are fixed. The boundary never takes ownership of, changes a DACL on, copies
+over, or otherwise mutates a Windows system file or parent. V4 currently has no
+fixture, worker, registry entry, allowlist, source approval, learner execution,
+private result, sidecar, controller transition, lease, terminal event, or
+evidentiary claim. The private controller remains `awaiting_study`.
+
+The live next checkpoint is exact V4 implementation plus hostile pre-result
+audit at the immutable plan revision, not result-bearing execution. Implement
+only its two dedicated experiment modules, focused tests, exact result contract,
+approved-source hashes, dedicated allowlist entry, infrastructure manifest,
+ID-specific controller validator, and normalized registry digest. Do not alter
+any frozen family, seed, schedule, chronology, control, count, type, threshold,
+runtime boundary, stopping action, or claim. If implementation cannot satisfy
+the plan without observing a result or weakening a gate, quarantine V4. One
+later guarded local-CPU invocation must remain a separate checkpoint after a
+clean pre-result commit and green CI. Native rewrites, official-data training,
 candidate integration, accelerator benchmarking, meta-RL, and paid training
 remain separate owner gates. No terminal or rejected study will be rerun.
 
