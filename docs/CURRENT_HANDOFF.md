@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-29
+Updated: 2026-08-30
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -281,16 +281,28 @@ register, allowlist, execute, import, reuse, or select a successor against them.
 The private controller remains `awaiting_study`, and the ten earlier terminal
 studies remain the complete approved local evidence set.
 
-The live next checkpoint is plan-only for a fresh
-`online-sarsa-latched-choice-v2` ID. Before any implementation or learner
-execution, freeze a new topology-independent online-control contract with an
-explicit field-by-field scalar-type table consistent with every exact count and
-equality gate. Independently restate the full family, behavior exploration,
-online SARSA order, held-out isolation, comparators, negative controls,
-stopping actions, and synthetic-harness-only claim boundary without selecting
-against v1 diagnostics. Native rewrites, official-data training, candidate
+The fresh
+[`online-sarsa-latched-choice-v2` plan](../research/2026-08-29-online-sarsa-latched-choice-v2-plan.md)
+was rejected during hostile pre-result audit and never invoked. The proposed
+implementation contained asserted rather than exercised family, timing,
+capability, trace, source-isolation, comparator, control, sanitizer, and
+process-isolation proofs; its beacon-ablation control was also unreachable.
+The entire uncommitted implementation and registry/controller wiring were
+removed. There is no V2 fixture, worker, registry entry, allowlist, source
+approval, learner execution, private result, sidecar, controller transition,
+lease, terminal event, or evidence. See the
+[`v2 preflight rejection`](../research/2026-08-30-online-sarsa-latched-choice-v2-preflight-rejection.md).
+
+V1 and V2 remain rejected and quarantined. The private controller remains
+`awaiting_study`, and the ten earlier terminal studies remain the complete
+approved local evidence set. The live next checkpoint is plan-only for a
+unique fresh `online-sarsa-latched-choice-v3` ID. Its plan must be designed
+without selecting any family, seed, schedule, threshold, control, schema, or
+fixture against v1 or v2 development diagnostics. No V3 implementation,
+registry/controller wiring, learner execution, or result observation belongs
+in that checkpoint. Native rewrites, official-data training, candidate
 integration, accelerator benchmarking, meta-RL, and paid training remain
-separate owner gates. No terminal study will be rerun.
+separate owner gates. No terminal or rejected study will be rerun.
 
 ## Public deadlines
 
