@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-29
+Updated: 2026-08-30
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -283,24 +283,26 @@ studies remain the complete approved local evidence set.
 
 The fresh
 [`online-sarsa-latched-choice-v2` plan](../research/2026-08-29-online-sarsa-latched-choice-v2-plan.md)
-is now the frozen plan-only contract. It independently closes the scalar-type,
-family, schedule, online chronology, capability, trace, held-out, control,
-sanitizer, process-isolation, and claim-boundary rules before implementation.
-There is no V2 fixture, worker, registry entry, allowlist, source approval,
-learner execution, private result, sidecar, controller transition, or evidence.
-The older V1 links in the repository READMEs are historical summaries; this
-handoff is the authoritative live gate and V1 remains rejected and quarantined.
+was rejected during hostile pre-result audit and never invoked. The proposed
+implementation contained asserted rather than exercised family, timing,
+capability, trace, source-isolation, comparator, control, sanitizer, and
+process-isolation proofs; its beacon-ablation control was also unreachable.
+The entire uncommitted implementation and registry/controller wiring were
+removed. There is no V2 fixture, worker, registry entry, allowlist, source
+approval, learner execution, private result, sidecar, controller transition,
+lease, terminal event, or evidence. See the
+[`v2 preflight rejection`](../research/2026-08-30-online-sarsa-latched-choice-v2-preflight-rejection.md).
 
-The live next checkpoint is exact V2 implementation plus hostile pre-result
-audit only. It may add the dedicated synthetic fixture/worker, focused tests,
-the exact 23-case registry/type contract, five approved worker-source hashes,
-the dedicated controller allowlist/strict validator, infrastructure manifest,
-and normalized pinned registry digest at a separate clean pre-result revision.
-It must not invoke the fixture, learner, worker, or guarded controller, observe a
-result-bearing metric, or create terminal evidence. Native rewrites,
-official-data training, candidate integration, accelerator benchmarking,
-meta-RL, and paid training remain separate owner gates. No terminal or rejected
-study will be rerun.
+V1 and V2 remain rejected and quarantined. The private controller remains
+`awaiting_study`, and the ten earlier terminal studies remain the complete
+approved local evidence set. The live next checkpoint is plan-only for a
+unique fresh `online-sarsa-latched-choice-v3` ID. Its plan must be designed
+without selecting any family, seed, schedule, threshold, control, schema, or
+fixture against v1 or v2 development diagnostics. No V3 implementation,
+registry/controller wiring, learner execution, or result observation belongs
+in that checkpoint. Native rewrites, official-data training, candidate
+integration, accelerator benchmarking, meta-RL, and paid training remain
+separate owner gates. No terminal or rejected study will be rerun.
 
 ## Public deadlines
 
