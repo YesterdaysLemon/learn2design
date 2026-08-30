@@ -293,14 +293,23 @@ approval, learner execution, private result, sidecar, controller transition,
 lease, terminal event, or evidence. See the
 [`v2 preflight rejection`](../research/2026-08-30-online-sarsa-latched-choice-v2-preflight-rejection.md).
 
-V1 and V2 remain rejected and quarantined. The private controller remains
-`awaiting_study`, and the ten earlier terminal studies remain the complete
-approved local evidence set. The live next checkpoint is plan-only for a
-unique fresh `online-sarsa-latched-choice-v3` ID. Its plan must be designed
-without selecting any family, seed, schedule, threshold, control, schema, or
-fixture against v1 or v2 development diagnostics. No V3 implementation,
-registry/controller wiring, learner execution, or result observation belongs
-in that checkpoint. Native rewrites, official-data training, candidate
+V1 and V2 remain rejected and quarantined. The fresh
+[`online-sarsa-latched-choice-v3` plan](../research/2026-08-30-online-sarsa-latched-choice-v3-plan.md)
+is now the frozen plan-only contract for a new independent repeated-code online
+SARSA toy family. There is no V3 fixture, worker, registry entry, allowlist,
+source approval, learner execution, private result, sidecar, controller
+transition, lease, terminal event, or evidentiary claim. The private controller
+remains `awaiting_study`, and the ten earlier terminal studies remain the
+complete approved local evidence set.
+
+The README's older online-learning paragraph is historical status prose that
+still points at the quarantined V1 plan. This handoff is the authoritative live
+gate; the plan-only checkpoint deliberately does not broaden its diff to that
+entrypoint.
+
+The live next checkpoint is exact V3 implementation plus hostile pre-result
+audit on the immutable plan revision. It must leave result-bearing execution to
+a separate later gate. Native rewrites, official-data training, candidate
 integration, accelerator benchmarking, meta-RL, and paid training remain
 separate owner gates. No terminal or rejected study will be rerun.
 
