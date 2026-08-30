@@ -265,31 +265,32 @@ are in the
 
 The fresh
 [`online-sarsa-latched-choice-v1` plan](../research/2026-08-29-online-sarsa-latched-choice-v1-plan.md)
-is frozen before implementation or learner execution on
-`codex/lab-online-sarsa-latched-choice-v1-plan`, stacked directly on the clean
-PR #32 terminal-result head. It commits a new topology-independent three-step
-family, sealed policy/update boundaries, a deterministic greedy/forced
-behavior schedule, exact online SARSA order, untouched held-out regimes,
-constant/myopic/no-bootstrap/seeded-random comparators, cue-swapped transition-
-target, action-assignment, zero-origin, and signal controls, twenty-three exact
-result cases, stopping actions, and the synthetic-harness-only claim boundary.
-No fixture, worker, registry entry, controller allowlist, source approval,
-learner execution, private result, or terminal evidence exists for this ID.
-The private controller remains `awaiting_study`.
+was rejected during hostile pre-result audit and never invoked through the
+guarded controller. Its frozen schema requires several `_rejected` fields to be
+exact integer counts while also requiring every `_rejected` field to be an
+exact JSON Boolean, so no result can satisfy the complete contract. The
+incomplete task-owned skeleton was removed; no worker, registry entry,
+controller allowlist, source approval, private result, sidecar, state
+transition, lease, terminal event, or evidentiary claim exists for this ID.
+See the
+[`v1 preflight rejection`](../research/2026-08-29-online-sarsa-latched-choice-v1-preflight-rejection.md).
 
-The live next checkpoint is exact implementation plus hostile pre-result audit
-of that frozen plan. It may add only the dedicated self-contained fixture and
-network-disabled worker beneath `experiments/local_lab`, the exact registry and
-strict controller contract, focused tests, committed-source approvals, and the
-normalized pinned registry digest. It may not change a frozen family, schedule,
-seed, threshold, control, case, action, or claim; it may not invoke the guarded
-controller. A clean pre-result commit is required before a later single local-
-CPU invocation can be considered. A pass could support only the fixed synthetic
-online-control harness and toy signal. It could not establish general RL,
-optimizer or candidate value, competition performance, or score. No V3 choice
-was selected against V1 or V2 diagnostics; native rewrites, official-data
-training, candidate integration, accelerator benchmarking, meta-RL, and paid
-training remain separate owner gates. No terminal study will be rerun.
+The v1 plan, family, schedule, regimes, seeds, thresholds, cases, discarded
+skeleton, and any development diagnostics are quarantined. Do not repair,
+register, allowlist, execute, import, reuse, or select a successor against them.
+The private controller remains `awaiting_study`, and the ten earlier terminal
+studies remain the complete approved local evidence set.
+
+The live next checkpoint is plan-only for a fresh
+`online-sarsa-latched-choice-v2` ID. Before any implementation or learner
+execution, freeze a new topology-independent online-control contract with an
+explicit field-by-field scalar-type table consistent with every exact count and
+equality gate. Independently restate the full family, behavior exploration,
+online SARSA order, held-out isolation, comparators, negative controls,
+stopping actions, and synthetic-harness-only claim boundary without selecting
+against v1 diagnostics. Native rewrites, official-data training, candidate
+integration, accelerator benchmarking, meta-RL, and paid training remain
+separate owner gates. No terminal study will be rerun.
 
 ## Public deadlines
 
