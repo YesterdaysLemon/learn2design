@@ -281,16 +281,26 @@ register, allowlist, execute, import, reuse, or select a successor against them.
 The private controller remains `awaiting_study`, and the ten earlier terminal
 studies remain the complete approved local evidence set.
 
-The live next checkpoint is plan-only for a fresh
-`online-sarsa-latched-choice-v2` ID. Before any implementation or learner
-execution, freeze a new topology-independent online-control contract with an
-explicit field-by-field scalar-type table consistent with every exact count and
-equality gate. Independently restate the full family, behavior exploration,
-online SARSA order, held-out isolation, comparators, negative controls,
-stopping actions, and synthetic-harness-only claim boundary without selecting
-against v1 diagnostics. Native rewrites, official-data training, candidate
-integration, accelerator benchmarking, meta-RL, and paid training remain
-separate owner gates. No terminal study will be rerun.
+The fresh
+[`online-sarsa-latched-choice-v2` plan](../research/2026-08-29-online-sarsa-latched-choice-v2-plan.md)
+is now the frozen plan-only contract. It independently closes the scalar-type,
+family, schedule, online chronology, capability, trace, held-out, control,
+sanitizer, process-isolation, and claim-boundary rules before implementation.
+There is no V2 fixture, worker, registry entry, allowlist, source approval,
+learner execution, private result, sidecar, controller transition, or evidence.
+The older V1 links in the repository READMEs are historical summaries; this
+handoff is the authoritative live gate and V1 remains rejected and quarantined.
+
+The live next checkpoint is exact V2 implementation plus hostile pre-result
+audit only. It may add the dedicated synthetic fixture/worker, focused tests,
+the exact 23-case registry/type contract, five approved worker-source hashes,
+the dedicated controller allowlist/strict validator, infrastructure manifest,
+and normalized pinned registry digest at a separate clean pre-result revision.
+It must not invoke the fixture, learner, worker, or guarded controller, observe a
+result-bearing metric, or create terminal evidence. Native rewrites,
+official-data training, candidate integration, accelerator benchmarking,
+meta-RL, and paid training remain separate owner gates. No terminal or rejected
+study will be rerun.
 
 ## Public deadlines
 
