@@ -8,7 +8,10 @@ import json
 from pathlib import Path
 
 import pytest
-import numpy as np
+
+
+pytestmark = pytest.mark.integration
+np = pytest.importorskip("numpy")
 
 from experiments.local_lab import constraint_aware_progress_toy as fixture
 from experiments.local_lab import constraint_aware_progress_toy_worker as worker
