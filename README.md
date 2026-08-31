@@ -140,9 +140,12 @@ V1 ID is policy-quarantined and the controller now refuses it before any
 private state or worker action. The one-shot standard-library-only
 [`startup-forensics checkpoint`](research/2026-08-31-constraint-progress-startup-forensics-v1-results.md)
 passed, establishing that the reproduced pre-metric Windows process boundary
-is deterministic and host-feasible. The live gate is a fresh V2 scientific
-plan that may change only the process boundary justified by that diagnostic.
-It cannot yet establish competition improvement, and any
+is deterministic and host-feasible. The exact
+[`constraint-aware-progress-toy-v2` pre-result implementation](research/2026-08-31-constraint-aware-progress-toy-v2-pre-result-implementation.md)
+is now committed, source-pinned, independently audited, and fully verified
+without invoking a scientific result path. The live gate is a separate atomic
+controller resume that cannot launch V2; one guarded local-CPU invocation is a
+later checkpoint. This work cannot yet establish competition improvement, and any
 candidate package, accelerator screen, spend, merge, or portal action remains
 a separate owner gate.
 

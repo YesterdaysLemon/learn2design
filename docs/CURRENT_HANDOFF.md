@@ -373,14 +373,22 @@ from scientific dispatch so recursive children authenticate their complete
 frame and verified Job membership before dispatch, while any later exception
 becomes a closed stage code rather than raw stderr.
 
-The live checkpoint is exact V2 implementation plus hostile pre-result audit,
-not result-bearing execution. Add only the two dedicated V2 sources, focused
-tests, exact registry/controller contract and source approvals. Preserve the V1
-historical entry and controller refusal. Do not invoke V2 or clear the parked
-private controller in that checkpoint. The implementation must also exclude
-quarantined IDs from pending-study selection and add the frozen lease-protected
-resume operation, without executing either. Registration, owner-authorized
-resume, and one guarded result-bearing invocation remain later separate gates.
+The exact V2 implementation and hostile pre-result audit are complete at
+commit `e2f8e7579c04ca23b6a254300cf0e34945bbfe5a`. All three independent
+read-only audits are clean, all 54 focused V2 tests pass, the full repository
+suite exits zero, and the five source hashes plus normalized registry digest
+are pinned. The durable boundary and verification receipt are in the
+[`V2 pre-result implementation record`](../research/2026-08-31-constraint-aware-progress-toy-v2-pre-result-implementation.md).
+No V2 scientific path was invoked and no private result, sidecar, state
+transition, lease, or terminal event was produced.
+
+The live next checkpoint is only a separate owner-authorized atomic controller
+resume from the exact parked V1 infrastructure failure to `awaiting_study`.
+The resume operation must authenticate both ledgers and approved V2 sources,
+append its canonical event before state replacement, retain its lease on any
+ambiguous failure, and must not launch a worker. A single guarded local-CPU V2
+invocation remains a later, separate checkpoint after the resumed state and
+clean revision are independently verified. V1 must never be rerun.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
