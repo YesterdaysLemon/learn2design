@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-30
+Updated: 2026-08-31
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -179,15 +179,20 @@ are the evidence record, not a competing task list.
   validates only the fixed synthetic synchronous-TD harness and toy
   propagation mechanics. See the
   [`V3 terminal result`](../research/2026-08-29-multistep-td-action-prefix-v3-results.md).
-- The frozen `constraint-aware-progress-toy-v1` contract now has an exact
+- The frozen `constraint-aware-progress-toy-v1` contract has an exact
   pre-result implementation at commit
   `269698a3974cc12f9871e0e8a3580fbc7230cce9`. Its synthetic fixture,
   independently replaying worker, twelve-case registry contract, source
   approvals, dedicated controller validation, and Windows process boundary
   passed three final hostile read-only audits. Focused tests, the complete
-  local-lab suite, and the single full repository pass are green. The
-  controller has never invoked this ID, so it has no private result or
-  evidentiary claim; see the
+  local-lab suite, and the single full repository pass were green. Its first
+  guarded launch at revision `4098ce1ba25a163e96ac3cf735b7cd7e419bc64c`
+  entered `cycle_started` and parked about two seconds later because the worker
+  emitted forbidden stderr. No terminal result was authenticated and the ID
+  was not added to `completed_studies`, so this is infrastructure evidence,
+  not a scientific failure. V1 is policy-quarantined and must never be retried;
+  removal from the runnable queue or an explicit controller refusal is still
+  pending; see the
   [`pre-result implementation record`](../research/2026-08-30-constraint-aware-progress-toy-v1-pre-result-implementation.md).
 
 ## Next decision
@@ -341,21 +346,25 @@ amended, or quarantined. Do not implement or invoke it while the Round-2 gate
 below is live.
 
 The owner authorized a local Round-2 research pivot and a two-hour laboratory
-cadence on 2026-08-30. The plan-conforming implementation and hostile
-pre-result audit of
-[`constraint-aware-progress-toy-v1`](../research/2026-08-30-round1-feedback-and-round2-program.md)
-are now complete at a clean implementation boundary. The live next checkpoint
-is at most one guarded local-CPU controller invocation of that exact committed
-study, only after the stacked draft PR is green and all controller, source,
-revision, worktree, stop-marker, and lease guards are rechecked. Do not run the
-fixture or worker directly, change the frozen contract, or retry the ID. Keep
-`submission/`, every terminal study, all rejected fixtures, V4, and the
-untouched topology panels unchanged.
+cadence on 2026-08-30, then explicitly authorized infrastructure recovery and
+resumption of local research on 2026-08-31. The controller remains `parked`
+with no active cycle, stop marker, or lease. Do not clear it yet: V1 remains in
+the current registry and a naive unpark could rerun the forbidden ID.
 
-A pass can unlock only an experiment-owned candidate implementation audit.
-Candidate packaging, official data, private outcome panels, accelerator
-benchmarking, paid compute, PR merge, and portal interaction remain separate
-owner gates. No terminal or rejected study will be rerun.
+The live checkpoint is the frozen
+[`constraint-progress-startup-forensics-v1`](../research/2026-08-31-constraint-progress-startup-forensics-v1-plan.md)
+non-result diagnostic. Implement and hostile-audit only its standard-library
+Windows Job/pipe probe, then execute it at most once outside the controller.
+It must not import the V1 fixture or worker, observe optimizer metrics, or touch
+the private lab root. A pass permits only removal of V1 from the runnable queue
+or an explicit controller refusal plus a fresh V2 plan; V2 implementation and
+result-bearing execution remain separate gates.
+
+Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
+untouched topology panels unchanged. Candidate packaging, official data,
+private outcome panels, accelerator benchmarking, paid compute, PR merge, and
+portal interaction remain separate owner gates. No terminal, rejected, or
+retired study will be rerun.
 
 ## Public deadlines
 
