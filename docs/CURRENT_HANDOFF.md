@@ -13,6 +13,13 @@ are the evidence record, not a competing task list.
   and ZIP SHA-256
   `4cc0dbc65a3e61ca5358c18655c432caf478fbdfc07f10512553781f8822924b`.
 
+- On 2026-08-30 the owner supplied the organizing team's Round-1 result email:
+  owner-reported score `0.444293`, best reported score `0.019674`, placement
+  14th of 43 evaluated participants, and an invitation to Round 2. The
+  repository cannot independently authenticate the email or hidden result.
+  The sanitized intake and evidence boundary are frozen in
+  [`2026-08-30-round1-feedback-and-round2-program.md`](../research/2026-08-30-round1-feedback-and-round2-program.md).
+
 - The submission candidate is deterministic and packages successfully.
 - The topology-conditioned neural initializer failed its offline control gate.
 - The frozen `development-v2` A100 screen completed 64/64 runs and validated at
@@ -309,46 +316,46 @@ V1, V2, and V3 remain rejected and quarantined. The private controller remains
 `awaiting_study`, and the ten earlier terminal studies remain the complete
 approved local evidence set.
 
-The README's older online-learning paragraph is historical status prose that
-still points at the quarantined V1 plan. This handoff is the authoritative live
-gate; the plan-only checkpoint deliberately does not broaden its diff to that
-entrypoint.
+The README now reflects the Round-2 priority. This handoff remains the
+authoritative live gate; the frozen V4 record is retained as historical work,
+not a competing task list.
 
-The fresh
+The
 [`online-sarsa-latched-choice-v4` plan](../research/2026-08-30-online-sarsa-latched-choice-v4-plan.md)
-is frozen by the commit containing it after three independent hostile read-only
-audits and non-study host-feasibility probes. Its paired-fork family, online
-SARSA chronology, comparator and negative-control streams, typed case-local
-evidence ledgers, closed scalar/root schema, direct-base-interpreter Job and
-READY/GO process boundary, and read-only operating-system dependency treatment
-are fixed. The boundary never takes ownership of, changes a DACL on, copies
-over, or otherwise mutates a Windows system file or parent. V4 currently has no
-fixture, worker, registry entry, allowlist, source approval, learner execution,
-private result, sidecar, controller transition, lease, terminal event, or
-evidentiary claim. The private controller remains `awaiting_study`.
+remains frozen and intact after its three hostile read-only audits and
+host-feasibility probes. It has no fixture, worker, registry entry, allowlist,
+source approval, learner execution, private result, sidecar, controller
+transition, lease, terminal event, or evidentiary claim. Public Round-1
+feedback changed the research priority, so V4 is paused rather than failed,
+amended, or quarantined. Do not implement or invoke it while the Round-2 gate
+below is live.
 
-The live next checkpoint is exact V4 implementation plus hostile pre-result
-audit at the immutable plan revision, not result-bearing execution. Implement
-only its two dedicated experiment modules, focused tests, exact result contract,
-approved-source hashes, dedicated allowlist entry, infrastructure manifest,
-ID-specific controller validator, and normalized registry digest. Do not alter
-any frozen family, seed, schedule, chronology, control, count, type, threshold,
-runtime boundary, stopping action, or claim. If implementation cannot satisfy
-the plan without observing a result or weakening a gate, quarantine V4. One
-later guarded local-CPU invocation must remain a separate checkpoint after a
-clean pre-result commit and green CI. Native rewrites, official-data training,
-candidate integration, accelerator benchmarking, meta-RL, and paid training
-remain separate owner gates. No terminal or rejected study will be rerun.
+The owner authorized a local Round-2 research pivot and a two-hour laboratory
+cadence on 2026-08-30. The live next checkpoint is plan-conforming
+implementation plus hostile pre-result audit of
+[`constraint-aware-progress-toy-v1`](../research/2026-08-30-round1-feedback-and-round2-program.md).
+Implement only its deterministic synthetic fixture and worker, focused tests,
+exact twelve-case result contract, source approvals, dedicated allowlist, and
+ID-specific controller validation. Keep `submission/`, every terminal study,
+all rejected fixtures, V4, and the untouched topology panels unchanged. Do not
+run the fixture or worker directly and do not invoke the controller in the
+same checkpoint. A single guarded local-CPU invocation must remain a separate
+later checkpoint after a clean pre-result commit, hostile audits, and green CI.
+
+A pass can unlock only an experiment-owned candidate implementation audit.
+Candidate packaging, official data, private outcome panels, accelerator
+benchmarking, paid compute, PR merge, and portal interaction remain separate
+owner gates. No terminal or rejected study will be rerun.
 
 ## Public deadlines
 
 The currently published [official competition timeline](https://github.com/artificial-scientist-lab/Learn2Design-2026/blob/main/README.md#timeline)
 lists optional public-leaderboard deadlines on 2026-08-26, 2026-09-12, and
 2026-09-29 Anywhere on Earth, followed by the prize-determining final deadline
-on 2026-10-15 AoE. Recheck it before any schedule-critical launch; the
-owner-reported 2026-08-24 upload means a baseline is already on file before the
-first public deadline. The completed Stage-A failure does not affect that
-submission's eligibility.
+on 2026-10-15 AoE. Round 1 is now closed; the next published public deadline is
+2026-09-12 AoE. Recheck upstream before any schedule-critical launch. The
+owner-reported Round-1 result confirms that the baseline was evaluated, but it
+does not identify hidden-topology outcomes or validate a local treatment.
 
 ## What can contribute now
 
@@ -357,9 +364,12 @@ in [`DEVELOPMENT_V2_RESULTS_HANDOFF.md`](DEVELOPMENT_V2_RESULTS_HANDOFF.md). The
 durable aggregate result and exploratory evidence boundaries are in
 [`2026-08-21-development-v2-a100-results.md`](../research/2026-08-21-development-v2-a100-results.md).
 
-Useful unpaid work now includes reviewing public-leaderboard feedback when it
-arrives, profiling the retained candidate locally, and developing a genuinely
-new mechanism without selecting against the observed Stage-A panel. The
+Useful unpaid work now follows the frozen Round-2 funnel: synthetic causal
+mechanics, experiment-owned candidate audit, then a separately approved fresh
+development panel. The first question tests whether the complete public
+progress tuple--feasibility, penalty, and sensitivity loss--can improve
+progress/restart decisions relative to the protected raw-total-loss clock
+without selecting against the observed Stage-A panel. The
 validated supervised toy-signal harness result and its strict learning-only
 claim boundary are in
 [`2026-08-27-supervised-toy-signal-results.md`](../research/2026-08-27-supervised-toy-signal-results.md).

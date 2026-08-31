@@ -1,10 +1,25 @@
 # Autonomous local research laboratory
 
-Status: active protocol for unpaid, mechanism-first work.
+Status: active protocol for unpaid Round-2 mechanism research.
 
 The laboratory advances one small falsifiable checkpoint per cycle. It is a
-research workflow around the retained Round-1 candidate, not permission to
-change that candidate, revisit closed evidence, or spend money.
+research workflow around the immutable Round-1 baseline, not permission to
+revisit closed evidence, spend money, or upload a candidate.
+
+## Round-2 owner decision
+
+On 2026-08-30 the owner supplied the sanitized Round-1 aggregate result,
+authorized a local Round-2 research pivot, and changed the heartbeat cadence
+from four hours to two. The active research gate is
+[`constraint-aware-progress-toy-v1`](../research/2026-08-30-round1-feedback-and-round2-program.md).
+The frozen online-SARSA V4 plan is paused intact and must not be implemented or
+invoked while this gate is active.
+
+The decision permits outcome-blind synthetic work and, only after its frozen
+gate passes, an experiment-owned candidate adapter. It does not permit edits to
+`submission/`, use of official data or outcome-open private panels, paid or GPU
+work, opening the untouched promotion panel, building over the retained ZIP,
+merging a PR, or interacting with the competition portal.
 
 ## Constitution
 
@@ -120,6 +135,7 @@ Pause autonomous mutation and request a decision if progress would require:
 - merging a pull request, deleting evidence, or resolving user-owned changes;
 - a materially new live study, panel, cost envelope, or competition claim.
 
-Public-leaderboard feedback is a new external observation. Record it through
-the private intake template first, then reassess the laboratory queue without
-retroactively changing any frozen rule.
+Public-leaderboard feedback is a new external observation. Record only a
+sanitized owner-reported aggregate intake, then reassess the laboratory queue
+without retroactively changing any frozen rule. The Round-1 intake is recorded
+in the active Round-2 plan linked above.
