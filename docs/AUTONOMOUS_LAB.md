@@ -13,12 +13,13 @@ authorized a local Round-2 research pivot, and changed the heartbeat cadence
 from four hours to two. On 2026-08-31 the first constraint-progress launch
 parked on a pre-result infrastructure exception and the owner authorized
 forensic recovery. The failed V1 ID is policy-quarantined and must never be
-retried; removal from the runnable queue or an explicit controller refusal is
-still pending. The active gate is the non-result
-[`constraint-progress-startup-forensics-v1`](../research/2026-08-31-constraint-progress-startup-forensics-v1-plan.md)
-checkpoint; the controller remains parked until V1 is removed from its runnable
-queue or explicitly refused by the controller and a fresh study contract is
-ready.
+retried. Its one-shot standard-library-only
+[`startup-forensics diagnostic`](../research/2026-08-31-constraint-progress-startup-forensics-v1-results.md)
+passed, and the controller now refuses V1 before output validation, repository
+inspection, lease acquisition, private state access, or worker launch. The
+active gate is a fresh V2 plan preserving the scientific contract and changing
+only the process boundary justified by that diagnostic. The private controller
+remains parked until that plan and an owner-authorized atomic resume are ready.
 The frozen online-SARSA V4 plan is paused intact and must not be implemented or
 invoked while this gate is active.
 

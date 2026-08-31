@@ -191,9 +191,19 @@ are the evidence record, not a competing task list.
   emitted forbidden stderr. No terminal result was authenticated and the ID
   was not added to `completed_studies`, so this is infrastructure evidence,
   not a scientific failure. V1 is policy-quarantined and must never be retried;
-  removal from the runnable queue or an explicit controller refusal is still
-  pending; see the
+  the controller now refuses it before output validation, repository
+  inspection, lease acquisition, private state access, or worker launch. See the
   [`pre-result implementation record`](../research/2026-08-30-constraint-aware-progress-toy-v1-pre-result-implementation.md).
+- The one permitted
+  [`constraint-progress-startup-forensics-v1`](../research/2026-08-31-constraint-progress-startup-forensics-v1-results.md)
+  invocation passed at probe revision
+  `1c871b922d421e9b2d0cea05586015955ba673e0`. Both fresh runs were
+  byte-identical; all 22 child launches had their exact frozen disposition,
+  every required pre-gate Job membership succeeded, stderr was empty, and no
+  process survived. This establishes only that the reproduced pre-metric
+  Windows process boundary is deterministic and host-feasible. It localizes the
+  earlier exception to a later V1-specific layer without identifying that layer
+  or evaluating the optimizer.
 
 ## Next decision
 
@@ -348,17 +358,19 @@ below is live.
 The owner authorized a local Round-2 research pivot and a two-hour laboratory
 cadence on 2026-08-30, then explicitly authorized infrastructure recovery and
 resumption of local research on 2026-08-31. The controller remains `parked`
-with no active cycle, stop marker, or lease. Do not clear it yet: V1 remains in
-the current registry and a naive unpark could rerun the forbidden ID.
+with no active cycle, stop marker, or lease. V1 remains in the registry only as
+historical contract evidence and is mechanically refused before any
+control-plane mutation.
 
-The live checkpoint is the frozen
-[`constraint-progress-startup-forensics-v1`](../research/2026-08-31-constraint-progress-startup-forensics-v1-plan.md)
-non-result diagnostic. Implement and hostile-audit only its standard-library
-Windows Job/pipe probe, then execute it at most once outside the controller.
-It must not import the V1 fixture or worker, observe optimizer metrics, or touch
-the private lab root. A pass permits only removal of V1 from the runnable queue
-or an explicit controller refusal plus a fresh V2 plan; V2 implementation and
-result-bearing execution remain separate gates.
+The live checkpoint is plan-only for a fresh
+`constraint-aware-progress-toy-v2`. Freeze the V2 scientific contract before
+implementation. Preserve V1's synthetic family, seeds, thresholds, cases,
+decision rule, and claim boundary without selecting against a scientific result
+(none exists), and change only the worker/bootstrap process boundary justified
+by the passed
+[`startup-forensics diagnostic`](../research/2026-08-31-constraint-progress-startup-forensics-v1-results.md).
+V2 implementation, controller registration, owner-authorized atomic resume,
+and result-bearing execution remain later separate gates.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,

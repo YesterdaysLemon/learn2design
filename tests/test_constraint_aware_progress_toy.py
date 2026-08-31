@@ -550,7 +550,7 @@ def test_duplicate_json_keys_fail_closed_at_worker_and_controller_boundaries() -
         controller._loads_json('{"x":1,"x":2}')
 
 
-def test_registry_has_exact_five_sources_and_normalized_controller_digest() -> None:
+def test_registry_preserves_historical_sources_and_controller_quarantine() -> None:
     encoded = (ROOT / "experiments/local_lab/studies.json").read_bytes().replace(
         b"\r\n", b"\n"
     )
@@ -558,9 +558,13 @@ def test_registry_has_exact_five_sources_and_normalized_controller_digest() -> N
     entry = registry["studies"][STUDY_ID]
     assert set(entry["source_paths"]) == controller.REQUIRED_SOURCE_KEYS
     assert set(entry["approved_file_sha256"]) == controller.REQUIRED_SOURCE_KEYS
+    approved_revision = "4098ce1ba25a163e96ac3cf735b7cd7e419bc64c"
     for name, relative_path in entry["source_paths"].items():
-        source = (ROOT / relative_path).read_bytes().replace(b"\r\n", b"\n")
+        source = controller._git_bytes(
+            "show", f"{approved_revision}:{relative_path}"
+        ).replace(b"\r\n", b"\n")
         assert hashlib.sha256(source).hexdigest() == entry["approved_file_sha256"][name]
+    assert STUDY_ID in controller.QUARANTINED_STUDIES
     assert entry["worker_module"] in controller.WORKER_MODULE_PATHS
     assert (
         controller.WORKER_MODULE_PATHS[entry["worker_module"]]
@@ -571,50 +575,11 @@ def test_registry_has_exact_five_sources_and_normalized_controller_digest() -> N
     assert hashlib.sha256(encoded).hexdigest() == controller.EXPECTED_STUDY_REGISTRY_SHA256
 
 
-def test_controller_terminal_transaction_closes_the_new_pending_study(
+def test_controller_refuses_quarantined_study_before_private_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    registry = controller._load_study_registry()
-    entry = controller._study_entry(registry, STUDY_ID)
-    revision = "b" * 40
-    contract = "c" * 64
-    result = _valid_result(entry, revision, contract)
-    snapshot = {
-        "committed_file_sha256": entry["approved_file_sha256"],
-        "committed_source_paths": entry["source_paths"],
-        "revision": revision,
-    }
-    state = controller._default_state()
-    state["status"] = "awaiting_study"
-    state["completed_studies"] = {
-        name: {
-            "cycle_id": f"prior-{index}",
-            "result_sha256": format(index + 1, "x") * 64,
-            "revision": format(index + 2, "x") * 40,
-            "status": "passed",
-        }
-        for index, name in enumerate(registry["studies"])
-        if name != STUDY_ID
-    }
-    controller._write_mutable_json(tmp_path / "lab-state.json", state)
-    output = tmp_path / "cycles" / "constraint-progress-test" / "result.json"
+    output = tmp_path / "cycles" / "forbidden-retry" / "result.json"
     monkeypatch.setattr(controller, "PRIVATE_ROOT", tmp_path)
-    monkeypatch.setattr(controller, "_repository_snapshot", lambda _entry: snapshot)
-    monkeypatch.setattr(controller, "_git", lambda *_args: revision)
-    monkeypatch.setattr(controller, "_validate_constraint_progress_runtime", lambda _entry: None)
-    monkeypatch.setattr(
-        controller,
-        "_constraint_progress_contract_sha256",
-        lambda _registry, _entry: contract,
-    )
-    monkeypatch.setattr(
-        controller,
-        "_run_worker",
-        lambda *_args, **_kwargs: (
-            result,
-            WORKER_RECEIPT,
-        ),
-    )
     monkeypatch.setattr(
         controller.sys,
         "argv",
@@ -627,10 +592,15 @@ def test_controller_terminal_transaction_closes_the_new_pending_study(
         ],
     )
 
-    controller.main()
+    with pytest.raises(controller.QuarantinedStudyError, match="cannot be invoked"):
+        controller.main()
 
-    terminal_state = controller._load_state(tmp_path)
-    assert terminal_state["status"] == "awaiting_study"
-    assert terminal_state["stop_reason"] == "no_approved_study_pending"
-    assert set(terminal_state["completed_studies"]) == set(registry["studies"])
-    assert not (tmp_path / "lab.lock").exists()
+    with pytest.raises(controller.QuarantinedStudyError, match="cannot be invoked"):
+        controller._run_worker(
+            STUDY_ID,
+            cycle_id="forbidden-retry",
+            heartbeat=lambda _pid, _elapsed: None,
+            worker_module="experiments.local_lab.constraint_aware_progress_toy_worker",
+        )
+
+    assert list(tmp_path.iterdir()) == []
