@@ -550,17 +550,42 @@ def test_duplicate_json_keys_fail_closed_at_worker_and_controller_boundaries() -
         controller._loads_json('{"x":1,"x":2}')
 
 
-def test_registry_has_exact_five_sources_and_normalized_controller_digest() -> None:
+def test_registry_preserves_historical_sources_and_controller_quarantine() -> None:
     encoded = (ROOT / "experiments/local_lab/studies.json").read_bytes().replace(
         b"\r\n", b"\n"
     )
     registry = json.loads(encoded)
     entry = registry["studies"][STUDY_ID]
-    assert set(entry["source_paths"]) == controller.REQUIRED_SOURCE_KEYS
-    assert set(entry["approved_file_sha256"]) == controller.REQUIRED_SOURCE_KEYS
-    for name, relative_path in entry["source_paths"].items():
-        source = (ROOT / relative_path).read_bytes().replace(b"\r\n", b"\n")
-        assert hashlib.sha256(source).hexdigest() == entry["approved_file_sha256"][name]
+    assert entry["source_paths"] == {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/constraint_aware_progress_toy.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-30-round1-feedback-and-round2-program.md",
+        "worker_source": (
+            "experiments/local_lab/constraint_aware_progress_toy_worker.py"
+        ),
+    }
+    # The CI checkout is intentionally shallow, so an ancestor commit is not a
+    # portable source of truth here.  Pin the retired manifest itself instead;
+    # the controller refuses this study before it can inspect or approve files.
+    assert entry["approved_file_sha256"] == {
+        "dependency_lock": (
+            "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0"
+        ),
+        "fixture_source": (
+            "691c81fa0e960c307266d5963685067a71803bc2a1e9c4dfe0561d53508e63d1"
+        ),
+        "lab_protocol": (
+            "d062a71131533d3d26ae33c95ae155a73d2477914c48024339bf6d94fd8c8472"
+        ),
+        "study_plan": (
+            "9a9c4536a28ee6fdea8f74387be5975943eaab551a3c959f41e4d3d49ba86c96"
+        ),
+        "worker_source": (
+            "2f59c44fc3c98fd5e90431ed7b3d52946815b170d8b2bead6689953e463d3994"
+        ),
+    }
+    assert STUDY_ID in controller.QUARANTINED_STUDIES
     assert entry["worker_module"] in controller.WORKER_MODULE_PATHS
     assert (
         controller.WORKER_MODULE_PATHS[entry["worker_module"]]
@@ -571,50 +596,11 @@ def test_registry_has_exact_five_sources_and_normalized_controller_digest() -> N
     assert hashlib.sha256(encoded).hexdigest() == controller.EXPECTED_STUDY_REGISTRY_SHA256
 
 
-def test_controller_terminal_transaction_closes_the_new_pending_study(
+def test_controller_refuses_quarantined_study_before_private_mutation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    registry = controller._load_study_registry()
-    entry = controller._study_entry(registry, STUDY_ID)
-    revision = "b" * 40
-    contract = "c" * 64
-    result = _valid_result(entry, revision, contract)
-    snapshot = {
-        "committed_file_sha256": entry["approved_file_sha256"],
-        "committed_source_paths": entry["source_paths"],
-        "revision": revision,
-    }
-    state = controller._default_state()
-    state["status"] = "awaiting_study"
-    state["completed_studies"] = {
-        name: {
-            "cycle_id": f"prior-{index}",
-            "result_sha256": format(index + 1, "x") * 64,
-            "revision": format(index + 2, "x") * 40,
-            "status": "passed",
-        }
-        for index, name in enumerate(registry["studies"])
-        if name != STUDY_ID
-    }
-    controller._write_mutable_json(tmp_path / "lab-state.json", state)
-    output = tmp_path / "cycles" / "constraint-progress-test" / "result.json"
+    output = tmp_path / "cycles" / "forbidden-retry" / "result.json"
     monkeypatch.setattr(controller, "PRIVATE_ROOT", tmp_path)
-    monkeypatch.setattr(controller, "_repository_snapshot", lambda _entry: snapshot)
-    monkeypatch.setattr(controller, "_git", lambda *_args: revision)
-    monkeypatch.setattr(controller, "_validate_constraint_progress_runtime", lambda _entry: None)
-    monkeypatch.setattr(
-        controller,
-        "_constraint_progress_contract_sha256",
-        lambda _registry, _entry: contract,
-    )
-    monkeypatch.setattr(
-        controller,
-        "_run_worker",
-        lambda *_args, **_kwargs: (
-            result,
-            WORKER_RECEIPT,
-        ),
-    )
     monkeypatch.setattr(
         controller.sys,
         "argv",
@@ -627,10 +613,15 @@ def test_controller_terminal_transaction_closes_the_new_pending_study(
         ],
     )
 
-    controller.main()
+    with pytest.raises(controller.QuarantinedStudyError, match="cannot be invoked"):
+        controller.main()
 
-    terminal_state = controller._load_state(tmp_path)
-    assert terminal_state["status"] == "awaiting_study"
-    assert terminal_state["stop_reason"] == "no_approved_study_pending"
-    assert set(terminal_state["completed_studies"]) == set(registry["studies"])
-    assert not (tmp_path / "lab.lock").exists()
+    with pytest.raises(controller.QuarantinedStudyError, match="cannot be invoked"):
+        controller._run_worker(
+            STUDY_ID,
+            cycle_id="forbidden-retry",
+            heartbeat=lambda _pid, _elapsed: None,
+            worker_module="experiments.local_lab.constraint_aware_progress_toy_worker",
+        )
+
+    assert list(tmp_path.iterdir()) == []

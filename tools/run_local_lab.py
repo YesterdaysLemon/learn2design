@@ -137,10 +137,22 @@ MAX_WORKER_OUTPUT_BYTES = 5 * 1024 * 1024
 CONSTRAINT_PROGRESS_OUTPUT_BYTES = 1_048_576
 OUTPUT_POLL_SECONDS = 1
 STATE_SCHEMA_VERSION = 1
+QUARANTINED_STUDIES = frozenset({"constraint-aware-progress-toy-v1"})
 
 
 class DuplicateStudyError(RuntimeError):
     """A terminal study was requested again; refuse without parking state."""
+
+
+class QuarantinedStudyError(RuntimeError):
+    """A rejected or failed pre-result study was requested; refuse without mutation."""
+
+
+def _refuse_quarantined_study(study: str) -> None:
+    if study in QUARANTINED_STUDIES:
+        raise QuarantinedStudyError(
+            f"study is quarantined and cannot be invoked: {study}"
+        )
 
 
 def _utc_now() -> str:
@@ -1722,6 +1734,7 @@ def _run_worker(
     max_output_bytes: int = MAX_WORKER_OUTPUT_BYTES,
     require_empty_stderr: bool = False,
 ) -> tuple[dict[str, object], dict[str, object]]:
+    _refuse_quarantined_study(worker_mode)
     if worker_module not in WORKER_MODULE_PATHS:
         raise RuntimeError("local-lab worker module is not allowlisted")
     if worker_module == "experiments.local_lab.constraint_aware_progress_toy_worker":
@@ -1923,6 +1936,9 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
+    # A quarantined ID must fail before output validation, repository inspection,
+    # lease acquisition, state reads, or any other private-control-plane mutation.
+    _refuse_quarantined_study(args.study)
     output, sidecar = _validate_output(args.output)
     cycle_id = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{uuid.uuid4().hex[:12]}"
     prelease_revision = _git("rev-parse", "HEAD")

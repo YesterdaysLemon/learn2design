@@ -10,8 +10,16 @@ revisit closed evidence, spend money, or upload a candidate.
 
 On 2026-08-30 the owner supplied the sanitized Round-1 aggregate result,
 authorized a local Round-2 research pivot, and changed the heartbeat cadence
-from four hours to two. The active research gate is
-[`constraint-aware-progress-toy-v1`](../research/2026-08-30-round1-feedback-and-round2-program.md).
+from four hours to two. On 2026-08-31 the first constraint-progress launch
+parked on a pre-result infrastructure exception and the owner authorized
+forensic recovery. The failed V1 ID is policy-quarantined and must never be
+retried. Its one-shot standard-library-only
+[`startup-forensics diagnostic`](../research/2026-08-31-constraint-progress-startup-forensics-v1-results.md)
+passed, and the controller now refuses V1 before output validation, repository
+inspection, lease acquisition, private state access, or worker launch. The
+active gate is a fresh V2 plan preserving the scientific contract and changing
+only the process boundary justified by that diagnostic. The private controller
+remains parked until that plan and an owner-authorized atomic resume are ready.
 The frozen online-SARSA V4 plan is paused intact and must not be implemented or
 invoked while this gate is active.
 

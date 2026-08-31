@@ -116,8 +116,10 @@ general RL, optimizer value, or candidate performance. See the sanitized
 [`contextual-bandit result`](research/2026-08-27-contextual-bandit-toy-signal-results.md),
 [`two-step delayed-credit result`](research/2026-08-28-two-step-delayed-credit-results.md),
 [`multi-step TD result`](research/2026-08-29-multistep-td-action-prefix-v3-results.md),
-and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is back in
-`awaiting_study` with no approved study pending. The two earlier proposed
+[`startup-forensics result`](research/2026-08-31-constraint-progress-startup-forensics-v1-results.md),
+and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is parked
+after the first `constraint-aware-progress-toy-v1` launch encountered an
+infrastructure exception before any authenticated result. The two earlier proposed
 multi-step fixtures remain quarantined. The first,
 `multistep-td-propagation-v1`, was rejected before terminal execution because
 its public state leaked prior target agreement and its complete-family,
@@ -133,11 +135,14 @@ and
 [`v2 preflight rejection`](research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
 The later online-SARSA plans are historical synthetic-learning work. V1 through
 V3 were rejected before execution; the frozen V4 plan is paused intact after
-public Round-1 feedback changed the priority. The live gate is now exact
-implementation plus hostile pre-result audit of the plan-only
-`constraint-aware-progress-toy-v1` checkpoint. It tests a public-aux-guided
-progress/restart rule against protected optimizer semantics on a closed
-synthetic family. It cannot establish competition improvement, and any
+public Round-1 feedback changed the priority. The failed constraint-progress
+V1 ID is policy-quarantined and the controller now refuses it before any
+private state or worker action. The one-shot standard-library-only
+[`startup-forensics checkpoint`](research/2026-08-31-constraint-progress-startup-forensics-v1-results.md)
+passed, establishing that the reproduced pre-metric Windows process boundary
+is deterministic and host-feasible. The live gate is a fresh V2 scientific
+plan that may change only the process boundary justified by that diagnostic.
+It cannot yet establish competition improvement, and any
 candidate package, accelerator screen, spend, merge, or portal action remains
 a separate owner gate.
 
