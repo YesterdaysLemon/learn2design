@@ -556,14 +556,35 @@ def test_registry_preserves_historical_sources_and_controller_quarantine() -> No
     )
     registry = json.loads(encoded)
     entry = registry["studies"][STUDY_ID]
-    assert set(entry["source_paths"]) == controller.REQUIRED_SOURCE_KEYS
-    assert set(entry["approved_file_sha256"]) == controller.REQUIRED_SOURCE_KEYS
-    approved_revision = "4098ce1ba25a163e96ac3cf735b7cd7e419bc64c"
-    for name, relative_path in entry["source_paths"].items():
-        source = controller._git_bytes(
-            "show", f"{approved_revision}:{relative_path}"
-        ).replace(b"\r\n", b"\n")
-        assert hashlib.sha256(source).hexdigest() == entry["approved_file_sha256"][name]
+    assert entry["source_paths"] == {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/constraint_aware_progress_toy.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-30-round1-feedback-and-round2-program.md",
+        "worker_source": (
+            "experiments/local_lab/constraint_aware_progress_toy_worker.py"
+        ),
+    }
+    # The CI checkout is intentionally shallow, so an ancestor commit is not a
+    # portable source of truth here.  Pin the retired manifest itself instead;
+    # the controller refuses this study before it can inspect or approve files.
+    assert entry["approved_file_sha256"] == {
+        "dependency_lock": (
+            "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0"
+        ),
+        "fixture_source": (
+            "691c81fa0e960c307266d5963685067a71803bc2a1e9c4dfe0561d53508e63d1"
+        ),
+        "lab_protocol": (
+            "d062a71131533d3d26ae33c95ae155a73d2477914c48024339bf6d94fd8c8472"
+        ),
+        "study_plan": (
+            "9a9c4536a28ee6fdea8f74387be5975943eaab551a3c959f41e4d3d49ba86c96"
+        ),
+        "worker_source": (
+            "2f59c44fc3c98fd5e90431ed7b3d52946815b170d8b2bead6689953e463d3994"
+        ),
+    }
     assert STUDY_ID in controller.QUARANTINED_STUDIES
     assert entry["worker_module"] in controller.WORKER_MODULE_PATHS
     assert (
