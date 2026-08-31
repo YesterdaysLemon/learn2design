@@ -169,10 +169,9 @@ def test_restart_provider_releases_only_committed_hashes_before_seal() -> None:
 
 def test_runtime_sentinel_capability_and_malformed_consumers_are_live() -> None:
     worker._load_runtime()
-    # The development suite intentionally runs under uv's Python/NumPy pair,
-    # not the separately frozen host worker runtime.  Both boundaries must fail
-    # closed instead of silently accepting the development interpreter.
-    with pytest.raises(RuntimeError, match="isolated runtime probe failed"):
+    # The failed V1 worker and runtime probe are now policy-quarantined.  Unit
+    # consumers remain testable, but no process path may launch that worker.
+    with pytest.raises(controller.QuarantinedStudyError, match="cannot be invoked"):
         controller._constraint_progress_runtime_identity()
     with pytest.raises(fixture.ContractError, match="runtime-identity"):
         worker._runtime_identity()

@@ -24,7 +24,7 @@ ROOT = Path(__file__).parents[1].resolve()
 PRIVATE_ROOT = ROOT.with_name(f"{ROOT.name}-local-lab").resolve()
 STUDY_REGISTRY_PATH = ROOT / "experiments" / "local_lab" / "studies.json"
 EXPECTED_STUDY_REGISTRY_SHA256 = (
-    "4dd756ee655ab6bc816eb1639ba69ecc85d678005fc224708a418aee5c637e65"
+    "addde4630f53d0aa1e3b2bc3a7132978d54fe505e1f94b4f931795fd25983a2b"
 )
 EXPECTED_SUBMISSION_SOURCE_SHA256 = (
     "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
@@ -96,6 +96,9 @@ V3_CASE_CONTRACT_CONTAINER_FIELDS = {
     ("typed_episodic_contract", "reward_values"),
 }
 WORKER_MODULE_PATHS = {
+    "experiments.local_lab.constraint_aware_progress_toy_v2_worker": (
+        "experiments/local_lab/constraint_aware_progress_toy_v2_worker.py"
+    ),
     "experiments.local_lab.constraint_aware_progress_toy_worker": (
         "experiments/local_lab/constraint_aware_progress_toy_worker.py"
     ),
@@ -129,6 +132,7 @@ WORKER_MODULE_PATHS = {
     "experiments.local_lab.worker": "experiments/local_lab/worker.py",
 }
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
+GIT_REVISION_PATTERN = re.compile(r"[0-9a-f]{40}")
 ALLOWED_BRANCH = "codex/autonomous-local-lab"
 ALLOWED_BRANCH_PREFIX = "codex/lab-"
 CYCLE_TIMEOUT_SECONDS = 60 * 60
@@ -138,6 +142,31 @@ CONSTRAINT_PROGRESS_OUTPUT_BYTES = 1_048_576
 OUTPUT_POLL_SECONDS = 1
 STATE_SCHEMA_VERSION = 1
 QUARANTINED_STUDIES = frozenset({"constraint-aware-progress-toy-v1"})
+CONSTRAINT_PROGRESS_STUDIES = frozenset(
+    {
+        "constraint-aware-progress-toy-v1",
+        "constraint-aware-progress-toy-v2",
+    }
+)
+CONSTRAINT_PROGRESS_DIRECT_WORKERS = frozenset(
+    {
+        "experiments.local_lab.constraint_aware_progress_toy_worker",
+        "experiments.local_lab.constraint_aware_progress_toy_v2_worker",
+    }
+)
+CONSTRAINT_PROGRESS_V1 = "constraint-aware-progress-toy-v1"
+CONSTRAINT_PROGRESS_V2 = "constraint-aware-progress-toy-v2"
+CONSTRAINT_PROGRESS_V1_PARK_REASON = (
+    "RuntimeError: local-lab worker emitted forbidden stderr"
+)
+CONSTRAINT_PROGRESS_WORKERS = {
+    CONSTRAINT_PROGRESS_V1: (
+        "experiments.local_lab.constraint_aware_progress_toy_worker"
+    ),
+    CONSTRAINT_PROGRESS_V2: (
+        "experiments.local_lab.constraint_aware_progress_toy_v2_worker"
+    ),
+}
 
 
 class DuplicateStudyError(RuntimeError):
@@ -146,6 +175,14 @@ class DuplicateStudyError(RuntimeError):
 
 class QuarantinedStudyError(RuntimeError):
     """A rejected or failed pre-result study was requested; refuse without mutation."""
+
+
+class ControlLedgerRollbackError(RuntimeError):
+    """A control-ledger transaction could not be restored; retain its lease."""
+
+
+class ControlLedgerIntegrityError(RuntimeError):
+    """The existing control ledger is not canonical; retain its lease."""
 
 
 def _refuse_quarantined_study(study: str) -> None:
@@ -329,8 +366,17 @@ def _validate_study_approval(
 
 
 def _constraint_progress_contract_sha256(
-    registry: dict[str, object], entry: dict[str, object]
+    registry: dict[str, object],
+    entry: dict[str, object],
+    study: str | None = None,
 ) -> str:
+    study = study or entry.get("worker_mode")
+    if (
+        study not in CONSTRAINT_PROGRESS_STUDIES
+        or entry.get("worker_mode") != study
+        or entry.get("worker_module") != CONSTRAINT_PROGRESS_WORKERS[study]
+    ):
+        raise RuntimeError("constraint-progress study identity is not approved")
     plan_path = entry.get("plan_path")
     if not isinstance(plan_path, str):
         raise RuntimeError("constraint-progress study has no frozen plan path")
@@ -342,25 +388,51 @@ def _constraint_progress_contract_sha256(
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
+    version = study.rsplit("-", 1)[-1]
     return _sha256_bytes(
-        b"L2D-constraint-progress-v1/contract\0"
+        f"L2D-constraint-progress-{version}/contract\0".encode("ascii")
         + plan_blob
         + b"\0"
         + normalized_registry
     )
 
 
-def _constraint_progress_runtime_identity() -> dict[str, str]:
-    worker_path = ROOT / WORKER_MODULE_PATHS[
-        "experiments.local_lab.constraint_aware_progress_toy_worker"
-    ]
+def _constraint_progress_runtime_identity(
+    entry: dict[str, object] | None = None,
+    *,
+    study_revision: str | None = None,
+    contract_sha256: str | None = None,
+) -> dict[str, str]:
+    if entry is None:
+        _refuse_quarantined_study(CONSTRAINT_PROGRESS_V1)
+        raise AssertionError("quarantined V1 runtime probe became reachable")
+    else:
+        worker_module = entry.get("worker_module")
+        worker_mode = entry.get("worker_mode")
+        plan_revision = entry.get("plan_revision")
+        if isinstance(worker_mode, str):
+            _refuse_quarantined_study(worker_mode)
+        if (
+            worker_mode not in CONSTRAINT_PROGRESS_STUDIES
+            or worker_module != CONSTRAINT_PROGRESS_WORKERS[worker_mode]
+            or type(plan_revision) is not str
+            or type(study_revision) is not str
+            or type(contract_sha256) is not str
+        ):
+            raise RuntimeError("constraint-progress runtime probe contract is malformed")
+        environment_overrides = {
+            "L2D_CONTRACT_SHA256": contract_sha256,
+            "L2D_PLAN_REVISION": plan_revision,
+            "L2D_STUDY_REVISION": study_revision,
+        }
+    worker_path = ROOT / WORKER_MODULE_PATHS[worker_module]
     command = [
         sys.executable,
         "-S",
         "-P",
         str(worker_path),
         "--mode",
-        "constraint-aware-progress-toy-v1-runtime-probe",
+        f"{worker_mode}-runtime-probe",
     ]
     process = None
     with tempfile.TemporaryDirectory(prefix="l2d-runtime-probe-") as directory:
@@ -374,7 +446,7 @@ def _constraint_progress_runtime_identity() -> dict[str, str]:
                 process = subprocess.Popen(
                     command,
                     cwd=ROOT,
-                    env=_worker_environment(),
+                    env=_worker_environment(environment_overrides),
                     stdout=stdout_handle,
                     stderr=stderr_handle,
                     creationflags=(
@@ -393,11 +465,23 @@ def _constraint_progress_runtime_identity() -> dict[str, str]:
                         _terminate_process_tree(process)
                         raise RuntimeError("constraint-progress runtime probe exceeded its cap")
                     time.sleep(0.05)
-            stdout = stdout_path.read_bytes()
-            stderr = stderr_path.read_bytes()
+            stdout = _read_bounded_file(stdout_path, 16_384)
+            stderr = _read_bounded_file(stderr_path, 16_384 - len(stdout))
         finally:
+            cleanup_error: BaseException | None = None
             if process is not None and process.poll() is None:
-                _terminate_process_tree(process)
+                try:
+                    _terminate_process_tree(process)
+                except BaseException as error:
+                    cleanup_error = error
+            if process is not None and process.poll() is None:
+                cleanup_error = cleanup_error or RuntimeError(
+                    "constraint-progress runtime probe process survived cleanup"
+                )
+            if cleanup_error is not None:
+                raise RuntimeError(
+                    "constraint-progress runtime probe cleanup failed"
+                ) from cleanup_error
     if (
         process is None
         or process.returncode != 0
@@ -413,9 +497,18 @@ def _constraint_progress_runtime_identity() -> dict[str, str]:
     return value
 
 
-def _validate_constraint_progress_runtime(entry: dict[str, object]) -> None:
+def _validate_constraint_progress_runtime(
+    entry: dict[str, object],
+    *,
+    study_revision: str | None = None,
+    contract_sha256: str | None = None,
+) -> None:
     expected = entry.get("runtime_identity")
-    if not isinstance(expected, dict) or _constraint_progress_runtime_identity() != expected:
+    if not isinstance(expected, dict) or _constraint_progress_runtime_identity(
+        entry,
+        study_revision=study_revision,
+        contract_sha256=contract_sha256,
+    ) != expected:
         raise RuntimeError("constraint-progress runtime identity changed")
 
 
@@ -718,6 +811,7 @@ def _validate_constraint_progress_result(
     entry: dict[str, object],
     result: dict[str, object],
     *,
+    study: str,
     study_revision: str | None,
     contract_sha256: str | None,
     worker_receipt: Mapping[str, object] | None,
@@ -725,7 +819,12 @@ def _validate_constraint_progress_result(
     top_level = entry.get("result_top_level_fields")
     if not isinstance(top_level, list) or tuple(result) != tuple(top_level):
         raise RuntimeError("constraint-progress result has the wrong top-level schema")
-    if result.get("study_id") != "constraint-aware-progress-toy-v1":
+    if (
+        study not in CONSTRAINT_PROGRESS_STUDIES
+        or entry.get("worker_mode") != study
+        or entry.get("worker_module") != CONSTRAINT_PROGRESS_WORKERS[study]
+        or result.get("study_id") != study
+    ):
         raise RuntimeError("constraint-progress result has the wrong study identity")
     if result.get("plan_revision") != entry.get("plan_revision"):
         raise RuntimeError("constraint-progress result has the wrong plan revision")
@@ -971,8 +1070,11 @@ def _validate_constraint_progress_result(
         != ("stderr_bytes", "stderr_sha256", "stdout_bytes")
         or type(worker_receipt.get("stdout_bytes")) is not int
         or not (0 < worker_receipt["stdout_bytes"] <= CONSTRAINT_PROGRESS_OUTPUT_BYTES)
-        or worker_receipt.get("stderr_bytes") != 0
-        or worker_receipt.get("stderr_sha256") != hashlib.sha256(b"").hexdigest()
+        or type(worker_receipt.get("stderr_bytes")) is not int
+        or worker_receipt["stderr_bytes"] != 0
+        or type(worker_receipt.get("stderr_sha256")) is not str
+        or SHA256_PATTERN.fullmatch(worker_receipt["stderr_sha256"]) is None
+        or worker_receipt["stderr_sha256"] != hashlib.sha256(b"").hexdigest()
     ):
         raise RuntimeError("constraint-progress outer worker receipt is invalid")
 
@@ -1121,10 +1223,11 @@ def _validate_study_result(
     contract_sha256: str | None = None,
     worker_receipt: Mapping[str, object] | None = None,
 ) -> None:
-    if study == "constraint-aware-progress-toy-v1":
+    if study in CONSTRAINT_PROGRESS_STUDIES:
         _validate_constraint_progress_result(
             entry,
             result,
+            study=study,
             study_revision=study_revision,
             contract_sha256=contract_sha256,
             worker_receipt=worker_receipt,
@@ -1539,12 +1642,16 @@ def _write_atomic(path: Path, payload: dict[str, object]) -> str:
     return _write_atomic_bytes(path, encoded)
 
 
+def _mutable_json_bytes(payload: dict[str, object]) -> bytes:
+    return (
+        json.dumps(payload, allow_nan=False, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+
+
 def _write_mutable_json(path: Path, payload: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex}")
-    encoded = (
-        json.dumps(payload, allow_nan=False, indent=2, sort_keys=True) + "\n"
-    ).encode("utf-8")
+    encoded = _mutable_json_bytes(payload)
     try:
         with temporary.open("xb") as handle:
             handle.write(encoded)
@@ -1556,13 +1663,75 @@ def _write_mutable_json(path: Path, payload: dict[str, object]) -> None:
             temporary.unlink()
 
 
-def _append_event(private_root: Path, event: dict[str, object]) -> None:
-    private_root.mkdir(parents=True, exist_ok=True)
+def _replace_mutable_bytes(path: Path, encoded: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp-{os.getpid()}-{uuid.uuid4().hex}")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(encoded)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def _event_bytes(event: dict[str, object]) -> bytes:
     payload = {"event_schema_version": 1, **event}
-    encoded = (
+    return (
         json.dumps(payload, allow_nan=False, sort_keys=True, separators=(",", ":"))
         + "\n"
     ).encode("utf-8")
+
+
+def _validate_event_ledger_bytes(encoded: bytes) -> None:
+    if not encoded or not encoded.endswith(b"\n"):
+        raise ControlLedgerIntegrityError(
+            "local-lab event ledger is empty or lacks its final newline"
+        )
+    for line in encoded.splitlines(keepends=True):
+        if not line.endswith(b"\n") or line in {b"\n", b"\r\n"}:
+            raise ControlLedgerIntegrityError("local-lab event ledger is truncated")
+        try:
+            value = _loads_json(line)
+        except RuntimeError as error:
+            raise ControlLedgerIntegrityError(
+                "local-lab event ledger contains malformed JSON"
+            ) from error
+        if (
+            type(value) is not dict
+            or type(value.get("event_schema_version")) is not int
+            or value["event_schema_version"] != 1
+            or type(value.get("event")) is not str
+            or not value["event"]
+        ):
+            raise ControlLedgerIntegrityError(
+                "local-lab event ledger contains a malformed event"
+            )
+        try:
+            canonical = (
+                json.dumps(
+                    value,
+                    allow_nan=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                + "\n"
+            ).encode("utf-8")
+        except (TypeError, ValueError, UnicodeError) as error:
+            raise ControlLedgerIntegrityError(
+                "local-lab event ledger contains a noncanonical value"
+            ) from error
+        if line != canonical:
+            raise ControlLedgerIntegrityError(
+                "local-lab event ledger is not in canonical controller form"
+            )
+
+
+def _append_event(private_root: Path, event: dict[str, object]) -> None:
+    private_root.mkdir(parents=True, exist_ok=True)
+    encoded = _event_bytes(event)
     with (private_root / "lab-events.jsonl").open("ab") as handle:
         handle.write(encoded)
         handle.flush()
@@ -1661,6 +1830,91 @@ def _save_state(private_root: Path, state: dict[str, object]) -> None:
     _write_mutable_json(private_root / "lab-state.json", state)
 
 
+def _commit_control_transition(
+    private_root: Path,
+    next_state: dict[str, object],
+    event: dict[str, object],
+    *,
+    lock_directory: Path | None = None,
+    lease_id: str | None = None,
+    phase: str,
+    require_stop_absent: bool = False,
+) -> dict[str, object]:
+    """Commit an event-before-state transition with exact rollback on failure.
+
+    The active lease is the durable transaction journal: a process death after
+    the event append but before the state replace leaves the prior state and a
+    retained lease, never an unlogged advanced state. Automatic recovery is
+    intentionally forbidden.
+    """
+
+    if (lock_directory is None) != (lease_id is None):
+        raise RuntimeError("control-ledger transaction lease is incomplete")
+    state_path = private_root / "lab-state.json"
+    events_path = private_root / "lab-events.jsonl"
+    state_existed = state_path.exists()
+    events_existed = events_path.exists()
+    original_state_bytes = state_path.read_bytes() if state_existed else b""
+    original_event_bytes = events_path.read_bytes() if events_existed else b""
+    if state_existed:
+        loaded = _load_state(private_root)
+        if original_state_bytes != _mutable_json_bytes(loaded):
+            raise RuntimeError("local-lab state is not in canonical controller form")
+    if events_existed:
+        _validate_event_ledger_bytes(original_event_bytes)
+    if require_stop_absent and (private_root / "stop.request.json").exists():
+        raise RuntimeError("owner stop request blocks control-ledger transition")
+
+    transaction_started = False
+    try:
+        if lock_directory is not None and lease_id is not None:
+            _heartbeat_lease(
+                lock_directory, lease_id, phase=f"{phase}-transaction-prepared"
+            )
+        transaction_started = True
+        _append_event(private_root, event)
+        if lock_directory is not None and lease_id is not None:
+            _heartbeat_lease(lock_directory, lease_id, phase=f"{phase}-event-appended")
+        if require_stop_absent and (private_root / "stop.request.json").exists():
+            raise RuntimeError("owner stop request appeared during control transition")
+        _save_state(private_root, next_state)
+        if lock_directory is not None and lease_id is not None:
+            _heartbeat_lease(lock_directory, lease_id, phase=f"{phase}-state-written")
+        if require_stop_absent and (private_root / "stop.request.json").exists():
+            raise RuntimeError("owner stop request appeared during control transition")
+        expected_state_bytes = _mutable_json_bytes(next_state)
+        expected_event_bytes = original_event_bytes + _event_bytes(event)
+        if (
+            state_path.read_bytes() != expected_state_bytes
+            or events_path.read_bytes() != expected_event_bytes
+        ):
+            raise RuntimeError("control-ledger transaction verification failed")
+        return _load_state(private_root)
+    except BaseException:
+        if transaction_started:
+            try:
+                if state_existed:
+                    _replace_mutable_bytes(state_path, original_state_bytes)
+                elif state_path.exists():
+                    state_path.unlink()
+                if events_existed:
+                    _replace_mutable_bytes(events_path, original_event_bytes)
+                elif events_path.exists():
+                    events_path.unlink()
+                if (
+                    state_path.exists() != state_existed
+                    or events_path.exists() != events_existed
+                    or (state_existed and state_path.read_bytes() != original_state_bytes)
+                    or (events_existed and events_path.read_bytes() != original_event_bytes)
+                ):
+                    raise RuntimeError("control-ledger rollback verification failed")
+            except BaseException as rollback_error:
+                raise ControlLedgerRollbackError(
+                    "control-ledger rollback failed; lease retained for owner review"
+                ) from rollback_error
+        raise
+
+
 def _worker_environment(
     overrides: Mapping[str, str] | None = None,
 ) -> dict[str, str]:
@@ -1709,19 +1963,73 @@ def _terminate_process_tree(process: subprocess.Popen) -> None:
     if process.poll() is not None:
         return
     if os.name == "nt":
-        subprocess.run(
-            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            process.kill()
     else:
         os.killpg(process.pid, signal.SIGKILL)
     try:
         process.communicate(timeout=10)
     except subprocess.TimeoutExpired:
         process.kill()
-        process.communicate()
+        try:
+            process.communicate(timeout=10)
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError("local-lab worker tree did not terminate") from error
+
+
+def _read_bounded_file(path: Path, limit: int) -> bytes:
+    if type(limit) is not int or limit < 0:
+        raise RuntimeError("local-lab worker output exceeded the retention cap")
+    with path.open("rb") as handle:
+        value = handle.read(limit + 1)
+    if len(value) > limit:
+        raise RuntimeError("local-lab worker output exceeded the retention cap")
+    return value
+
+
+def _constraint_progress_failure_stage(
+    encoded: bytes, worker_mode: str
+) -> str:
+    value = _loads_json(encoded)
+    expected_stages = {
+        "gate",
+        "length",
+        "payload",
+        "environment",
+        "import",
+        "dispatch",
+        "output",
+        "cleanup",
+    }
+    if (
+        not isinstance(value, dict)
+        or tuple(value) != ("schema_version", "study_id", "mode", "stage")
+        or type(value.get("schema_version")) is not int
+        or value["schema_version"] != 1
+        or type(value.get("study_id")) is not str
+        or value["study_id"] != worker_mode
+        or type(value.get("mode")) is not str
+        or value["mode"] != worker_mode
+        or type(value.get("stage")) is not str
+        or value["stage"] not in expected_stages
+    ):
+        raise RuntimeError("constraint-progress worker failure receipt is malformed")
+    expected = (
+        json.dumps(value, allow_nan=False, separators=(",", ":")) + "\n"
+    ).encode("utf-8")
+    if encoded != expected:
+        raise RuntimeError("constraint-progress worker failure receipt is noncanonical")
+    stage = value["stage"]
+    assert isinstance(stage, str)
+    return stage
 
 
 def _run_worker(
@@ -1737,7 +2045,15 @@ def _run_worker(
     _refuse_quarantined_study(worker_mode)
     if worker_module not in WORKER_MODULE_PATHS:
         raise RuntimeError("local-lab worker module is not allowlisted")
-    if worker_module == "experiments.local_lab.constraint_aware_progress_toy_worker":
+    expected_constraint_worker = CONSTRAINT_PROGRESS_WORKERS.get(worker_mode)
+    if expected_constraint_worker is not None and worker_module != expected_constraint_worker:
+        raise RuntimeError("constraint-progress worker mode/module pairing is invalid")
+    if (
+        worker_module in CONSTRAINT_PROGRESS_DIRECT_WORKERS
+        and expected_constraint_worker != worker_module
+    ):
+        raise RuntimeError("constraint-progress direct worker is bound to another mode")
+    if worker_module in CONSTRAINT_PROGRESS_DIRECT_WORKERS:
         command = [
             sys.executable,
             "-S",
@@ -1801,13 +2117,24 @@ def _run_worker(
                 except subprocess.TimeoutExpired:
                     pass
 
-        stdout_bytes = stdout_path.read_bytes()
-        stderr_bytes = stderr_path.read_bytes()
-        if len(stdout_bytes) + len(stderr_bytes) > max_output_bytes:
-            raise RuntimeError("local-lab worker output exceeded the retention cap")
+        stdout_bytes = _read_bounded_file(stdout_path, max_output_bytes)
+        stderr_bytes = _read_bounded_file(
+            stderr_path, max_output_bytes - len(stdout_bytes)
+        )
         if require_empty_stderr and stderr_bytes:
             raise RuntimeError("local-lab worker emitted forbidden stderr")
         if process.returncode != 0:
+            if worker_mode == CONSTRAINT_PROGRESS_V2:
+                if process.returncode != 70:
+                    raise RuntimeError(
+                        "constraint-progress worker exited outside its sealed failure path"
+                    )
+                stage = _constraint_progress_failure_stage(
+                    stdout_bytes, worker_mode
+                )
+                raise RuntimeError(
+                    f"constraint-progress worker reported sanitized {stage} failure"
+                )
             tail = stderr_bytes[-2000:].decode("utf-8", errors="replace").strip()
             raise RuntimeError(
                 f"local-lab worker exited {process.returncode}: "
@@ -1822,11 +2149,28 @@ def _run_worker(
             "stdout_bytes": len(stdout_bytes),
         }
     finally:
+        cleanup_error: BaseException | None = None
         if process is not None and process.poll() is None:
-            _terminate_process_tree(process)
+            try:
+                _terminate_process_tree(process)
+            except BaseException as error:
+                cleanup_error = error
         for temporary in (stdout_path, stderr_path):
             if temporary.exists():
-                temporary.unlink()
+                try:
+                    temporary.unlink()
+                except BaseException as error:
+                    cleanup_error = cleanup_error or error
+        if process is not None and process.poll() is None:
+            cleanup_error = cleanup_error or RuntimeError(
+                "local-lab worker process survived cleanup"
+            )
+        if stdout_path.exists() or stderr_path.exists():
+            cleanup_error = cleanup_error or RuntimeError(
+                "local-lab worker temporary output survived cleanup"
+            )
+        if cleanup_error is not None:
+            raise RuntimeError("local-lab worker cleanup failed") from cleanup_error
 
 
 def _begin_cycle(
@@ -1836,6 +2180,8 @@ def _begin_cycle(
     output: Path,
     snapshot: dict[str, object],
     study: str,
+    lock_directory: Path | None = None,
+    lease_id: str | None = None,
 ) -> dict[str, object]:
     if (private_root / "stop.request.json").exists():
         raise RuntimeError(
@@ -1850,18 +2196,19 @@ def _begin_cycle(
         raise DuplicateStudyError(
             f"the frozen study already has a terminal record: {study}"
         )
-    state["active_cycle"] = {
+    active = dict(state)
+    active["active_cycle"] = {
         "cycle_id": cycle_id,
         "output": output.relative_to(private_root).as_posix(),
         "revision": snapshot["revision"],
         "started_utc": _utc_now(),
         "study": study,
     }
-    state["status"] = "active"
-    state["stop_reason"] = None
-    _save_state(private_root, state)
-    _append_event(
+    active["status"] = "active"
+    active["stop_reason"] = None
+    return _commit_control_transition(
         private_root,
+        active,
         {
             "cycle_id": cycle_id,
             "event": "cycle_started",
@@ -1869,8 +2216,11 @@ def _begin_cycle(
             "study": study,
             "utc": _utc_now(),
         },
+        lock_directory=lock_directory,
+        lease_id=lease_id,
+        phase="cycle-start",
+        require_stop_absent=True,
     )
-    return state
 
 
 def _park_cycle(
@@ -1880,14 +2230,17 @@ def _park_cycle(
     cycle_id: str,
     error: BaseException,
     study: str,
-) -> None:
-    state["active_cycle"] = None
-    state["failure_streak"] = int(state.get("failure_streak", 0)) + 1
-    state["status"] = "parked"
-    state["stop_reason"] = f"{type(error).__name__}: {str(error)[:500]}"
-    _save_state(private_root, state)
-    _append_event(
+    lock_directory: Path | None = None,
+    lease_id: str | None = None,
+) -> dict[str, object]:
+    parked = dict(state)
+    parked["active_cycle"] = None
+    parked["failure_streak"] = int(state.get("failure_streak", 0)) + 1
+    parked["status"] = "parked"
+    parked["stop_reason"] = f"{type(error).__name__}: {str(error)[:500]}"
+    return _commit_control_transition(
         private_root,
+        parked,
         {
             "cycle_id": cycle_id,
             "error_type": type(error).__name__,
@@ -1895,6 +2248,9 @@ def _park_cycle(
             "study": study,
             "utc": _utc_now(),
         },
+        lock_directory=lock_directory,
+        lease_id=lease_id,
+        phase="cycle-park",
     )
 
 
@@ -1904,22 +2260,25 @@ def _park_preflight(
     cycle_id: str,
     error: BaseException,
     study: str,
-) -> None:
+    lock_directory: Path | None = None,
+    lease_id: str | None = None,
+) -> dict[str, object] | None:
     state = _load_state(private_root)
     if state.get("status") not in {"idle", "awaiting_study"}:
-        return
+        return None
     owner_stopped = (private_root / "stop.request.json").exists()
-    state["active_cycle"] = None
-    state["failure_streak"] = (
+    parked = dict(state)
+    parked["active_cycle"] = None
+    parked["failure_streak"] = (
         int(state.get("failure_streak", 0))
         if owner_stopped
         else int(state.get("failure_streak", 0)) + 1
     )
-    state["status"] = "stopped" if owner_stopped else "parked"
-    state["stop_reason"] = f"{type(error).__name__}: {str(error)[:500]}"
-    _save_state(private_root, state)
-    _append_event(
+    parked["status"] = "stopped" if owner_stopped else "parked"
+    parked["stop_reason"] = f"{type(error).__name__}: {str(error)[:500]}"
+    return _commit_control_transition(
         private_root,
+        parked,
         {
             "cycle_id": cycle_id,
             "error_type": type(error).__name__,
@@ -1927,14 +2286,168 @@ def _park_preflight(
             "study": study,
             "utc": _utc_now(),
         },
+        lock_directory=lock_directory,
+        lease_id=lease_id,
+        phase="preflight-stop" if owner_stopped else "preflight-park",
     )
+
+
+def _resume_constraint_progress_v2(
+    private_root: Path | None = None,
+) -> dict[str, object]:
+    """Atomically retire the failed V1 lane without starting the V2 study."""
+
+    root = PRIVATE_ROOT if private_root is None else private_root.resolve()
+    cycle_id = f"resume-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}-{uuid.uuid4().hex[:12]}"
+    revision = _git("rev-parse", "HEAD")
+    lock_directory, lease_id = _acquire_lease(
+        root,
+        cycle_id=cycle_id,
+        revision=revision,
+        study=CONSTRAINT_PROGRESS_V2,
+    )
+    release_lease = True
+    transition_committed = False
+    state_path = root / "lab-state.json"
+    events_path = root / "lab-events.jsonl"
+    try:
+        if (root / "stop.request.json").exists():
+            raise RuntimeError("owner stop request blocks controller resume")
+        if not state_path.is_file() or not events_path.is_file():
+            raise RuntimeError("controller resume requires existing state and event ledgers")
+
+        registry = _load_study_registry()
+        entry = _study_entry(registry, CONSTRAINT_PROGRESS_V2)
+        if (
+            entry.get("worker_mode") != CONSTRAINT_PROGRESS_V2
+            or entry.get("worker_module")
+            != CONSTRAINT_PROGRESS_WORKERS[CONSTRAINT_PROGRESS_V2]
+        ):
+            raise RuntimeError("controller resume V2 study identity is malformed")
+        snapshot = _repository_snapshot(entry)
+        if snapshot.get("revision") != revision:
+            raise RuntimeError("repository revision changed during controller resume")
+        _validate_study_approval(entry, snapshot)
+
+        state = _load_state(root)
+        completed = state.get("completed_studies")
+        failure_streak = state.get("failure_streak")
+        registered = registry.get("studies")
+        expected_completed = (
+            set(registered) - {CONSTRAINT_PROGRESS_V1, CONSTRAINT_PROGRESS_V2}
+            if isinstance(registered, dict)
+            else set()
+        )
+        if (
+            state.get("status") != "parked"
+            or "active_cycle" not in state
+            or state["active_cycle"] is not None
+            or state.get("stop_reason") != CONSTRAINT_PROGRESS_V1_PARK_REASON
+            or type(completed) is not dict
+            or type(failure_streak) is not int
+            or failure_streak < 1
+            or CONSTRAINT_PROGRESS_V1 not in QUARANTINED_STUDIES
+            or CONSTRAINT_PROGRESS_V1 in completed
+            or CONSTRAINT_PROGRESS_V2 in completed
+            or set(completed) != expected_completed
+            or any(
+                type(record) is not dict
+                or tuple(record)
+                != ("cycle_id", "result_sha256", "revision", "status")
+                or type(record["cycle_id"]) is not str
+                or not record["cycle_id"]
+                or type(record["result_sha256"]) is not str
+                or SHA256_PATTERN.fullmatch(record["result_sha256"]) is None
+                or type(record["revision"]) is not str
+                or GIT_REVISION_PATTERN.fullmatch(record["revision"]) is None
+                or type(record["status"]) is not str
+                or record["status"] != "passed"
+                for record in completed.values()
+            )
+        ):
+            raise RuntimeError("controller resume preconditions do not match the frozen V2 gate")
+
+        if state_path.read_bytes() != _mutable_json_bytes(state):
+            raise RuntimeError("controller resume requires canonical state bytes")
+        protected_before = _mutable_json_bytes(
+            {
+                "completed_studies": completed,
+                "failure_streak": failure_streak,
+            }
+        )
+        resume_utc = _utc_now()
+        event = {
+            "event": "controller_resumed",
+            "from_status": "parked",
+            "reason": "owner_authorized_v1_quarantine_recovery",
+            "retired_study": CONSTRAINT_PROGRESS_V1,
+            "to_status": "awaiting_study",
+            "utc": resume_utc,
+        }
+        resumed = dict(state)
+        resumed["status"] = "awaiting_study"
+        resumed["stop_reason"] = None
+
+        observed = _commit_control_transition(
+            root,
+            resumed,
+            event,
+            lock_directory=lock_directory,
+            lease_id=lease_id,
+            phase="resume",
+            require_stop_absent=True,
+        )
+        transition_committed = True
+        protected_after = _mutable_json_bytes(
+            {
+                "completed_studies": observed.get("completed_studies"),
+                "failure_streak": observed.get("failure_streak"),
+            }
+        )
+        if (
+            observed.get("status") != "awaiting_study"
+            or observed.get("stop_reason") is not None
+            or "active_cycle" not in observed
+            or observed["active_cycle"] is not None
+            or protected_after != protected_before
+        ):
+            raise RuntimeError("controller resume transaction verification failed")
+        for key in state:
+            if key not in {"status", "stop_reason", "updated_utc"} and observed.get(
+                key
+            ) != state.get(key):
+                raise RuntimeError("controller resume changed a protected state field")
+        _heartbeat_lease(lock_directory, lease_id, phase="resume-verified")
+        return observed
+    except (ControlLedgerIntegrityError, ControlLedgerRollbackError):
+        release_lease = False
+        raise
+    except BaseException:
+        if transition_committed:
+            release_lease = False
+        raise
+    finally:
+        if release_lease:
+            _release_lease(lock_directory, lease_id)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--study", required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    operation = parser.add_mutually_exclusive_group(required=True)
+    operation.add_argument("--study")
+    operation.add_argument("--resume-constraint-progress-v2", action="store_true")
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+
+    if args.resume_constraint_progress_v2:
+        if args.output is not None:
+            parser.error("--output is not valid for the controller-resume operation")
+        _resume_constraint_progress_v2()
+        print("controller resumed to awaiting_study without launching V2")
+        return
+    if args.output is None:
+        parser.error("--output is required with --study")
+    assert isinstance(args.study, str)
 
     # A quarantined ID must fail before output validation, repository inspection,
     # lease acquisition, state reads, or any other private-control-plane mutation.
@@ -1950,6 +2463,8 @@ def main() -> None:
     )
     state = None
     exit_code = 0
+    release_lease = True
+    terminal_transition_committed = False
     try:
         registry = _load_study_registry()
         entry = _study_entry(registry, args.study)
@@ -1961,10 +2476,9 @@ def main() -> None:
         worker_environment_overrides = None
         worker_output_cap_bytes = MAX_WORKER_OUTPUT_BYTES
         require_empty_worker_stderr = False
-        if args.study == "constraint-aware-progress-toy-v1":
-            _validate_constraint_progress_runtime(entry)
+        if args.study in CONSTRAINT_PROGRESS_STUDIES:
             constraint_contract_sha256 = _constraint_progress_contract_sha256(
-                registry, entry
+                registry, entry, args.study
             )
             plan_revision = entry.get("plan_revision")
             study_revision = snapshot.get("revision")
@@ -1972,6 +2486,11 @@ def main() -> None:
                 study_revision, str
             ):
                 raise RuntimeError("constraint-progress revision contract is malformed")
+            _validate_constraint_progress_runtime(
+                entry,
+                study_revision=study_revision,
+                contract_sha256=constraint_contract_sha256,
+            )
             worker_environment_overrides = {
                 "L2D_CONTRACT_SHA256": constraint_contract_sha256,
                 "L2D_PLAN_REVISION": plan_revision,
@@ -1986,6 +2505,8 @@ def main() -> None:
             output=output,
             snapshot=snapshot,
             study=args.study,
+            lock_directory=lock_directory,
+            lease_id=lease_id,
         )
 
         def heartbeat(worker_pid: int, elapsed_seconds: float) -> None:
@@ -2050,7 +2571,8 @@ def main() -> None:
             f"{digest}  {output.name}\n".encode("ascii"),
         )
 
-        completed = state["completed_studies"]
+        terminal_state = dict(state)
+        completed = dict(state["completed_studies"])
         assert isinstance(completed, dict)
         completed[args.study] = {
             "cycle_id": cycle_id,
@@ -2058,22 +2580,23 @@ def main() -> None:
             "revision": snapshot["revision"],
             "status": result["status"],
         }
-        state["active_cycle"] = None
-        state["failure_streak"] = 0 if result["status"] == "passed" else 1
+        terminal_state["completed_studies"] = completed
+        terminal_state["active_cycle"] = None
+        terminal_state["failure_streak"] = 0 if result["status"] == "passed" else 1
         if result["status"] == "passed":
             studies = registry["studies"]
             assert isinstance(studies, dict)
-            pending = set(studies) - set(completed)
-            state["status"] = "idle" if pending else "awaiting_study"
-            state["stop_reason"] = (
+            pending = set(studies) - set(completed) - set(QUARANTINED_STUDIES)
+            terminal_state["status"] = "idle" if pending else "awaiting_study"
+            terminal_state["stop_reason"] = (
                 None if pending else "no_approved_study_pending"
             )
         else:
-            state["status"] = "parked"
-            state["stop_reason"] = result.get("action")
-        _save_state(PRIVATE_ROOT, state)
-        _append_event(
+            terminal_state["status"] = "parked"
+            terminal_state["stop_reason"] = result.get("action")
+        state = _commit_control_transition(
             PRIVATE_ROOT,
+            terminal_state,
             {
                 "cycle_id": cycle_id,
                 "event": "cycle_completed",
@@ -2082,30 +2605,48 @@ def main() -> None:
                 "study": args.study,
                 "utc": _utc_now(),
             },
+            lock_directory=lock_directory,
+            lease_id=lease_id,
+            phase="cycle-terminal",
         )
+        terminal_transition_committed = True
         _heartbeat_lease(lock_directory, lease_id, phase="terminal-recorded")
         print(f"wrote {output} ({digest})")
         if result["status"] != "passed":
             exit_code = 1
     except BaseException as error:
-        if state is not None and state.get("status") == "active":
-            _park_cycle(
-                PRIVATE_ROOT,
-                state,
-                cycle_id=cycle_id,
-                error=error,
-                study=args.study,
-            )
-        elif state is None and not isinstance(error, DuplicateStudyError):
-            _park_preflight(
-                PRIVATE_ROOT,
-                cycle_id=cycle_id,
-                error=error,
-                study=args.study,
-            )
+        if isinstance(
+            error, (ControlLedgerIntegrityError, ControlLedgerRollbackError)
+        ) or terminal_transition_committed:
+            release_lease = False
+        else:
+            try:
+                if state is not None and state.get("status") == "active":
+                    _park_cycle(
+                        PRIVATE_ROOT,
+                        state,
+                        cycle_id=cycle_id,
+                        error=error,
+                        study=args.study,
+                        lock_directory=lock_directory,
+                        lease_id=lease_id,
+                    )
+                elif state is None and not isinstance(error, DuplicateStudyError):
+                    _park_preflight(
+                        PRIVATE_ROOT,
+                        cycle_id=cycle_id,
+                        error=error,
+                        study=args.study,
+                        lock_directory=lock_directory,
+                        lease_id=lease_id,
+                    )
+            except (ControlLedgerIntegrityError, ControlLedgerRollbackError):
+                release_lease = False
+                raise
         raise
     finally:
-        _release_lease(lock_directory, lease_id)
+        if release_lease:
+            _release_lease(lock_directory, lease_id)
     if exit_code:
         raise SystemExit(exit_code)
 
