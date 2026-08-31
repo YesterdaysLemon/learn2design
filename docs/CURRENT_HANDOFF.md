@@ -362,15 +362,25 @@ with no active cycle, stop marker, or lease. V1 remains in the registry only as
 historical contract evidence and is mechanically refused before any
 control-plane mutation.
 
-The live checkpoint is plan-only for a fresh
-`constraint-aware-progress-toy-v2`. Freeze the V2 scientific contract before
-implementation. Preserve V1's synthetic family, seeds, thresholds, cases,
-decision rule, and claim boundary without selecting against a scientific result
-(none exists), and change only the worker/bootstrap process boundary justified
-by the passed
-[`startup-forensics diagnostic`](../research/2026-08-31-constraint-progress-startup-forensics-v1-results.md).
-V2 implementation, controller registration, owner-authorized atomic resume,
-and result-bearing execution remain later separate gates.
+The fresh
+[`constraint-aware-progress-toy-v2` contract](../research/2026-08-31-constraint-aware-progress-toy-v2-plan.md)
+is frozen. It preserves V1's complete synthetic family, seeds, thresholds,
+cases, decision rule, and claim boundary without selecting against a scientific
+result (none exists). Its sole implementation delta is a framed,
+exception-sealed standard-library bootstrap. V1 already gated its runtime load;
+V2 does not claim import order caused the failure. It separates supervision
+from scientific dispatch so recursive children authenticate their complete
+frame and verified Job membership before dispatch, while any later exception
+becomes a closed stage code rather than raw stderr.
+
+The live checkpoint is exact V2 implementation plus hostile pre-result audit,
+not result-bearing execution. Add only the two dedicated V2 sources, focused
+tests, exact registry/controller contract and source approvals. Preserve the V1
+historical entry and controller refusal. Do not invoke V2 or clear the parked
+private controller in that checkpoint. The implementation must also exclude
+quarantined IDs from pending-study selection and add the frozen lease-protected
+resume operation, without executing either. Registration, owner-authorized
+resume, and one guarded result-bearing invocation remain later separate gates.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
