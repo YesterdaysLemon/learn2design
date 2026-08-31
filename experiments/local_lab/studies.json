@@ -3292,6 +3292,238 @@
       "success_action": "synthetic_four_step_synchronous_td_propagation_confirmed_for_harness",
       "worker_mode": "multistep-td-action-prefix-v3",
       "worker_module": "experiments.local_lab.multistep_td_action_prefix_v3_worker"
+    },
+    "constraint-aware-progress-toy-v1": {
+      "approved_file_sha256": {
+        "dependency_lock": "5aa38f61873af4713dd88514227eb28aceaaade949215bef65d8125ab45834d0",
+        "fixture_source": "691c81fa0e960c307266d5963685067a71803bc2a1e9c4dfe0561d53508e63d1",
+        "lab_protocol": "d062a71131533d3d26ae33c95ae155a73d2477914c48024339bf6d94fd8c8472",
+        "study_plan": "9a9c4536a28ee6fdea8f74387be5975943eaab551a3c959f41e4d3d49ba86c96",
+        "worker_source": "2f59c44fc3c98fd5e90431ed7b3d52946815b170d8b2bead6689953e463d3994"
+      },
+      "case_ids": [
+        "family_replay",
+        "transcript_commitment",
+        "typed_aux_and_intervention",
+        "chronology_replay",
+        "development_and_source_isolation",
+        "heldout_primary",
+        "restart_comparators",
+        "shuffled_signal_control",
+        "ablated_signal_control",
+        "aligned_control",
+        "impossible_control",
+        "process_and_sanitizer"
+      ],
+      "case_metric_schema": {
+        "family_replay": [
+          ["world_records", "I"],
+          ["constrained_references", "I"],
+          ["reference_exclusions", "I"],
+          ["development_worlds_per_family", "I"],
+          ["heldout_worlds_per_family", "I"],
+          ["formula_mismatches", "I"],
+          ["reference_mismatches", "I"],
+          ["nonpositive_denominators", "I"],
+          ["duplicate_world_keys", "I"],
+          ["implementation_root_sha256", "H"],
+          ["oracle_root_sha256", "H"],
+          ["roots_equal", "B"]
+        ],
+        "transcript_commitment": [
+          ["transcripts", "I"],
+          ["values_per_transcript", "I"],
+          ["transcript_values", "I"],
+          ["trajectories", "I"],
+          ["evaluations", "I"],
+          ["unequal_arm_counts", "I"],
+          ["order_twin_mismatches", "I"],
+          ["committed_root_sha256", "H"],
+          ["observed_root_sha256", "H"],
+          ["roots_equal", "B"]
+        ],
+        "typed_aux_and_intervention": [
+          ["observations", "I"],
+          ["schema_valid_observations", "I"],
+          ["join_failures", "I"],
+          ["capability_attacks", "I"],
+          ["capability_rejected", "I"],
+          ["capability_state_mutations", "I"],
+          ["canonical_decisions", "A[B;2]"],
+          ["donor_decisions", "A[B;2]"],
+          ["ablated_decisions", "A[B;2]"],
+          ["implementation_schema_root_sha256", "H"],
+          ["oracle_schema_root_sha256", "H"],
+          ["implementation_intervention_root_sha256", "H"],
+          ["oracle_intervention_root_sha256", "H"],
+          ["roots_equal", "B"]
+        ],
+        "chronology_replay": [
+          ["batches", "I"],
+          ["batch_receipts", "I"],
+          ["transitions", "I"],
+          ["replay_mismatches", "I"],
+          ["order_mismatches", "I"],
+          ["reset_mismatches", "I"],
+          ["incumbent_tie_mismatches", "I"],
+          ["incumbent_state_mismatches", "I"],
+          ["restart_events", "I"],
+          ["implementation_state_root_sha256", "H"],
+          ["oracle_state_root_sha256", "H"],
+          ["roots_equal", "B"]
+        ],
+        "development_and_source_isolation": [
+          ["development_aggregates", "I"],
+          ["development_receipts", "I"],
+          ["heldout_receipts", "I"],
+          ["forbidden_reads", "I"],
+          ["heldout_source_in_development", "I"],
+          ["development_outputs_in_heldout", "I"],
+          ["implementation_source_root_sha256", "H"],
+          ["oracle_source_root_sha256", "H"],
+          ["roots_equal", "B"]
+        ],
+        "heldout_primary": [
+          ["treatment_mean_gap", "F"],
+          ["baseline_mean_gap", "F"],
+          ["mean_improvement", "F"],
+          ["heldout_wins", "I"],
+          ["heldout_ties", "I"],
+          ["heldout_losses", "I"],
+          ["maximum_signed_world_harm", "F"],
+          ["mean_gate", "B"],
+          ["win_gate", "B"],
+          ["harm_gate", "B"]
+        ],
+        "restart_comparators": [
+          ["treatment_mean_gap", "F"],
+          ["no_restart_mean_gap", "F"],
+          ["mean_improvement", "F"],
+          ["minimum_arm_evaluations", "I"],
+          ["maximum_arm_evaluations", "I"],
+          ["evaluation_parity", "B"],
+          ["transcript_parity", "B"],
+          ["comparator_gate", "B"]
+        ],
+        "shuffled_signal_control": [
+          ["control_mean_gap", "F"],
+          ["baseline_mean_gap", "F"],
+          ["mean_improvement", "F"],
+          ["heldout_wins", "I"],
+          ["maximum_signed_world_harm", "F"],
+          ["substituted_mean_gate", "B"],
+          ["substituted_win_gate", "B"],
+          ["substituted_harm_gate", "B"],
+          ["positive_gate_recovered", "B"]
+        ],
+        "ablated_signal_control": [
+          ["control_mean_gap", "F"],
+          ["baseline_mean_gap", "F"],
+          ["mean_improvement", "F"],
+          ["heldout_wins", "I"],
+          ["maximum_signed_world_harm", "F"],
+          ["substituted_mean_gate", "B"],
+          ["substituted_win_gate", "B"],
+          ["substituted_harm_gate", "B"],
+          ["positive_gate_recovered", "B"]
+        ],
+        "aligned_control": [
+          ["treatment_mean_gap", "F"],
+          ["baseline_mean_gap", "F"],
+          ["absolute_mean_difference", "F"],
+          ["maximum_signed_world_harm", "F"],
+          ["trajectories", "I"],
+          ["mean_gate", "B"],
+          ["harm_gate", "B"]
+        ],
+        "impossible_control": [
+          ["trajectories", "I"],
+          ["observations", "I"],
+          ["feasible_observations", "I"],
+          ["nonunit_gaps", "I"],
+          ["references_used", "I"],
+          ["false_feasible_joins", "I"]
+        ],
+        "process_and_sanitizer": [
+          ["launches", "I"],
+          ["projections_equal", "B"],
+          ["maximum_stdout_bytes", "I"],
+          ["stderr_bytes", "I"],
+          ["surviving_children", "I"],
+          ["attacks", "I"],
+          ["attacks_rejected", "I"],
+          ["attack_state_mutations", "I"],
+          ["implementation_attack_root_sha256", "H"],
+          ["oracle_attack_root_sha256", "H"],
+          ["roots_equal", "B"]
+        ]
+      },
+      "failure_action": "park_round2_constraint_progress_research",
+      "fixture_identity": {
+        "arms": [
+          "protected_raw_progress",
+          "constraint_lexicographic_progress",
+          "shuffled_progress_control",
+          "ablated_progress_control",
+          "no_restart_comparator"
+        ],
+        "batches": 64,
+        "families": ["canonical", "aligned", "impossible"],
+        "orders": ["forward", "reverse"],
+        "patience": 8,
+        "population": 8,
+        "seeds": [2026083001, 2026083003, 2026083007, 2026083011],
+        "worlds_per_family": 16
+      },
+      "plan_path": "research/2026-08-30-round1-feedback-and-round2-program.md",
+      "plan_revision": "02c3e2329b4906aa49d80ea0256a7db9774d491c",
+      "result_top_level_fields": [
+        "study_id",
+        "plan_revision",
+        "study_revision",
+        "contract_sha256",
+        "transcript_root_sha256",
+        "status",
+        "action",
+        "world_aggregates",
+        "cases"
+      ],
+      "runtime_identity": {
+        "machine": "AMD64",
+        "numpy_init_sha256": "a6958cb364663b7acce81ccfd58eeb65a2b34d5376157f924777b97211a73be4",
+        "numpy_metadata_sha256": "6ae45122ee97050e48849438320430d05f01814f72e66e69cbeed027d2c6a1e8",
+        "numpy_version": "2.5.1",
+        "pcg64_identity": "numpy.random._pcg64.PCG64",
+        "pcg64_module_sha256": "210bd962e911039f1639d0137f6e41444e37db23aba1622635d9dba8abc6a1c9",
+        "python_architecture": "64bit",
+        "python_executable_sha256": "ad169f4cb4bfb78c7a5c030a4529c19d6643276778e33994c93e145b6191c3ec",
+        "python_implementation": "CPython",
+        "python_version": "3.13.14",
+        "seed_sequence_identity": "numpy.random.bit_generator.SeedSequence",
+        "seed_sequence_module_sha256": "08355a330efec79a840b5767bb5356ad21e3b0f14acce9a3c969208626daad7f"
+      },
+      "source_paths": {
+        "dependency_lock": "uv.lock",
+        "fixture_source": "experiments/local_lab/constraint_aware_progress_toy.py",
+        "lab_protocol": "docs/AUTONOMOUS_LAB.md",
+        "study_plan": "research/2026-08-30-round1-feedback-and-round2-program.md",
+        "worker_source": "experiments/local_lab/constraint_aware_progress_toy_worker.py"
+      },
+      "success_action": "constraint_progress_mechanics_ready_for_candidate_audit",
+      "transcript_commitment": {
+        "root_sha256": "9c250412d296b7e60a5ab0e02f4cf69925d165bb6c3f61e3a29e00b475d99edd",
+        "seed_sha256": {
+          "2026083001": "fc826363fe2234af0a73c0730639c483ad1e29c053915d7c5197b05bffef01e9",
+          "2026083003": "a6ce093cb6a53ded68786ca4cb044f7dd974c45a23a82fe1072e572eea492a15",
+          "2026083007": "6f90f43dd4673a388470502bba1959686fc9b35f2e3bf4de0feef2087ae01c41",
+          "2026083011": "74e07f6003668543bd197188633d11011e99c6e78803b9d8eed5a792cb0f83bd"
+        },
+        "values_per_transcript": 3093
+      },
+      "worker_mode": "constraint-aware-progress-toy-v1",
+      "worker_module": "experiments.local_lab.constraint_aware_progress_toy_worker",
+      "worker_output_cap_bytes": 1048576,
+      "worker_stderr_bytes": 0
     }
   }
 }

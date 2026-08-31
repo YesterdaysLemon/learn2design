@@ -12,17 +12,19 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
+from typing import Mapping
 
 
 ROOT = Path(__file__).parents[1].resolve()
 PRIVATE_ROOT = ROOT.with_name(f"{ROOT.name}-local-lab").resolve()
 STUDY_REGISTRY_PATH = ROOT / "experiments" / "local_lab" / "studies.json"
 EXPECTED_STUDY_REGISTRY_SHA256 = (
-    "d0946cdd96affba3878219d66041d4656de4e4894d62ea85ceef4cbcd4c4925b"
+    "4dd756ee655ab6bc816eb1639ba69ecc85d678005fc224708a418aee5c637e65"
 )
 EXPECTED_SUBMISSION_SOURCE_SHA256 = (
     "34ba5a1403d22a8f9861851c2ddfb77a6ed57cc33554249f38bb9bf7b6bc1176"
@@ -94,6 +96,9 @@ V3_CASE_CONTRACT_CONTAINER_FIELDS = {
     ("typed_episodic_contract", "reward_values"),
 }
 WORKER_MODULE_PATHS = {
+    "experiments.local_lab.constraint_aware_progress_toy_worker": (
+        "experiments/local_lab/constraint_aware_progress_toy_worker.py"
+    ),
     "experiments.local_lab.multistep_td_action_prefix_v3_worker": (
         "experiments/local_lab/multistep_td_action_prefix_v3_worker.py"
     ),
@@ -129,6 +134,7 @@ ALLOWED_BRANCH_PREFIX = "codex/lab-"
 CYCLE_TIMEOUT_SECONDS = 60 * 60
 HEARTBEAT_SECONDS = 30
 MAX_WORKER_OUTPUT_BYTES = 5 * 1024 * 1024
+CONSTRAINT_PROGRESS_OUTPUT_BYTES = 1_048_576
 OUTPUT_POLL_SECONDS = 1
 STATE_SCHEMA_VERSION = 1
 
@@ -145,6 +151,22 @@ def _utc_now() -> str:
 
 def _sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def _reject_duplicate_pairs(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise RuntimeError("duplicate JSON object key")
+        value[key] = item
+    return value
+
+
+def _loads_json(value: bytes | str):
+    try:
+        return json.loads(value, object_pairs_hook=_reject_duplicate_pairs)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RuntimeError("malformed JSON document") from error
 
 
 def _sha256(path: Path) -> str:
@@ -178,7 +200,7 @@ def _load_study_registry() -> dict[str, object]:
     encoded = STUDY_REGISTRY_PATH.read_bytes().replace(b"\r\n", b"\n")
     if _sha256_bytes(encoded) != EXPECTED_STUDY_REGISTRY_SHA256:
         raise RuntimeError("the approved local-lab study registry changed")
-    registry = json.loads(encoded)
+    registry = _loads_json(encoded)
     if registry.get("schema_version") != 1:
         raise RuntimeError("unsupported local-lab study registry")
     studies = registry.get("studies")
@@ -294,11 +316,808 @@ def _validate_study_approval(
             raise RuntimeError(f"approved study source changed: {name}")
 
 
+def _constraint_progress_contract_sha256(
+    registry: dict[str, object], entry: dict[str, object]
+) -> str:
+    plan_path = entry.get("plan_path")
+    if not isinstance(plan_path, str):
+        raise RuntimeError("constraint-progress study has no frozen plan path")
+    plan_blob = _git_bytes("show", f"HEAD:{plan_path}")
+    normalized_registry = json.dumps(
+        registry,
+        allow_nan=False,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return _sha256_bytes(
+        b"L2D-constraint-progress-v1/contract\0"
+        + plan_blob
+        + b"\0"
+        + normalized_registry
+    )
+
+
+def _constraint_progress_runtime_identity() -> dict[str, str]:
+    worker_path = ROOT / WORKER_MODULE_PATHS[
+        "experiments.local_lab.constraint_aware_progress_toy_worker"
+    ]
+    command = [
+        sys.executable,
+        "-S",
+        "-P",
+        str(worker_path),
+        "--mode",
+        "constraint-aware-progress-toy-v1-runtime-probe",
+    ]
+    process = None
+    with tempfile.TemporaryDirectory(prefix="l2d-runtime-probe-") as directory:
+        root = Path(directory)
+        stdout_path = root / "stdout"
+        stderr_path = root / "stderr"
+        try:
+            with stdout_path.open("xb") as stdout_handle, stderr_path.open(
+                "xb"
+            ) as stderr_handle:
+                process = subprocess.Popen(
+                    command,
+                    cwd=ROOT,
+                    env=_worker_environment(),
+                    stdout=stdout_handle,
+                    stderr=stderr_handle,
+                    creationflags=(
+                        getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                        if os.name == "nt"
+                        else 0
+                    ),
+                    start_new_session=os.name != "nt",
+                )
+                started = time.monotonic()
+                while process.poll() is None:
+                    if time.monotonic() - started > 60:
+                        _terminate_process_tree(process)
+                        raise RuntimeError("constraint-progress runtime probe timed out")
+                    if stdout_path.stat().st_size + stderr_path.stat().st_size > 16_384:
+                        _terminate_process_tree(process)
+                        raise RuntimeError("constraint-progress runtime probe exceeded its cap")
+                    time.sleep(0.05)
+            stdout = stdout_path.read_bytes()
+            stderr = stderr_path.read_bytes()
+        finally:
+            if process is not None and process.poll() is None:
+                _terminate_process_tree(process)
+    if (
+        process is None
+        or process.returncode != 0
+        or stderr
+        or not (0 < len(stdout) <= 16_384)
+    ):
+        raise RuntimeError("constraint-progress isolated runtime probe failed")
+    value = _loads_json(stdout)
+    if not isinstance(value, dict) or any(
+        type(item) is not str for item in value.values()
+    ):
+        raise RuntimeError("constraint-progress runtime probe is malformed")
+    return value
+
+
+def _validate_constraint_progress_runtime(entry: dict[str, object]) -> None:
+    expected = entry.get("runtime_identity")
+    if not isinstance(expected, dict) or _constraint_progress_runtime_identity() != expected:
+        raise RuntimeError("constraint-progress runtime identity changed")
+
+
+def _constraint_metric_type(value: object, type_code: str) -> bool:
+    if type_code == "B":
+        return type(value) is bool
+    if type_code == "I":
+        return type(value) is int
+    if type_code == "F":
+        return type(value) is float and math.isfinite(value)
+    if type_code == "H":
+        return type(value) is str and SHA256_PATTERN.fullmatch(value) is not None
+    if type_code == "A[B;2]":
+        return (
+            type(value) is list
+            and len(value) == 2
+            and all(type(item) is bool for item in value)
+        )
+    return False
+
+
+def _constraint_rows(
+    world_aggregates: list[object], family: str, arm: str, split: str
+) -> list[dict[str, object]]:
+    rows = []
+    for item in world_aggregates:
+        assert isinstance(item, dict)
+        world = item["world"]
+        assert type(world) is int
+        parity = sum((world >> bit) & 1 for bit in range(4)) % 2
+        row_split = "development" if parity == 0 else "heldout"
+        if item["family"] == family and item["arm"] == arm and row_split == split:
+            rows.append(item)
+    if len(rows) != 8:
+        raise RuntimeError("constraint-progress aggregate subset is incomplete")
+    return rows
+
+
+def _constraint_comparison(
+    world_aggregates: list[object], family: str, treatment: str, baseline: str
+) -> tuple[float, float, list[float], int, int, int]:
+    treatment_rows = _constraint_rows(
+        world_aggregates, family, treatment, "heldout"
+    )
+    baseline_rows = _constraint_rows(world_aggregates, family, baseline, "heldout")
+    treatment_by_world = {
+        int(item["world"]): float(item["mean_gap"]) for item in treatment_rows
+    }
+    baseline_by_world = {
+        int(item["world"]): float(item["mean_gap"]) for item in baseline_rows
+    }
+    differences = [
+        treatment_by_world[world] - baseline_by_world[world]
+        for world in sorted(treatment_by_world)
+    ]
+    wins = sum(value < -1.0e-12 for value in differences)
+    ties = sum(abs(value) <= 1.0e-12 for value in differences)
+    losses = 8 - wins - ties
+    return (
+        float(sum(treatment_by_world.values()) / 8),
+        float(sum(baseline_by_world.values()) / 8),
+        differences,
+        wins,
+        ties,
+        losses,
+    )
+
+
+def _constraint_normalize(value: object) -> object:
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise RuntimeError("constraint-progress nonfinite root value")
+        return 0.0 if value == 0.0 else value
+    if isinstance(value, list):
+        return [_constraint_normalize(item) for item in value]
+    if isinstance(value, tuple):
+        return [_constraint_normalize(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _constraint_normalize(item) for key, item in value.items()}
+    return value
+
+
+def _constraint_line(value: Mapping[str, object]) -> bytes:
+    return (
+        json.dumps(
+            _constraint_normalize(dict(value)),
+            allow_nan=False,
+            ensure_ascii=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode("utf-8")
+
+
+def _constraint_root(name: str, rows: list[dict[str, object]]) -> str:
+    digest = hashlib.sha256()
+    digest.update(b"L2D-constraint-progress-v1/")
+    digest.update(name.encode("ascii"))
+    digest.update(b"\0")
+    for row in rows:
+        digest.update(_constraint_line(row))
+    return digest.hexdigest()
+
+
+def _constraint_world_rows() -> list[dict[str, object]]:
+    rows = []
+    for family in ("canonical", "aligned", "impossible"):
+        for world in range(16):
+            bits = [
+                (world >> 3) & 1,
+                (world >> 2) & 1,
+                (world >> 1) & 1,
+                world & 1,
+            ]
+            a = float(0.80 + 0.20 * bits[0])
+            b = float(-0.50 + 1.00 * bits[1])
+            k = float(0.50 + 0.50 * bits[2])
+            t = float(0.10 + 0.06 * bits[3])
+            c = float(-0.25 if (bits[0] ^ bits[1]) == 0 else 0.25)
+            threshold = float(2.25 if family == "impossible" else 0.0)
+            split = "development" if sum(bits) % 2 == 0 else "heldout"
+            if family == "impossible":
+                reference_x0 = reference_sensitivity = denominator = None
+            else:
+                q = -t if family == "aligned" else t
+                lower = a / 2.0
+                upper = a if q > 0.0 else min(1.5 * a, 1.99)
+                for _ in range(80):
+                    middle = (lower + upper) / 2.0
+                    derivative = 4.0 * middle * (middle * middle - a * a) + q
+                    if derivative <= 0.0:
+                        lower = middle
+                    else:
+                        upper = middle
+                reference_x0 = float((lower + upper) / 2.0)
+                reference_sensitivity = float(
+                    (reference_x0 * reference_x0 - a * a) ** 2
+                    + q * reference_x0
+                )
+                denominator = float(
+                    a**4 + k * b * b + 0.5 * c * c - reference_sensitivity
+                )
+            rows.append(
+                {
+                    "family": family,
+                    "world": world,
+                    "bits": bits,
+                    "split": split,
+                    "a": a,
+                    "b": b,
+                    "k": k,
+                    "t": t,
+                    "c": c,
+                    "threshold": threshold,
+                    "reference_x0": reference_x0,
+                    "reference_sensitivity": reference_sensitivity,
+                    "denominator": denominator,
+                }
+            )
+    return rows
+
+
+def _constraint_intervention_root() -> str:
+    stored = {
+        "mode": "lex",
+        "observed": True,
+        "feasible": False,
+        "first": 1.0,
+        "second": 5.0,
+    }
+    canonical = ((0.9, 6.0, True), (0.8, 7.0, True))
+    donor = ((1.1, 0.0, False), (1.2, 0.0, False))
+    ablated = ((0.0, 0.0, True), (0.0, 0.0, False))
+    rows: list[dict[str, object]] = []
+    for ordinal in range(2):
+        rows.append(
+            {
+                "sentinel_id": "progress-consumer-v1",
+                "ordinal": ordinal,
+                "member": 0,
+                "stored": stored,
+                "canonical_tuple": {
+                    "is_feasible": False,
+                    "penalty": canonical[ordinal][0],
+                    "sensitivity": canonical[ordinal][1],
+                },
+                "donor_member": 1,
+                "donor_tuple": {
+                    "is_feasible": False,
+                    "penalty": donor[ordinal][0],
+                    "sensitivity": donor[ordinal][1],
+                },
+                "ablated_tuple": {
+                    "is_feasible": False,
+                    "penalty": 0.0,
+                    "sensitivity": 0.0,
+                },
+                "canonical_decision": canonical[ordinal][2],
+                "donor_decision": donor[ordinal][2],
+                "ablated_decision": ablated[ordinal][2],
+            }
+        )
+    attacks = (
+        "family", "split", "world", "bits", "seed", "a", "b", "k", "t", "c",
+        "threshold", "reference-x0", "reference-sensitivity", "denominator", "gap",
+        "environment-call", "evaluator-call", "oracle-call", "source-call",
+        "canonical-aux-bypass", "future-transcript-read", "transcript-fingerprint",
+    )
+    for attack in attacks:
+        path = (
+            "restart-draw-provider.future-read"
+            if attack == "future-transcript-read"
+            else "restart-draw-provider.fingerprint"
+            if attack == "transcript-fingerprint"
+            else f"optimizer-adapter.{attack}"
+        )
+        rows.append(
+            {
+                "attack_id": attack,
+                "injection_path": path,
+                "rejection_code": "capability-denied",
+                "consumer_reached": True,
+                "state_mutations": 0,
+            }
+        )
+    return _constraint_root("InterventionRecord", rows)
+
+
+def _constraint_attack_root() -> str:
+    matrix = (
+        ("nan-loss", "observation.loss", "nonfinite-loss"),
+        ("gradient-dtype", "observation.gradient", "gradient-dtype"),
+        ("gradient-shape", "observation.gradient", "gradient-shape"),
+        ("feasible-type", "observation.canonical_is_feasible", "feasible-type"),
+        ("negative-penalty", "observation.decision_penalty", "negative-penalty"),
+        ("duplicate-observation", "observation.identity", "duplicate-key"),
+        ("missing-member", "observation.identity", "missing-member"),
+        ("wrong-arm", "observation.arm", "arm-identity"),
+        ("cross-seed", "transition.seed", "cross-seed-join"),
+        ("cross-order", "transition.order", "cross-order-join"),
+        ("extra-result-field", "result", "result-schema"),
+        ("transcript-hash", "transcript.sha256", "transcript-hash"),
+    )
+    return _constraint_root(
+        "AttackReceipt",
+        [
+            {
+                "attack_id": attack,
+                "injection_path": path,
+                "rejection_code": code,
+                "consumer_reached": True,
+                "state_mutations": 0,
+            }
+            for attack, path, code in matrix
+        ],
+    )
+
+
+def _constraint_source_root(world_aggregates: list[object]) -> str:
+    world_rows = _constraint_world_rows()
+    receipts = []
+    for family in ("canonical", "aligned", "impossible"):
+        for split in ("development", "heldout"):
+            phase_worlds = [
+                item
+                for item in world_rows
+                if item["family"] == family and item["split"] == split
+            ]
+            phase_aggregates = [
+                item
+                for item in world_aggregates
+                if isinstance(item, dict)
+                and item["family"] == family
+                and (
+                    "development"
+                    if sum((int(item["world"]) >> bit) & 1 for bit in range(4)) % 2 == 0
+                    else "heldout"
+                )
+                == split
+            ]
+            receipts.append(
+                {
+                    "family": family,
+                    "split": split,
+                    "world_keys": [int(item["world"]) for item in phase_worlds],
+                    "attempted_reads": len(phase_worlds),
+                    "forbidden_reads": 0,
+                    "forbidden_payload_rows": 0,
+                    "sentinel_connected": True,
+                    "input_root_sha256": _constraint_root("PhaseInput", phase_worlds),
+                    "output_root_sha256": _constraint_root(
+                        "WorldAggregateRecord", phase_aggregates
+                    ),
+                }
+            )
+    return _constraint_root("PhaseReceipt", receipts)
+
+
+def _validate_constraint_progress_result(
+    entry: dict[str, object],
+    result: dict[str, object],
+    *,
+    study_revision: str | None,
+    contract_sha256: str | None,
+    worker_receipt: Mapping[str, object] | None,
+) -> None:
+    top_level = entry.get("result_top_level_fields")
+    if not isinstance(top_level, list) or tuple(result) != tuple(top_level):
+        raise RuntimeError("constraint-progress result has the wrong top-level schema")
+    if result.get("study_id") != "constraint-aware-progress-toy-v1":
+        raise RuntimeError("constraint-progress result has the wrong study identity")
+    if result.get("plan_revision") != entry.get("plan_revision"):
+        raise RuntimeError("constraint-progress result has the wrong plan revision")
+    if study_revision is None or result.get("study_revision") != study_revision:
+        raise RuntimeError("constraint-progress result has the wrong study revision")
+    if contract_sha256 is None or result.get("contract_sha256") != contract_sha256:
+        raise RuntimeError("constraint-progress result has the wrong contract digest")
+    transcript = entry.get("transcript_commitment")
+    if (
+        not isinstance(transcript, dict)
+        or result.get("transcript_root_sha256") != transcript.get("root_sha256")
+    ):
+        raise RuntimeError("constraint-progress result has the wrong transcript root")
+
+    families = ("canonical", "aligned", "impossible")
+    arms = (
+        "protected_raw_progress",
+        "constraint_lexicographic_progress",
+        "shuffled_progress_control",
+        "ablated_progress_control",
+        "no_restart_comparator",
+    )
+    world_aggregates = result.get("world_aggregates")
+    if type(world_aggregates) is not list or len(world_aggregates) != 240:
+        raise RuntimeError("constraint-progress result has the wrong aggregate count")
+    expected_keys = [
+        (family, world, arm)
+        for family in families
+        for world in range(16)
+        for arm in arms
+    ]
+    actual_keys = []
+    for row in world_aggregates:
+        if not isinstance(row, dict) or tuple(row) != (
+            "family",
+            "world",
+            "arm",
+            "seed_gaps",
+            "mean_gap",
+        ):
+            raise RuntimeError("constraint-progress aggregate schema changed")
+        family = row["family"]
+        world = row["world"]
+        arm = row["arm"]
+        seed_gaps = row["seed_gaps"]
+        mean_gap = row["mean_gap"]
+        if (
+            type(family) is not str
+            or family not in families
+            or type(world) is not int
+            or world not in range(16)
+            or type(arm) is not str
+            or arm not in arms
+            or type(seed_gaps) is not list
+            or len(seed_gaps) != 4
+            or any(type(item) is not float or not math.isfinite(item) for item in seed_gaps)
+            or type(mean_gap) is not float
+            or not math.isfinite(mean_gap)
+            or mean_gap != float(sum(seed_gaps) / 4)
+        ):
+            raise RuntimeError("constraint-progress aggregate value is malformed")
+        actual_keys.append((family, world, arm))
+    if actual_keys != expected_keys:
+        raise RuntimeError("constraint-progress aggregate identity order changed")
+
+    case_ids = entry.get("case_ids")
+    schema = entry.get("case_metric_schema")
+    cases = result.get("cases")
+    if (
+        not isinstance(case_ids, list)
+        or not isinstance(schema, dict)
+        or type(cases) is not list
+        or len(cases) != 12
+    ):
+        raise RuntimeError("constraint-progress case contract is malformed")
+    by_id: dict[str, dict[str, object]] = {}
+    for expected_id, case in zip(case_ids, cases, strict=True):
+        if (
+            not isinstance(case, dict)
+            or tuple(case) != ("case_id", "passed", "metrics")
+            or case.get("case_id") != expected_id
+            or type(case.get("passed")) is not bool
+            or not isinstance(case.get("metrics"), dict)
+        ):
+            raise RuntimeError("constraint-progress case schema changed")
+        fields = schema.get(expected_id)
+        metrics = case["metrics"]
+        assert isinstance(metrics, dict)
+        if not isinstance(fields, list):
+            raise RuntimeError("constraint-progress registry case schema is malformed")
+        expected_names = []
+        for field in fields:
+            if (
+                not isinstance(field, list)
+                or len(field) != 2
+                or not all(isinstance(item, str) for item in field)
+            ):
+                raise RuntimeError("constraint-progress registry metric is malformed")
+            name, type_code = field
+            expected_names.append(name)
+            if name not in metrics or not _constraint_metric_type(metrics[name], type_code):
+                raise RuntimeError(
+                    f"constraint-progress metric type changed: {expected_id}.{name}"
+                )
+        if tuple(metrics) != tuple(expected_names):
+            raise RuntimeError("constraint-progress metric order changed")
+        by_id[expected_id] = case
+
+    def metrics(case_id: str) -> dict[str, object]:
+        value = by_id[case_id]["metrics"]
+        assert isinstance(value, dict)
+        return value
+
+    def require(case_id: str, name: str, expected: object) -> None:
+        if metrics(case_id).get(name) != expected:
+            raise RuntimeError(
+                f"constraint-progress derived metric disagrees: {case_id}.{name}"
+            )
+
+    structural = {
+        "family_replay": {
+            "world_records": 48,
+            "constrained_references": 32,
+            "reference_exclusions": 16,
+            "development_worlds_per_family": 8,
+            "heldout_worlds_per_family": 8,
+            "formula_mismatches": 0,
+            "reference_mismatches": 0,
+            "nonpositive_denominators": 0,
+            "duplicate_world_keys": 0,
+        },
+        "transcript_commitment": {
+            "transcripts": 4,
+            "values_per_transcript": 3093,
+            "transcript_values": 12372,
+            "trajectories": 1920,
+            "evaluations": 983040,
+            "unequal_arm_counts": 0,
+            "order_twin_mismatches": 0,
+        },
+        "typed_aux_and_intervention": {
+            "observations": 983040,
+            "schema_valid_observations": 983040,
+            "join_failures": 0,
+            "capability_attacks": 22,
+            "capability_rejected": 22,
+            "capability_state_mutations": 0,
+            "canonical_decisions": [True, True],
+            "donor_decisions": [False, False],
+            "ablated_decisions": [True, False],
+        },
+        "chronology_replay": {
+            "batches": 122880,
+            "batch_receipts": 122880,
+            "transitions": 983040,
+            "replay_mismatches": 0,
+            "order_mismatches": 0,
+            "reset_mismatches": 0,
+            "incumbent_tie_mismatches": 0,
+            "incumbent_state_mismatches": 0,
+        },
+        "development_and_source_isolation": {
+            "development_aggregates": 120,
+            "development_receipts": 3,
+            "heldout_receipts": 3,
+            "forbidden_reads": 0,
+            "heldout_source_in_development": 0,
+            "development_outputs_in_heldout": 0,
+        },
+        "impossible_control": {
+            "trajectories": 640,
+            "observations": 327680,
+            "feasible_observations": 0,
+            "nonunit_gaps": 0,
+            "references_used": 0,
+            "false_feasible_joins": 0,
+        },
+        "process_and_sanitizer": {
+            "launches": 2,
+            "projections_equal": True,
+            "stderr_bytes": 0,
+            "surviving_children": 0,
+            "attacks": 12,
+            "attacks_rejected": 12,
+            "attack_state_mutations": 0,
+        },
+    }
+    for case_id, expected_fields in structural.items():
+        for name, expected in expected_fields.items():
+            require(case_id, name, expected)
+
+    for case_id, left, right in (
+        ("family_replay", "implementation_root_sha256", "oracle_root_sha256"),
+        ("transcript_commitment", "committed_root_sha256", "observed_root_sha256"),
+        ("chronology_replay", "implementation_state_root_sha256", "oracle_state_root_sha256"),
+        ("development_and_source_isolation", "implementation_source_root_sha256", "oracle_source_root_sha256"),
+        ("process_and_sanitizer", "implementation_attack_root_sha256", "oracle_attack_root_sha256"),
+    ):
+        equal = metrics(case_id)[left] == metrics(case_id)[right]
+        require(case_id, "roots_equal", equal)
+    typed_metrics = metrics("typed_aux_and_intervention")
+    typed_roots_equal = (
+        typed_metrics["implementation_schema_root_sha256"]
+        == typed_metrics["oracle_schema_root_sha256"]
+        and typed_metrics["implementation_intervention_root_sha256"]
+        == typed_metrics["oracle_intervention_root_sha256"]
+    )
+    require("typed_aux_and_intervention", "roots_equal", typed_roots_equal)
+    expected_family_root = _constraint_root("WorldRecord", _constraint_world_rows())
+    for name in ("implementation_root_sha256", "oracle_root_sha256"):
+        require("family_replay", name, expected_family_root)
+    expected_intervention_root = _constraint_intervention_root()
+    for name in (
+        "implementation_intervention_root_sha256",
+        "oracle_intervention_root_sha256",
+    ):
+        require("typed_aux_and_intervention", name, expected_intervention_root)
+    expected_source_root = _constraint_source_root(world_aggregates)
+    for name in (
+        "implementation_source_root_sha256",
+        "oracle_source_root_sha256",
+    ):
+        require("development_and_source_isolation", name, expected_source_root)
+    expected_attack_root = _constraint_attack_root()
+    for name in (
+        "implementation_attack_root_sha256",
+        "oracle_attack_root_sha256",
+    ):
+        require("process_and_sanitizer", name, expected_attack_root)
+    require(
+        "transcript_commitment",
+        "committed_root_sha256",
+        transcript["root_sha256"],
+    )
+    if metrics("chronology_replay")["restart_events"] < 0:
+        raise RuntimeError("constraint-progress restart count is negative")
+    inner_stdout_bytes = metrics("process_and_sanitizer")["maximum_stdout_bytes"]
+    if not (0 <= inner_stdout_bytes <= CONSTRAINT_PROGRESS_OUTPUT_BYTES):
+        raise RuntimeError("constraint-progress inner projection exceeded its cap")
+    if (
+        not isinstance(worker_receipt, dict)
+        or tuple(worker_receipt)
+        != ("stderr_bytes", "stderr_sha256", "stdout_bytes")
+        or type(worker_receipt.get("stdout_bytes")) is not int
+        or not (0 < worker_receipt["stdout_bytes"] <= CONSTRAINT_PROGRESS_OUTPUT_BYTES)
+        or worker_receipt.get("stderr_bytes") != 0
+        or worker_receipt.get("stderr_sha256") != hashlib.sha256(b"").hexdigest()
+    ):
+        raise RuntimeError("constraint-progress outer worker receipt is invalid")
+
+    treatment, baseline, differences, wins, ties, losses = _constraint_comparison(
+        world_aggregates,
+        "canonical",
+        "constraint_lexicographic_progress",
+        "protected_raw_progress",
+    )
+    improvement = baseline - treatment
+    harm = max(differences)
+    primary_expected = {
+        "treatment_mean_gap": treatment,
+        "baseline_mean_gap": baseline,
+        "mean_improvement": improvement,
+        "heldout_wins": wins,
+        "heldout_ties": ties,
+        "heldout_losses": losses,
+        "maximum_signed_world_harm": harm,
+        "mean_gate": improvement >= 0.05,
+        "win_gate": wins >= 6,
+        "harm_gate": harm <= 0.15,
+    }
+    for name, expected in primary_expected.items():
+        require("heldout_primary", name, expected)
+
+    no_restart, treatment_again, _differences, *_ = _constraint_comparison(
+        world_aggregates,
+        "canonical",
+        "no_restart_comparator",
+        "constraint_lexicographic_progress",
+    )
+    if treatment_again != treatment:
+        raise RuntimeError("constraint-progress comparator treatment join changed")
+    comparator_improvement = no_restart - treatment
+    comparator_expected = {
+        "treatment_mean_gap": treatment,
+        "no_restart_mean_gap": no_restart,
+        "mean_improvement": comparator_improvement,
+        "minimum_arm_evaluations": 512,
+        "maximum_arm_evaluations": 512,
+        "evaluation_parity": True,
+        "transcript_parity": True,
+        "comparator_gate": comparator_improvement >= 0.05,
+    }
+    for name, expected in comparator_expected.items():
+        require("restart_comparators", name, expected)
+
+    control_passes = {}
+    for case_id, arm in (
+        ("shuffled_signal_control", "shuffled_progress_control"),
+        ("ablated_signal_control", "ablated_progress_control"),
+    ):
+        control, control_baseline, control_diff, control_wins, *_ = _constraint_comparison(
+            world_aggregates, "canonical", arm, "protected_raw_progress"
+        )
+        control_improvement = control_baseline - control
+        control_harm = max(control_diff)
+        mean_gate = control_improvement >= 0.05
+        win_gate = control_wins >= 6
+        harm_gate = control_harm <= 0.15
+        recovered = mean_gate and win_gate and harm_gate
+        expected_fields = {
+            "control_mean_gap": control,
+            "baseline_mean_gap": control_baseline,
+            "mean_improvement": control_improvement,
+            "heldout_wins": control_wins,
+            "maximum_signed_world_harm": control_harm,
+            "substituted_mean_gate": mean_gate,
+            "substituted_win_gate": win_gate,
+            "substituted_harm_gate": harm_gate,
+            "positive_gate_recovered": recovered,
+        }
+        for name, expected in expected_fields.items():
+            require(case_id, name, expected)
+        control_passes[case_id] = (not recovered) and control_improvement < 0.05
+
+    aligned, aligned_baseline, aligned_diff, *_ = _constraint_comparison(
+        world_aggregates,
+        "aligned",
+        "constraint_lexicographic_progress",
+        "protected_raw_progress",
+    )
+    aligned_abs = abs(aligned - aligned_baseline)
+    aligned_harm = max(aligned_diff)
+    aligned_expected = {
+        "treatment_mean_gap": aligned,
+        "baseline_mean_gap": aligned_baseline,
+        "absolute_mean_difference": aligned_abs,
+        "maximum_signed_world_harm": aligned_harm,
+        "trajectories": 640,
+        "mean_gate": aligned_abs <= 0.03,
+        "harm_gate": aligned_harm <= 0.10,
+    }
+    for name, expected in aligned_expected.items():
+        require("aligned_control", name, expected)
+    impossible_rows = [
+        row for row in world_aggregates if isinstance(row, dict) and row["family"] == "impossible"
+    ]
+    if len(impossible_rows) != 80 or any(
+        row["mean_gap"] != 1.0
+        or any(seed_gap != 1.0 for seed_gap in row["seed_gaps"])
+        for row in impossible_rows
+    ):
+        raise RuntimeError("constraint-progress impossible aggregate changed")
+
+    recomputed_passes = {
+        "family_replay": metrics("family_replay")["roots_equal"] is True,
+        "transcript_commitment": metrics("transcript_commitment")["roots_equal"] is True,
+        "typed_aux_and_intervention": typed_roots_equal,
+        "chronology_replay": metrics("chronology_replay")["roots_equal"] is True,
+        "development_and_source_isolation": metrics("development_and_source_isolation")["roots_equal"] is True,
+        "heldout_primary": primary_expected["mean_gate"] and primary_expected["win_gate"] and primary_expected["harm_gate"],
+        "restart_comparators": comparator_expected["comparator_gate"],
+        **control_passes,
+        "aligned_control": aligned_expected["mean_gate"] and aligned_expected["harm_gate"],
+        "impossible_control": (
+            metrics("impossible_control")["trajectories"] == 640
+            and metrics("impossible_control")["observations"] == 327680
+            and metrics("impossible_control")["feasible_observations"] == 0
+            and metrics("impossible_control")["nonunit_gaps"] == 0
+            and metrics("impossible_control")["references_used"] == 0
+            and metrics("impossible_control")["false_feasible_joins"] == 0
+        ),
+        "process_and_sanitizer": (
+            metrics("process_and_sanitizer")["roots_equal"] is True
+            and metrics("process_and_sanitizer")["maximum_stdout_bytes"] <= CONSTRAINT_PROGRESS_OUTPUT_BYTES
+        ),
+    }
+    for case_id in case_ids:
+        if by_id[case_id]["passed"] is not recomputed_passes[case_id]:
+            raise RuntimeError(f"constraint-progress case pass disagrees: {case_id}")
+    passed = all(recomputed_passes.values())
+    expected_status = "passed" if passed else "failed"
+    expected_action = entry.get("success_action") if passed else entry.get("failure_action")
+    if result.get("status") != expected_status or result.get("action") != expected_action:
+        raise RuntimeError("constraint-progress terminal decision disagrees")
+
+
 def _validate_study_result(
     study: str,
     entry: dict[str, object],
     result: dict[str, object],
+    *,
+    study_revision: str | None = None,
+    contract_sha256: str | None = None,
+    worker_receipt: Mapping[str, object] | None = None,
 ) -> None:
+    if study == "constraint-aware-progress-toy-v1":
+        _validate_constraint_progress_result(
+            entry,
+            result,
+            study_revision=study_revision,
+            contract_sha256=contract_sha256,
+            worker_receipt=worker_receipt,
+        )
+        return
     expected_top_level = {
         "action",
         "cases",
@@ -782,7 +1601,7 @@ def _read_lease(lock_directory: Path, lease_id: str) -> dict[str, object]:
     lease_path = lock_directory / "lease.json"
     if not lease_path.is_file():
         raise RuntimeError("local-lab lease metadata disappeared")
-    lease = json.loads(lease_path.read_text(encoding="utf-8"))
+    lease = _loads_json(lease_path.read_text(encoding="utf-8"))
     if lease.get("lease_id") != lease_id:
         raise RuntimeError("local-lab lease identity changed during execution")
     return lease
@@ -817,7 +1636,7 @@ def _load_state(private_root: Path) -> dict[str, object]:
     state_path = private_root / "lab-state.json"
     if not state_path.exists():
         return _default_state()
-    state = json.loads(state_path.read_text(encoding="utf-8"))
+    state = _loads_json(state_path.read_text(encoding="utf-8"))
     if state.get("schema_version") != STATE_SCHEMA_VERSION:
         raise RuntimeError("unsupported or malformed local-lab state")
     if not isinstance(state.get("completed_studies"), dict):
@@ -830,12 +1649,16 @@ def _save_state(private_root: Path, state: dict[str, object]) -> None:
     _write_mutable_json(private_root / "lab-state.json", state)
 
 
-def _worker_environment() -> dict[str, str]:
+def _worker_environment(
+    overrides: Mapping[str, str] | None = None,
+) -> dict[str, str]:
     safe_names = {
         "COMSPEC",
         "LD_LIBRARY_PATH",
         "PATH",
         "PATHEXT",
+        "PROGRAMDATA",
+        "SYSTEMDRIVE",
         "SYSTEMROOT",
         "TEMP",
         "TMP",
@@ -855,6 +1678,18 @@ def _worker_environment() -> dict[str, str]:
             "XLA_PYTHON_CLIENT_PREALLOCATE": "false",
         }
     )
+    if overrides:
+        allowed = {
+            "L2D_CONTRACT_SHA256",
+            "L2D_PLAN_REVISION",
+            "L2D_STUDY_REVISION",
+        }
+        if set(overrides) - allowed or any(
+            type(name) is not str or type(value) is not str
+            for name, value in overrides.items()
+        ):
+            raise RuntimeError("unsafe local-lab worker environment override")
+        environment.update(overrides)
     return environment
 
 
@@ -883,16 +1718,29 @@ def _run_worker(
     cycle_id: str,
     heartbeat,
     worker_module: str = "experiments.local_lab.worker",
+    environment_overrides: Mapping[str, str] | None = None,
+    max_output_bytes: int = MAX_WORKER_OUTPUT_BYTES,
+    require_empty_stderr: bool = False,
 ) -> tuple[dict[str, object], dict[str, object]]:
     if worker_module not in WORKER_MODULE_PATHS:
         raise RuntimeError("local-lab worker module is not allowlisted")
-    command = [
-        sys.executable,
-        "-m",
-        worker_module,
-        "--mode",
-        worker_mode,
-    ]
+    if worker_module == "experiments.local_lab.constraint_aware_progress_toy_worker":
+        command = [
+            sys.executable,
+            "-S",
+            "-P",
+            str(ROOT / WORKER_MODULE_PATHS[worker_module]),
+            "--mode",
+            worker_mode,
+        ]
+    else:
+        command = [
+            sys.executable,
+            "-m",
+            worker_module,
+            "--mode",
+            worker_mode,
+        ]
     creationflags = (
         getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
     )
@@ -908,7 +1756,7 @@ def _run_worker(
             process = subprocess.Popen(
                 command,
                 cwd=ROOT,
-                env=_worker_environment(),
+                env=_worker_environment(environment_overrides),
                 stdout=stdout_handle,
                 stderr=stderr_handle,
                 creationflags=creationflags,
@@ -926,7 +1774,7 @@ def _run_worker(
                         f"local-lab worker exceeded {CYCLE_TIMEOUT_SECONDS} seconds"
                     )
                 if stdout_path.stat().st_size + stderr_path.stat().st_size > (
-                    MAX_WORKER_OUTPUT_BYTES
+                    max_output_bytes
                 ):
                     _terminate_process_tree(process)
                     raise RuntimeError(
@@ -942,15 +1790,17 @@ def _run_worker(
 
         stdout_bytes = stdout_path.read_bytes()
         stderr_bytes = stderr_path.read_bytes()
-        if len(stdout_bytes) + len(stderr_bytes) > MAX_WORKER_OUTPUT_BYTES:
+        if len(stdout_bytes) + len(stderr_bytes) > max_output_bytes:
             raise RuntimeError("local-lab worker output exceeded the retention cap")
+        if require_empty_stderr and stderr_bytes:
+            raise RuntimeError("local-lab worker emitted forbidden stderr")
         if process.returncode != 0:
             tail = stderr_bytes[-2000:].decode("utf-8", errors="replace").strip()
             raise RuntimeError(
                 f"local-lab worker exited {process.returncode}: "
                 f"{tail or 'no stderr'}"
             )
-        result = json.loads(stdout_bytes.decode("utf-8"))
+        result = _loads_json(stdout_bytes)
         if not isinstance(result, dict):
             raise RuntimeError("local-lab worker returned a non-object result")
         return result, {
@@ -1091,6 +1941,28 @@ def main() -> None:
         if snapshot["revision"] != prelease_revision:
             raise RuntimeError("repository revision changed while acquiring the lease")
         _validate_study_approval(entry, snapshot)
+        constraint_contract_sha256 = None
+        worker_environment_overrides = None
+        worker_output_cap_bytes = MAX_WORKER_OUTPUT_BYTES
+        require_empty_worker_stderr = False
+        if args.study == "constraint-aware-progress-toy-v1":
+            _validate_constraint_progress_runtime(entry)
+            constraint_contract_sha256 = _constraint_progress_contract_sha256(
+                registry, entry
+            )
+            plan_revision = entry.get("plan_revision")
+            study_revision = snapshot.get("revision")
+            if not isinstance(plan_revision, str) or not isinstance(
+                study_revision, str
+            ):
+                raise RuntimeError("constraint-progress revision contract is malformed")
+            worker_environment_overrides = {
+                "L2D_CONTRACT_SHA256": constraint_contract_sha256,
+                "L2D_PLAN_REVISION": plan_revision,
+                "L2D_STUDY_REVISION": study_revision,
+            }
+            worker_output_cap_bytes = CONSTRAINT_PROGRESS_OUTPUT_BYTES
+            require_empty_worker_stderr = True
         _heartbeat_lease(lock_directory, lease_id, phase="preflight-complete")
         state = _begin_cycle(
             PRIVATE_ROOT,
@@ -1125,8 +1997,18 @@ def main() -> None:
             cycle_id=cycle_id,
             heartbeat=heartbeat,
             worker_module=worker_module,
+            environment_overrides=worker_environment_overrides,
+            max_output_bytes=worker_output_cap_bytes,
+            require_empty_stderr=require_empty_worker_stderr,
         )
-        _validate_study_result(args.study, entry, result)
+        _validate_study_result(
+            args.study,
+            entry,
+            result,
+            study_revision=snapshot["revision"],
+            contract_sha256=constraint_contract_sha256,
+            worker_receipt=worker_receipt,
+        )
         post_snapshot = _repository_snapshot(entry)
         if post_snapshot != snapshot:
             raise RuntimeError(
@@ -1140,7 +2022,7 @@ def main() -> None:
                 "cycle_timeout_seconds": CYCLE_TIMEOUT_SECONDS,
                 "device": "cpu",
                 "network": "disabled-in-worker",
-                "worker_output_cap_bytes": MAX_WORKER_OUTPUT_BYTES,
+                "worker_output_cap_bytes": worker_output_cap_bytes,
             },
             "provenance": snapshot,
             "result": result,

@@ -179,6 +179,16 @@ are the evidence record, not a competing task list.
   validates only the fixed synthetic synchronous-TD harness and toy
   propagation mechanics. See the
   [`V3 terminal result`](../research/2026-08-29-multistep-td-action-prefix-v3-results.md).
+- The frozen `constraint-aware-progress-toy-v1` contract now has an exact
+  pre-result implementation at commit
+  `269698a3974cc12f9871e0e8a3580fbc7230cce9`. Its synthetic fixture,
+  independently replaying worker, twelve-case registry contract, source
+  approvals, dedicated controller validation, and Windows process boundary
+  passed three final hostile read-only audits. Focused tests, the complete
+  local-lab suite, and the single full repository pass are green. The
+  controller has never invoked this ID, so it has no private result or
+  evidentiary claim; see the
+  [`pre-result implementation record`](../research/2026-08-30-constraint-aware-progress-toy-v1-pre-result-implementation.md).
 
 ## Next decision
 
@@ -331,16 +341,16 @@ amended, or quarantined. Do not implement or invoke it while the Round-2 gate
 below is live.
 
 The owner authorized a local Round-2 research pivot and a two-hour laboratory
-cadence on 2026-08-30. The live next checkpoint is plan-conforming
-implementation plus hostile pre-result audit of
-[`constraint-aware-progress-toy-v1`](../research/2026-08-30-round1-feedback-and-round2-program.md).
-Implement only its deterministic synthetic fixture and worker, focused tests,
-exact twelve-case result contract, source approvals, dedicated allowlist, and
-ID-specific controller validation. Keep `submission/`, every terminal study,
-all rejected fixtures, V4, and the untouched topology panels unchanged. Do not
-run the fixture or worker directly and do not invoke the controller in the
-same checkpoint. A single guarded local-CPU invocation must remain a separate
-later checkpoint after a clean pre-result commit, hostile audits, and green CI.
+cadence on 2026-08-30. The plan-conforming implementation and hostile
+pre-result audit of
+[`constraint-aware-progress-toy-v1`](../research/2026-08-30-round1-feedback-and-round2-program.md)
+are now complete at a clean implementation boundary. The live next checkpoint
+is at most one guarded local-CPU controller invocation of that exact committed
+study, only after the stacked draft PR is green and all controller, source,
+revision, worktree, stop-marker, and lease guards are rechecked. Do not run the
+fixture or worker directly, change the frozen contract, or retry the ID. Keep
+`submission/`, every terminal study, all rejected fixtures, V4, and the
+untouched topology panels unchanged.
 
 A pass can unlock only an experiment-owned candidate implementation audit.
 Candidate packaging, official data, private outcome panels, accelerator

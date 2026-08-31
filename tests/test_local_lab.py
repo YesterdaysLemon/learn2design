@@ -1721,6 +1721,7 @@ def test_seventh_study_end_to_end_leaves_eighth_study_pending(
         set(registry["studies"])
         - {
             "contextual-bandit-toy-signal-v1",
+            "constraint-aware-progress-toy-v1",
             "multistep-td-action-prefix-v3",
             "two-step-delayed-credit-v1",
         }
@@ -1864,7 +1865,7 @@ def test_ninth_study_end_to_end_leaves_tenth_study_pending(
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_tenth_study_end_to_end_closes_pending_registry(
+def test_tenth_study_end_to_end_leaves_constraint_progress_pending(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = lab_controller._load_study_registry()
@@ -1885,7 +1886,7 @@ def test_tenth_study_end_to_end_closes_pending_registry(
             "status": "passed",
         }
         for index, name in enumerate(registry["studies"])
-        if name != study_id
+        if name not in {study_id, "constraint-aware-progress-toy-v1"}
     }
     lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
     output = tmp_path / "cycles" / "tenth-study-test" / "result.json"
@@ -1924,7 +1925,9 @@ def test_tenth_study_end_to_end_closes_pending_registry(
     payload = json.loads(output.read_text(encoding="utf-8"))
     state = _load_state(tmp_path)
     assert payload["result"]["status"] == "passed"
-    assert state["status"] == "awaiting_study"
-    assert state["stop_reason"] == "no_approved_study_pending"
-    assert set(state["completed_studies"]) == set(registry["studies"])
+    assert state["status"] == "idle"
+    assert state["stop_reason"] is None
+    assert set(state["completed_studies"]) == (
+        set(registry["studies"]) - {"constraint-aware-progress-toy-v1"}
+    )
     assert not (tmp_path / "lab.lock").exists()
