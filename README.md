@@ -40,10 +40,13 @@ and limitations in
 [`research/2026-08-23-submission-like-screen-a100-results.md`](research/2026-08-23-submission-like-screen-a100-results.md).
 The final package, private-data provenance, and provider-cleanup ledger is in
 [`research/2026-08-23-final-submission-review.md`](research/2026-08-23-final-submission-review.md).
-The optimizer still has no hidden-leaderboard or official-budget multi-topology
-performance claim. The owner reports that the Round-1 ZIP was uploaded on
-2026-08-24, before the optional first public-leaderboard deadline on 2026-08-26
-AoE.
+The owner reports that the Round-1 ZIP was uploaded on 2026-08-24. On
+2026-08-30 the owner supplied the organizing team's aggregate result: score
+`0.444293`, best reported score `0.019674`, and placement 14th of 43 evaluated
+participants, with an invitation to Round 2. The repository cannot
+independently authenticate the email or hidden result. The sanitized feedback
+intake, protected baseline, and Round-2 evidence funnel are in
+[`research/2026-08-30-round1-feedback-and-round2-program.md`](research/2026-08-30-round1-feedback-and-round2-program.md).
 
 The subsequently frozen `coverage-triage-screen-v1` H100 Stage A is complete
 and independently validated: 32/32 runs, 16/16 seed pairs, and 8/8 topology
@@ -128,14 +131,15 @@ the sanitized
 [`v1 preflight rejection`](research/2026-08-28-multistep-td-propagation-preflight-rejection.md)
 and
 [`v2 preflight rejection`](research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
-The fresh
-[`online-sarsa-latched-choice-v1` plan](research/2026-08-29-online-sarsa-latched-choice-v1-plan.md)
-now freezes the next topology-independent online-control question before any
-fixture or learner execution. The live gate is exact implementation plus
-hostile pre-result audit; guarded execution remains a separate later
-checkpoint. Meta-RL, native rewrites, candidate integration, accelerators, and
-paid training remain later owner gates, and no terminal fixture will be
-repeated.
+The later online-SARSA plans are historical synthetic-learning work. V1 through
+V3 were rejected before execution; the frozen V4 plan is paused intact after
+public Round-1 feedback changed the priority. The live gate is now exact
+implementation plus hostile pre-result audit of the plan-only
+`constraint-aware-progress-toy-v1` checkpoint. It tests a public-aux-guided
+progress/restart rule against protected optimizer semantics on a closed
+synthetic family. It cannot establish competition improvement, and any
+candidate package, accelerator screen, spend, merge, or portal action remains
+a separate owner gate.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and
