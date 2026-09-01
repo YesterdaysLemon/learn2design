@@ -423,10 +423,15 @@ is frozen before implementation or result observation. It specifies an
 experiment-owned ordinary-runtime candidate whose only treatment is a public
 penalty-driven pre-feasibility restart clock, followed by the protected
 total-loss clock after first feasibility. It neither reuses nor selects
-against the retired constraint-progress fixtures or diagnostics. The live
-gate is exact implementation, a clean committed pre-result boundary, and one
-deterministic local-CPU mechanics projection. No candidate-performance or
-score claim is authorized by the plan alone.
+against the retired constraint-progress fixtures or diagnostics. Its exact
+implementation and affected verification are now committed at
+`13f53dc1ba5ea8246cd385d934e2b5c03b833fe7`; the durable source hashes,
+35-test affected receipt, and contained broad-suite deviation are in the
+[`pre-result implementation record`](../research/2026-09-01-feasibility-debt-clock-v1-pre-result-implementation.md).
+The terminal `--run` projection has not been invoked. The live gate is a clean
+green review surface followed by exactly one deterministic local-CPU terminal
+projection. No candidate-performance or score claim is authorized by the
+implementation alone.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
