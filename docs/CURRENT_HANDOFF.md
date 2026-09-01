@@ -357,20 +357,45 @@ below is live.
 
 The owner authorized a local Round-2 research pivot and a two-hour laboratory
 cadence on 2026-08-30, then explicitly authorized infrastructure recovery and
-resumption of local research on 2026-08-31. The controller remains `parked`
-with no active cycle, stop marker, or lease. V1 remains in the registry only as
-historical contract evidence and is mechanically refused before any
-control-plane mutation.
+resumption of local research on 2026-08-31. After the exact V2 pre-result
+boundary was green, the owner separately authorized the atomic controller
+resume. The controller is now `awaiting_study` with no active cycle, stop
+marker, or lease. V1 remains in the registry only as historical contract
+evidence and is mechanically refused before any control-plane mutation.
 
-The live checkpoint is plan-only for a fresh
-`constraint-aware-progress-toy-v2`. Freeze the V2 scientific contract before
-implementation. Preserve V1's synthetic family, seeds, thresholds, cases,
-decision rule, and claim boundary without selecting against a scientific result
-(none exists), and change only the worker/bootstrap process boundary justified
-by the passed
-[`startup-forensics diagnostic`](../research/2026-08-31-constraint-progress-startup-forensics-v1-results.md).
-V2 implementation, controller registration, owner-authorized atomic resume,
-and result-bearing execution remain later separate gates.
+The fresh
+[`constraint-aware-progress-toy-v2` contract](../research/2026-08-31-constraint-aware-progress-toy-v2-plan.md)
+is frozen. It preserves V1's complete synthetic family, seeds, thresholds,
+cases, decision rule, and claim boundary without selecting against a scientific
+result (none exists). Its sole implementation delta is a framed,
+exception-sealed standard-library bootstrap. V1 already gated its runtime load;
+V2 does not claim import order caused the failure. It separates supervision
+from scientific dispatch so recursive children authenticate their complete
+frame and verified Job membership before dispatch, while any later exception
+becomes a closed stage code rather than raw stderr.
+
+The exact V2 implementation and hostile pre-result audit are complete at
+commit `e2f8e7579c04ca23b6a254300cf0e34945bbfe5a`. All three independent
+read-only audits are clean, all 54 focused V2 tests pass, the full repository
+suite exits zero, and the five source hashes plus normalized registry digest
+are pinned. The durable boundary and verification receipt are in the
+[`V2 pre-result implementation record`](../research/2026-08-31-constraint-aware-progress-toy-v2-pre-result-implementation.md).
+The separately authorized atomic
+[`controller resume`](../research/2026-08-31-constraint-aware-progress-toy-v2-controller-resume.md)
+then passed every frozen precondition and changed only the private controller
+state from `parked` to `awaiting_study`. It appended exactly one canonical
+resume event, preserved all ten completed-study receipts and the failure
+streak, released its lease, and launched no worker. No V2 scientific path,
+private result, sidecar, active cycle, or score exists.
+
+The live next checkpoint is at most one separately owner-authorized guarded
+local-CPU invocation of `constraint-aware-progress-toy-v2`, after this receipt
+is committed, pushed, green in draft PR #40, and the clean revision, approved
+sources, registry digest, `awaiting_study` state, absent stop marker, and absent
+lease are freshly verified. Never run the fixture or worker directly. V1 and
+every terminal or rejected study must never be rerun. A V2 failure, timeout,
+malformed result, nondeterminism, source drift, or surviving process parks the
+controller and ends mutation without retry.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,

@@ -1722,6 +1722,7 @@ def test_seventh_study_end_to_end_leaves_eighth_study_pending(
         - {
             "contextual-bandit-toy-signal-v1",
             "constraint-aware-progress-toy-v1",
+            "constraint-aware-progress-toy-v2",
             "multistep-td-action-prefix-v3",
             "two-step-delayed-credit-v1",
         }
@@ -1750,7 +1751,14 @@ def test_eighth_study_end_to_end_leaves_ninth_study_pending(
             "status": "passed",
         }
         for index, name in enumerate(registry["studies"])
-        if name not in {study_id, "two-step-delayed-credit-v1"}
+        if name
+        not in {
+            study_id,
+            "constraint-aware-progress-toy-v1",
+            "constraint-aware-progress-toy-v2",
+            "multistep-td-action-prefix-v3",
+            "two-step-delayed-credit-v1",
+        }
     }
     lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
     output = tmp_path / "cycles" / "eighth-study-test" / "result.json"
@@ -1792,7 +1800,13 @@ def test_eighth_study_end_to_end_leaves_ninth_study_pending(
     assert state["status"] == "idle"
     assert state["stop_reason"] is None
     assert set(state["completed_studies"]) == (
-        set(registry["studies"]) - {"two-step-delayed-credit-v1"}
+        set(registry["studies"])
+        - {
+            "constraint-aware-progress-toy-v1",
+            "constraint-aware-progress-toy-v2",
+            "multistep-td-action-prefix-v3",
+            "two-step-delayed-credit-v1",
+        }
     )
     assert not (tmp_path / "lab.lock").exists()
 
@@ -1818,7 +1832,13 @@ def test_ninth_study_end_to_end_leaves_tenth_study_pending(
             "status": "passed",
         }
         for index, name in enumerate(registry["studies"])
-        if name not in {study_id, "multistep-td-action-prefix-v3"}
+        if name
+        not in {
+            study_id,
+            "constraint-aware-progress-toy-v1",
+            "constraint-aware-progress-toy-v2",
+            "multistep-td-action-prefix-v3",
+        }
     }
     lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
     output = tmp_path / "cycles" / "ninth-study-test" / "result.json"
@@ -1860,12 +1880,17 @@ def test_ninth_study_end_to_end_leaves_tenth_study_pending(
     assert state["status"] == "idle"
     assert state["stop_reason"] is None
     assert set(state["completed_studies"]) == (
-        set(registry["studies"]) - {"multistep-td-action-prefix-v3"}
+        set(registry["studies"])
+        - {
+            "constraint-aware-progress-toy-v1",
+            "constraint-aware-progress-toy-v2",
+            "multistep-td-action-prefix-v3",
+        }
     )
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_tenth_study_end_to_end_leaves_constraint_progress_pending(
+def test_tenth_study_end_to_end_ignores_v1_and_leaves_v2_pending(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = lab_controller._load_study_registry()
@@ -1886,7 +1911,12 @@ def test_tenth_study_end_to_end_leaves_constraint_progress_pending(
             "status": "passed",
         }
         for index, name in enumerate(registry["studies"])
-        if name not in {study_id, "constraint-aware-progress-toy-v1"}
+        if name
+        not in {
+            study_id,
+            "constraint-aware-progress-toy-v1",
+            "constraint-aware-progress-toy-v2",
+        }
     }
     lab_controller._write_mutable_json(tmp_path / "lab-state.json", initial_state)
     output = tmp_path / "cycles" / "tenth-study-test" / "result.json"
@@ -1928,6 +1958,7 @@ def test_tenth_study_end_to_end_leaves_constraint_progress_pending(
     assert state["status"] == "idle"
     assert state["stop_reason"] is None
     assert set(state["completed_studies"]) == (
-        set(registry["studies"]) - {"constraint-aware-progress-toy-v1"}
+        set(registry["studies"])
+        - {"constraint-aware-progress-toy-v1", "constraint-aware-progress-toy-v2"}
     )
     assert not (tmp_path / "lab.lock").exists()

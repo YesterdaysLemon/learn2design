@@ -44,41 +44,27 @@ attribution, leakage, and process-isolation controls. It validates only the
 fixed synthetic two-step harness; production RL and candidate integration
 remain outside this laboratory's authority.
 
-No approved study is currently pending. The next admissible learning rung is a
-newly frozen bootstrapped multi-step value-propagation question with exact TD
-targets and negative controls. The first proposed fixture,
-`multistep-td-propagation-v1`, was rejected during pre-result audit and never
-entered this registry: its public successor leaked prior target agreement, its
-family commitment omitted successor/outcome rows, and several frozen sentinels
-were incomplete. A successor must use a new ID, target-independent public
-state, a complete legal-family commitment, stronger held-out and keyed-scoring
-sentinels, and an outcome-blind cell-balanced reward-origin control. See the
-sanitized
-[`v1 preflight rejection`](../../research/2026-08-28-multistep-td-propagation-preflight-rejection.md).
-Its fresh target-independent successor, `multistep-td-action-prefix-v2`, was
-also rejected before controller execution. Although its development projection
-passed, independent audits found that several target-swap, feedback-only
-baseline, held-out, keyed-trace, timing, control-difference, and all-bootstrap
-dependency checks could pass without establishing their frozen claims. V2 is
-absent from `studies.json` and the controller allowlist and must not be repaired,
-registered, executed, or reused. See the sanitized
-[`v2 preflight rejection`](../../research/2026-08-28-multistep-td-action-prefix-v2-preflight-rejection.md).
-The fresh
+The first two proposed multi-step fixtures were rejected before guarded
+execution and remain quarantined; the fresh
 [`multistep-td-action-prefix-v3` plan](../../research/2026-08-28-multistep-td-action-prefix-v3-plan.md)
-was implemented, registered, invoked exactly once through the guarded local-CPU
-controller, and passed all nineteen frozen cases. Its terminal conclusion is
-recorded in the
+was implemented, invoked exactly once, and passed all nineteen frozen cases.
+Its narrow terminal conclusion is recorded in the
 [`V3 result`](../../research/2026-08-29-multistep-td-action-prefix-v3-results.md).
-It validates only that synthetic synchronous-TD harness and toy signal.
+The later online-SARSA plans are historical: V1 through V3 were rejected before
+execution and V4 is paused intact after public Round-1 feedback changed the
+priority.
 
-The next
-[`online-sarsa-latched-choice-v1` plan](../../research/2026-08-29-online-sarsa-latched-choice-v1-plan.md)
-is frozen before implementation or learner execution. The live gate is exact
-implementation plus focused and independent hostile pre-result checks. This ID
-is not yet in `studies.json` or the controller allowlist, so no study is
-approved to run. Its deliberately exposed cue can support only a synthetic
-online-control harness claim, not production RL, optimizer, candidate, or
-competition evidence.
+The first `constraint-aware-progress-toy-v1` launch parked before any
+authenticated result and is permanently quarantined. The controller refuses
+that ID before private-state or worker mutation. Its one-shot
+[`startup-forensics diagnostic`](../../research/2026-08-31-constraint-progress-startup-forensics-v1-results.md)
+passed only the reproduced process boundary; it did not evaluate the optimizer.
+The live contract is the fresh
+[`constraint-aware-progress-toy-v2` plan](../../research/2026-08-31-constraint-aware-progress-toy-v2-plan.md).
+V2 preserves the complete V1 scientific contract and changes only a framed,
+exception-sealed bootstrap boundary. Its implementation, registration,
+controller resume, and one possible guarded invocation are separate later
+gates. No V2 study is currently approved to run.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,
