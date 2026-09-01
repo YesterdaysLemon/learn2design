@@ -141,7 +141,12 @@ MAX_WORKER_OUTPUT_BYTES = 5 * 1024 * 1024
 CONSTRAINT_PROGRESS_OUTPUT_BYTES = 1_048_576
 OUTPUT_POLL_SECONDS = 1
 STATE_SCHEMA_VERSION = 1
-QUARANTINED_STUDIES = frozenset({"constraint-aware-progress-toy-v1"})
+QUARANTINED_STUDIES = frozenset(
+    {
+        "constraint-aware-progress-toy-v1",
+        "constraint-aware-progress-toy-v2",
+    }
+)
 CONSTRAINT_PROGRESS_STUDIES = frozenset(
     {
         "constraint-aware-progress-toy-v1",
@@ -2440,6 +2445,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.resume_constraint_progress_v2:
+        _refuse_quarantined_study(CONSTRAINT_PROGRESS_V2)
         if args.output is not None:
             parser.error("--output is not valid for the controller-resume operation")
         _resume_constraint_progress_v2()

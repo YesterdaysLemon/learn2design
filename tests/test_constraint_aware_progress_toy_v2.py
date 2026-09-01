@@ -1104,7 +1104,7 @@ def test_controller_cleanup_removes_files_when_tree_termination_raises(
     assert not list((tmp_path / "worker-tmp").glob("cleanup-failure.*"))
 
 
-def test_registry_adds_only_the_fresh_v2_contract_and_keeps_v1_quarantined() -> None:
+def test_registry_retains_both_failed_contracts_as_quarantined_history() -> None:
     registry = _registry()
     studies = registry["studies"]
     assert isinstance(studies, dict)
@@ -1112,7 +1112,7 @@ def test_registry_adds_only_the_fresh_v2_contract_and_keeps_v1_quarantined() -> 
     v2 = studies[STUDY_ID]
     assert isinstance(v1, dict) and isinstance(v2, dict)
     assert controller.CONSTRAINT_PROGRESS_V1 in controller.QUARANTINED_STUDIES
-    assert STUDY_ID not in controller.QUARANTINED_STUDIES
+    assert STUDY_ID in controller.QUARANTINED_STUDIES
     assert v2["worker_module"] == WORKER_MODULE
     assert controller.WORKER_MODULE_PATHS[WORKER_MODULE] == v2["source_paths"][
         "worker_source"
@@ -1336,9 +1336,8 @@ def test_resume_postcommit_failure_retains_lease_and_committed_ledgers(
     assert (tmp_path / "lab.lock/lease.json").is_file()
 
 
-def test_resume_cli_never_dispatches_a_worker(
+def test_resume_cli_refuses_retired_v2_before_resume_or_worker(
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
 ) -> None:
     calls = []
     monkeypatch.setattr(
@@ -1358,9 +1357,9 @@ def test_resume_cli_never_dispatches_a_worker(
         "argv",
         ["run_local_lab.py", "--resume-constraint-progress-v2"],
     )
-    controller.main()
-    assert calls == ["resume"]
-    assert "without launching V2" in capsys.readouterr().out
+    with pytest.raises(controller.QuarantinedStudyError):
+        controller.main()
+    assert calls == []
 
 
 @pytest.mark.parametrize("failure_point", ("state", "event"))
