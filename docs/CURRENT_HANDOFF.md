@@ -413,10 +413,37 @@ The durable boundary is in the
 [`terminal result`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-results.md).
 
 Never rerun or repair this diagnostic, assign an unauthenticated failure stage,
-or freeze V3 from this result. The two-hour autonomous laboratory is paused.
-The live gate is owner review of a genuinely fresh research direction; the
-current closed evidence authorizes no candidate, score, private panel, paid
-compute, or accelerator action.
+or freeze V3 from this result. The two-hour autonomous laboratory remains
+paused.
+
+On 2026-09-01 the owner authorized a genuinely fresh local research direction.
+The new
+[`feasibility-debt-clock-v1` plan](../research/2026-09-01-feasibility-debt-clock-v1-plan.md)
+is frozen before implementation or result observation. It specifies an
+experiment-owned ordinary-runtime candidate whose only treatment is a public
+penalty-driven pre-feasibility restart clock, followed by the protected
+total-loss clock after first feasibility. It neither reuses nor selects
+against the retired constraint-progress fixtures or diagnostics. Its exact
+implementation and affected verification are now committed at
+`13f53dc1ba5ea8246cd385d934e2b5c03b833fe7`; the durable source hashes,
+35-test affected receipt, and contained broad-suite deviation are in the
+[`pre-result implementation record`](../research/2026-09-01-feasibility-debt-clock-v1-pre-result-implementation.md).
+The terminal `--run` projection was invoked exactly once on 2026-09-01 at
+clean revision `46e63d47d1856986669e2e6655866a9692143a7c`, after all three
+jobs in GitHub Actions run `33566085387` passed. The parent failed closed while
+handling its first frozen child with `RuntimeError: child exited 1` and emitted
+no sanitized JSON projection. No child output or case metric was inspected,
+the child was not called directly, and no retry occurred. The frozen action is
+`park_feasibility_debt_candidate`; V1 is terminal and must never be rerun or
+repaired. It authenticates no mechanics, candidate-performance, or score
+claim. See the
+[`terminal result`](../research/2026-09-01-feasibility-debt-clock-v1-results.md).
+
+The live next gate is plan-only: any successor requires a fresh versioned ID,
+independently frozen cases and seeds, and a new pre-result boundary. It may use
+only the parent-level fact that V1 produced no authenticated sanitized
+projection; it must not inspect or select against V1 child output, reuse the
+terminal cases, or claim that the proposed mechanism itself failed.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
@@ -443,10 +470,10 @@ durable aggregate result and exploratory evidence boundaries are in
 
 Useful unpaid work now follows the frozen Round-2 funnel: synthetic causal
 mechanics, experiment-owned candidate audit, then a separately approved fresh
-development panel. The first question tests whether the complete public
-progress tuple--feasibility, penalty, and sensitivity loss--can improve
-progress/restart decisions relative to the protected raw-total-loss clock
-without selecting against the observed Stage-A panel. The
+development panel. The live frozen question tests whether public penalty can
+drive a causally isolated pre-feasibility restart clock relative to the
+protected raw-total-loss clock without selecting against the observed Stage-A
+panel. The
 validated supervised toy-signal harness result and its strict learning-only
 claim boundary are in
 [`2026-08-27-supervised-toy-signal-results.md`](../research/2026-08-27-supervised-toy-signal-results.md).
