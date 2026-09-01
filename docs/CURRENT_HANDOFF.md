@@ -448,11 +448,21 @@ closed parent transport schema that must emit a sanitized receipt on handled
 child failure. It does not import V1, reuse a V1 terminal row script or seed,
 or inspect any V1 child output.
 
-V2 currently has only its frozen plan: no candidate module, fixture, source
-verifier, tests, learner execution, terminal result, score, or evidentiary
-claim exists. The live next gate is exact implementation plus hostile
-pre-result audit at a separate clean commit. Result-bearing execution remains
-a later one-shot local-CPU gate after green review.
+The exact V2 candidate, fixture, source verifier, closed transport, and focused
+tests are now committed at
+`29a5d265ad61ddbc0580765532b774e0bf2fbcc1`. The source boundary root,
+raw-file hashes, contained pre-result transport fix, fresh-process guard smoke,
+and final `37/37` affected-test receipt are in the
+[`pre-result implementation record`](../research/2026-09-01-feasibility-debt-clock-v2-pre-result-implementation.md).
+No full repository pass was attempted because the broad suite is known to
+enter a retired terminal trace worker.
+
+The ten frozen cases, child entry point, and terminal `--run` projection have
+not been invoked. V2 has no terminal result, score, or candidate-performance
+claim. The live gate is a clean pushed review surface with green CI followed by
+exactly one local-CPU `--run` invocation with bytecode writing disabled. A pass
+can authorize only fresh paired-panel planning; any failure parks V2 without a
+retry.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
