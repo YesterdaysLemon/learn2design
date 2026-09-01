@@ -62,9 +62,12 @@ passed only the reproduced process boundary; it did not evaluate the optimizer.
 The live contract is the fresh
 [`constraint-aware-progress-toy-v2` plan](../../research/2026-08-31-constraint-aware-progress-toy-v2-plan.md).
 V2 preserves the complete V1 scientific contract and changes only a framed,
-exception-sealed bootstrap boundary. Its implementation, registration,
-controller resume, and one possible guarded invocation are separate later
-gates. No V2 study is currently approved to run.
+exception-sealed bootstrap boundary. Its one guarded invocation failed in
+isolated runtime preflight before cycle start, result creation, or scientific
+study execution. V2 is retired and must not be retried. The live successor is the
+standalone
+[`isolated-runtime forensic plan`](../../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-plan.md),
+which cannot import or execute V1, V2, or either scientific fixture.
 
 The controller refuses a dirty or unapproved branch, an output outside the
 private root, duplicate study identity, owner stop marker, parked state,

@@ -359,9 +359,10 @@ The owner authorized a local Round-2 research pivot and a two-hour laboratory
 cadence on 2026-08-30, then explicitly authorized infrastructure recovery and
 resumption of local research on 2026-08-31. After the exact V2 pre-result
 boundary was green, the owner separately authorized the atomic controller
-resume. The controller is now `awaiting_study` with no active cycle, stop
-marker, or lease. V1 remains in the registry only as historical contract
-evidence and is mechanically refused before any control-plane mutation.
+resume and one guarded V2 invocation. That invocation failed closed in the
+isolated runtime preflight before cycle start. The controller is now `parked`
+with no active cycle, stop marker, or lease. V1 and V2 are pre-result failures;
+neither belongs in the completed-study ledger and neither may be retried.
 
 The fresh
 [`constraint-aware-progress-toy-v2` contract](../research/2026-08-31-constraint-aware-progress-toy-v2-plan.md)
@@ -388,14 +389,20 @@ resume event, preserved all ten completed-study receipts and the failure
 streak, released its lease, and launched no worker. No V2 scientific path,
 private result, sidecar, active cycle, or score exists.
 
-The live next checkpoint is at most one separately owner-authorized guarded
-local-CPU invocation of `constraint-aware-progress-toy-v2`, after this receipt
-is committed, pushed, green in draft PR #40, and the clean revision, approved
-sources, registry digest, `awaiting_study` state, absent stop marker, and absent
-lease are freshly verified. Never run the fixture or worker directly. V1 and
-every terminal or rejected study must never be rerun. A V2 failure, timeout,
-malformed result, nondeterminism, source drift, or surviving process parks the
-controller and ends mutation without retry.
+The sole V2 invocation is recorded in the
+[`V2 preflight failure`](../research/2026-09-01-constraint-aware-progress-toy-v2-preflight-failure.md).
+It produced no result, sidecar, metric, or score. Never run the V2 fixture,
+worker, runtime probe, or controller study again; do not inspect its raw
+private process output or refresh its historical approvals.
+
+The fresh
+[`isolated-runtime forensics plan`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-plan.md)
+is now the live gate. The next checkpoint is exact implementation plus hostile
+pre-result audit of its new standalone one-source probe and mechanical V2
+controller refusal. It must not import or execute V1, V2, either scientific
+fixture, or any private result. Result-bearing diagnostic execution remains a
+later single-shot checkpoint after a clean committed implementation and focused
+verification. A pass may authorize only a fresh V3 plan.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,

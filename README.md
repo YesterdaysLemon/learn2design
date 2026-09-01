@@ -148,9 +148,12 @@ is now committed, source-pinned, independently audited, and fully verified
 without invoking a scientific result path. The separately authorized
 [`controller resume`](research/2026-08-31-constraint-aware-progress-toy-v2-controller-resume.md)
 then changed only the private controller state from `parked` to
-`awaiting_study`; it launched no worker. The live gate is one later, separately
-authorized guarded local-CPU V2 invocation. This work cannot yet establish
-competition improvement, and any
+`awaiting_study`; it launched no worker. The one later authorized V2 call then
+[`failed in isolated runtime preflight`](research/2026-09-01-constraint-aware-progress-toy-v2-preflight-failure.md)
+before cycle start or full-study execution, with no result or score. V2 is now
+retired without retry. The live gate is the fresh
+[`isolated-runtime forensics plan`](research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-plan.md).
+This work cannot yet establish competition improvement, and any
 candidate package, accelerator screen, spend, merge, or portal action remains
 a separate owner gate.
 
