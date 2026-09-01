@@ -380,8 +380,8 @@ def test_controller_accepts_only_canonical_v2_failure_receipts() -> None:
             controller._constraint_progress_failure_stage(malformed, STUDY_ID)
 
 
-def test_controller_binds_each_constraint_mode_to_exact_worker_module() -> None:
-    with pytest.raises(RuntimeError, match="pairing"):
+def test_controller_refuses_retired_v2_before_worker_pairing() -> None:
+    with pytest.raises(controller.QuarantinedStudyError, match="quarantined"):
         controller._run_worker(
             STUDY_ID,
             cycle_id="wrong-worker",
@@ -398,62 +398,51 @@ def test_controller_binds_each_constraint_mode_to_exact_worker_module() -> None:
 
 
 @pytest.mark.skipif(os.name != "nt", reason="V2 freezes the Windows CPython runtime")
-def test_real_runtime_probe_authenticates_without_scientific_dispatch() -> None:
-    frozen_python = subprocess.check_output(
-        ["py", "-3.13", "-c", "import sys;print(sys.executable)"],
-        cwd=ROOT,
-        text=True,
-    ).strip()
-    environment = controller._worker_environment(
-        {
-            "L2D_CONTRACT_SHA256": "a" * 64,
-            "L2D_PLAN_REVISION": PLAN_REVISION,
-            "L2D_STUDY_REVISION": "b" * 40,
-        }
-    )
-    completed = subprocess.run(
-        [
-            frozen_python,
-            "-S",
-            "-P",
-            str(WORKER_PATH),
-            "--mode",
-            worker.RUNTIME_MODE,
-        ],
-        cwd=ROOT,
-        env=environment,
-        capture_output=True,
-        timeout=30,
-        check=False,
-    )
-    assert completed.returncode == 0
-    assert completed.stderr == b""
-    identity = json.loads(completed.stdout)
-    assert identity == science.RUNTIME_IDENTITY
+def test_retired_v2_runtime_probe_is_not_reexecuted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    popen_called = False
+
+    def forbidden_popen(*_args, **_kwargs):
+        nonlocal popen_called
+        popen_called = True
+        raise AssertionError("retired V2 runtime child became reachable")
+
+    monkeypatch.setattr(controller.subprocess, "Popen", forbidden_popen)
+    with pytest.raises(controller.QuarantinedStudyError, match="quarantined"):
+        controller._constraint_progress_runtime_identity(
+            _registry()["studies"][STUDY_ID],
+            study_revision="b" * 40,
+            contract_sha256="a" * 64,
+        )
+    assert popen_called is False
 
 
 @pytest.mark.skipif(os.name != "nt", reason="V2 freezes the Windows CPython runtime")
 def test_controller_runtime_probe_uses_computed_v2_contract(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    frozen_python = subprocess.check_output(
-        ["py", "-3.13", "-c", "import sys;print(sys.executable)"],
-        cwd=ROOT,
-        text=True,
-    ).strip()
     registry = _registry()
     entry = registry["studies"][STUDY_ID]
     assert isinstance(entry, dict)
     contract = controller._constraint_progress_contract_sha256(
         registry, entry, STUDY_ID
     )
-    monkeypatch.setattr(controller.sys, "executable", frozen_python)
-    identity = controller._constraint_progress_runtime_identity(
-        entry,
-        study_revision="b" * 40,
-        contract_sha256=contract,
-    )
-    assert identity == entry["runtime_identity"] == science.RUNTIME_IDENTITY
+    popen_called = False
+
+    def forbidden_popen(*_args, **_kwargs):
+        nonlocal popen_called
+        popen_called = True
+        raise AssertionError("retired V2 runtime child became reachable")
+
+    monkeypatch.setattr(controller.subprocess, "Popen", forbidden_popen)
+    with pytest.raises(controller.QuarantinedStudyError, match="quarantined"):
+        controller._constraint_progress_runtime_identity(
+            entry,
+            study_revision="b" * 40,
+            contract_sha256=contract,
+        )
+    assert popen_called is False
 
 
 @pytest.mark.parametrize(
@@ -1454,7 +1443,7 @@ def test_resume_stop_marker_race_rolls_back_event_before_state(
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_v2_pass_with_v1_quarantined_exhausts_only_the_live_queue(
+def test_retired_v2_cannot_reenter_the_live_queue(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = _registry()
@@ -1476,6 +1465,7 @@ def test_v2_pass_with_v1_quarantined_exhausts_only_the_live_queue(
         if name not in controller.CONSTRAINT_PROGRESS_STUDIES
     }
     controller._write_mutable_json(tmp_path / "lab-state.json", state)
+    state_before = (tmp_path / "lab-state.json").read_bytes()
     output = tmp_path / "cycles/v2-state-test/result.json"
     monkeypatch.setattr(controller, "PRIVATE_ROOT", tmp_path)
     monkeypatch.setattr(controller, "_load_study_registry", lambda: registry)
@@ -1510,10 +1500,8 @@ def test_v2_pass_with_v1_quarantined_exhausts_only_the_live_queue(
         "argv",
         ["run_local_lab.py", "--study", STUDY_ID, "--output", str(output)],
     )
-    controller.main()
-    terminal = controller._load_state(tmp_path)
-    assert terminal["status"] == "awaiting_study"
-    assert terminal["stop_reason"] == "no_approved_study_pending"
-    assert STUDY_ID in terminal["completed_studies"]
-    assert controller.CONSTRAINT_PROGRESS_V1 not in terminal["completed_studies"]
+    with pytest.raises(controller.QuarantinedStudyError, match="quarantined"):
+        controller.main()
+    assert (tmp_path / "lab-state.json").read_bytes() == state_before
+    assert not output.exists()
     assert not (tmp_path / "lab.lock").exists()
