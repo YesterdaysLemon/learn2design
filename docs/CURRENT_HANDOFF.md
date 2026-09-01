@@ -357,10 +357,11 @@ below is live.
 
 The owner authorized a local Round-2 research pivot and a two-hour laboratory
 cadence on 2026-08-30, then explicitly authorized infrastructure recovery and
-resumption of local research on 2026-08-31. The controller remains `parked`
-with no active cycle, stop marker, or lease. V1 remains in the registry only as
-historical contract evidence and is mechanically refused before any
-control-plane mutation.
+resumption of local research on 2026-08-31. After the exact V2 pre-result
+boundary was green, the owner separately authorized the atomic controller
+resume. The controller is now `awaiting_study` with no active cycle, stop
+marker, or lease. V1 remains in the registry only as historical contract
+evidence and is mechanically refused before any control-plane mutation.
 
 The fresh
 [`constraint-aware-progress-toy-v2` contract](../research/2026-08-31-constraint-aware-progress-toy-v2-plan.md)
@@ -379,16 +380,22 @@ read-only audits are clean, all 54 focused V2 tests pass, the full repository
 suite exits zero, and the five source hashes plus normalized registry digest
 are pinned. The durable boundary and verification receipt are in the
 [`V2 pre-result implementation record`](../research/2026-08-31-constraint-aware-progress-toy-v2-pre-result-implementation.md).
-No V2 scientific path was invoked and no private result, sidecar, state
-transition, lease, or terminal event was produced.
+The separately authorized atomic
+[`controller resume`](../research/2026-08-31-constraint-aware-progress-toy-v2-controller-resume.md)
+then passed every frozen precondition and changed only the private controller
+state from `parked` to `awaiting_study`. It appended exactly one canonical
+resume event, preserved all ten completed-study receipts and the failure
+streak, released its lease, and launched no worker. No V2 scientific path,
+private result, sidecar, active cycle, or score exists.
 
-The live next checkpoint is only a separate owner-authorized atomic controller
-resume from the exact parked V1 infrastructure failure to `awaiting_study`.
-The resume operation must authenticate both ledgers and approved V2 sources,
-append its canonical event before state replacement, retain its lease on any
-ambiguous failure, and must not launch a worker. A single guarded local-CPU V2
-invocation remains a later, separate checkpoint after the resumed state and
-clean revision are independently verified. V1 must never be rerun.
+The live next checkpoint is at most one separately owner-authorized guarded
+local-CPU invocation of `constraint-aware-progress-toy-v2`, after this receipt
+is committed, pushed, green in draft PR #40, and the clean revision, approved
+sources, registry digest, `awaiting_study` state, absent stop marker, and absent
+lease are freshly verified. Never run the fixture or worker directly. V1 and
+every terminal or rejected study must never be rerun. A V2 failure, timeout,
+malformed result, nondeterminism, source drift, or surviving process parks the
+controller and ends mutation without retry.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,

@@ -117,9 +117,11 @@ general RL, optimizer value, or candidate performance. See the sanitized
 [`two-step delayed-credit result`](research/2026-08-28-two-step-delayed-credit-results.md),
 [`multi-step TD result`](research/2026-08-29-multistep-td-action-prefix-v3-results.md),
 [`startup-forensics result`](research/2026-08-31-constraint-progress-startup-forensics-v1-results.md),
-and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller is parked
+and [`laboratory protocol`](docs/AUTONOMOUS_LAB.md). The controller parked
 after the first `constraint-aware-progress-toy-v1` launch encountered an
-infrastructure exception before any authenticated result. The two earlier proposed
+infrastructure exception before any authenticated result, then resumed to
+`awaiting_study` through the separately authorized atomic recovery after V2's
+pre-result boundary was fully pinned. The two earlier proposed
 multi-step fixtures remain quarantined. The first,
 `multistep-td-propagation-v1`, was rejected before terminal execution because
 its public state leaked prior target agreement and its complete-family,
@@ -143,9 +145,12 @@ passed, establishing that the reproduced pre-metric Windows process boundary
 is deterministic and host-feasible. The exact
 [`constraint-aware-progress-toy-v2` pre-result implementation](research/2026-08-31-constraint-aware-progress-toy-v2-pre-result-implementation.md)
 is now committed, source-pinned, independently audited, and fully verified
-without invoking a scientific result path. The live gate is a separate atomic
-controller resume that cannot launch V2; one guarded local-CPU invocation is a
-later checkpoint. This work cannot yet establish competition improvement, and any
+without invoking a scientific result path. The separately authorized
+[`controller resume`](research/2026-08-31-constraint-aware-progress-toy-v2-controller-resume.md)
+then changed only the private controller state from `parked` to
+`awaiting_study`; it launched no worker. The live gate is one later, separately
+authorized guarded local-CPU V2 invocation. This work cannot yet establish
+competition improvement, and any
 candidate package, accelerator screen, spend, merge, or portal action remains
 a separate owner gate.
 
