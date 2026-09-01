@@ -32,6 +32,13 @@ from submission.submission import BatchedRestartAdam
 
 
 STUDY_ID = "feasibility-debt-clock-v1"
+PLAN_REVISION = "197a7433c235ef9cf2e160e8a3bd4a8889d33029"
+PLAN_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "research"
+    / "2026-09-01-feasibility-debt-clock-v1-plan.md"
+)
+PLAN_SHA256 = "f312663798b558dd0592aba8cb795d046529ca8e5f92a52754cae867a4c0e895"
 POPULATION_SIZE = 3
 DIMENSION = 2
 MINIMUM_IMPROVEMENT = 1.0e-7
@@ -546,16 +553,32 @@ def _case_projection() -> dict[str, Any]:
     return {
         "case_outcomes": case_outcomes,
         "case_roots": case_roots,
+        "candidate_source_sha256": source["candidate_text_sha256"],
+        "protected_source_sha256": source["protected_text_sha256"],
         "first_treatment_restart_batch": 3,
         "source_boundary_root_sha256": source["boundary_root_sha256"],
     }
 
 
 def _child_projection() -> dict[str, Any]:
+    invocation_revision = os.environ.get("FDC_V1_INVOCATION_REVISION", "")
+    if len(invocation_revision) != 40 or any(
+        character not in "0123456789abcdef" for character in invocation_revision
+    ):
+        raise RuntimeError("missing authenticated invocation revision")
+    plan_sha256 = _sha256(PLAN_PATH.read_bytes())
+    if plan_sha256 != PLAN_SHA256:
+        raise RuntimeError("frozen plan hash mismatch")
     projection = _case_projection()
     all_passed = all(projection["case_outcomes"].values())
     return {
         "study_id": STUDY_ID,
+        "invocation_revision": invocation_revision,
+        "plan_revision": PLAN_REVISION,
+        "plan_sha256": plan_sha256,
+        "candidate_source_sha256": projection["candidate_source_sha256"],
+        "fixture_source_sha256": _sha256(Path(__file__).read_bytes()),
+        "protected_source_sha256": projection["protected_source_sha256"],
         "all_cases_passed": all_passed,
         "case_count": len(projection["case_outcomes"]),
         "case_outcomes": projection["case_outcomes"],
@@ -590,11 +613,18 @@ def _scrubbed_environment() -> dict[str, str]:
     return retained
 
 
-def _run_child() -> tuple[bytes, dict[str, Any]]:
+def _run_child(invocation_revision: str) -> tuple[bytes, dict[str, Any]]:
+    environment = _scrubbed_environment()
+    environment["FDC_V1_INVOCATION_REVISION"] = invocation_revision
     completed = subprocess.run(
-        [sys.executable, str(Path(__file__).resolve()), "--child"],
+        [
+            sys.executable,
+            "-m",
+            "experiments.candidates.feasibility_debt_clock_v1_fixture",
+            "--child",
+        ],
         cwd=Path(__file__).resolve().parents[2],
-        env=_scrubbed_environment(),
+        env=environment,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -614,8 +644,32 @@ def _run_child() -> tuple[bytes, dict[str, Any]]:
 
 
 def run_terminal_projection() -> dict[str, Any]:
-    first_bytes, first = _run_child()
-    second_bytes, second = _run_child()
+    root = Path(__file__).resolve().parents[2]
+    status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=root,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=30,
+    )
+    if status.returncode != 0 or status.stderr or status.stdout:
+        raise RuntimeError("terminal projection requires a clean Git worktree")
+    revision_result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        timeout=30,
+    )
+    if revision_result.returncode != 0 or revision_result.stderr:
+        raise RuntimeError("could not resolve invocation revision")
+    invocation_revision = revision_result.stdout.decode("ascii").strip()
+    first_bytes, first = _run_child(invocation_revision)
+    second_bytes, second = _run_child(invocation_revision)
     runs_equal = first_bytes == second_bytes and first == second
     all_passed = bool(first["all_cases_passed"]) and runs_equal
     action = (
@@ -625,6 +679,12 @@ def run_terminal_projection() -> dict[str, Any]:
     )
     return {
         "study_id": STUDY_ID,
+        "invocation_revision": invocation_revision,
+        "plan_revision": first["plan_revision"],
+        "plan_sha256": first["plan_sha256"],
+        "candidate_source_sha256": first["candidate_source_sha256"],
+        "fixture_source_sha256": first["fixture_source_sha256"],
+        "protected_source_sha256": first["protected_source_sha256"],
         "case_count": int(first["case_count"]),
         "all_cases_passed": all_passed,
         "runs_equal": runs_equal,
