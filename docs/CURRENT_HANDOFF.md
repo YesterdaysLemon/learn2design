@@ -439,11 +439,20 @@ repaired. It authenticates no mechanics, candidate-performance, or score
 claim. See the
 [`terminal result`](../research/2026-09-01-feasibility-debt-clock-v1-results.md).
 
-The live next gate is plan-only: any successor requires a fresh versioned ID,
-independently frozen cases and seeds, and a new pre-result boundary. It may use
-only the parent-level fact that V1 produced no authenticated sanitized
-projection; it must not inspect or select against V1 child output, reuse the
-terminal cases, or claim that the proposed mechanism itself failed.
+The fresh
+[`feasibility-debt-clock-v2` plan](../research/2026-09-01-feasibility-debt-clock-v2-plan.md)
+is now frozen at the commit containing that file and this handoff update. V2
+uses a new four-lane family, ten independently specified cases, new seeds, a
+permanent post-feasibility handoff to the protected total-loss rule, and a
+closed parent transport schema that must emit a sanitized receipt on handled
+child failure. It does not import V1, reuse a V1 terminal row script or seed,
+or inspect any V1 child output.
+
+V2 currently has only its frozen plan: no candidate module, fixture, source
+verifier, tests, learner execution, terminal result, score, or evidentiary
+claim exists. The live next gate is exact implementation plus hostile
+pre-result audit at a separate clean commit. Result-bearing execution remains
+a later one-shot local-CPU gate after green review.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
