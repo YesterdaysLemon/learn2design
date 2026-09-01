@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-31
+Updated: 2026-09-01
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -359,9 +359,10 @@ The owner authorized a local Round-2 research pivot and a two-hour laboratory
 cadence on 2026-08-30, then explicitly authorized infrastructure recovery and
 resumption of local research on 2026-08-31. After the exact V2 pre-result
 boundary was green, the owner separately authorized the atomic controller
-resume. The controller is now `awaiting_study` with no active cycle, stop
-marker, or lease. V1 remains in the registry only as historical contract
-evidence and is mechanically refused before any control-plane mutation.
+resume and one guarded V2 invocation. That invocation failed closed in the
+isolated runtime preflight before cycle start. The controller is now `parked`
+with no active cycle, stop marker, or lease. V1 and V2 are pre-result failures;
+neither belongs in the completed-study ledger and neither may be retried.
 
 The fresh
 [`constraint-aware-progress-toy-v2` contract](../research/2026-08-31-constraint-aware-progress-toy-v2-plan.md)
@@ -388,14 +389,34 @@ resume event, preserved all ten completed-study receipts and the failure
 streak, released its lease, and launched no worker. No V2 scientific path,
 private result, sidecar, active cycle, or score exists.
 
-The live next checkpoint is at most one separately owner-authorized guarded
-local-CPU invocation of `constraint-aware-progress-toy-v2`, after this receipt
-is committed, pushed, green in draft PR #40, and the clean revision, approved
-sources, registry digest, `awaiting_study` state, absent stop marker, and absent
-lease are freshly verified. Never run the fixture or worker directly. V1 and
-every terminal or rejected study must never be rerun. A V2 failure, timeout,
-malformed result, nondeterminism, source drift, or surviving process parks the
-controller and ends mutation without retry.
+The sole V2 invocation is recorded in the
+[`V2 preflight failure`](../research/2026-09-01-constraint-aware-progress-toy-v2-preflight-failure.md).
+It produced no result, sidecar, metric, or score. Never run the V2 fixture,
+worker, runtime probe, or controller study again; do not inspect its raw
+private process output or refresh its historical approvals.
+
+The fresh
+[`isolated-runtime forensics plan`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-plan.md)
+remains intact. Its standalone one-source implementation, closed verifier,
+focused tests, and mechanical V1/V2 controller refusal were committed. The
+exact pre-result receipt, including the contained retired-runtime-test
+deviation and its non-spawn replacement, is in the
+[`pre-result implementation record`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-pre-result-implementation.md).
+After draft PR #41 became completely green, the probe was invoked exactly once
+at revision `04e9153b39b9bb6b210b2c048c088cf5e058efcc`. Its two projections
+were byte-identical, but it authenticated neither an all-operational result nor
+one deterministic earliest-stage prefix. The sanitized terminal fields are
+`runs_equal=true`, `identified_stage=null`, `diagnostic_status=failed`, and
+`action=park_constraint_progress_runtime_research`, with receipt root
+`9f9ebbfe0fc65c6d6c4bd5bfffe5158f52dec747c52f22acce563bf08025a5c3`.
+The durable boundary is in the
+[`terminal result`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-results.md).
+
+Never rerun or repair this diagnostic, assign an unauthenticated failure stage,
+or freeze V3 from this result. The two-hour autonomous laboratory is paused.
+The live gate is owner review of a genuinely fresh research direction; the
+current closed evidence authorizes no candidate, score, private panel, paid
+compute, or accelerator action.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,

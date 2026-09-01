@@ -17,9 +17,11 @@ retried. Its one-shot standard-library-only
 [`startup-forensics diagnostic`](../research/2026-08-31-constraint-progress-startup-forensics-v1-results.md)
 passed, and the controller now refuses V1 before output validation, repository
 inspection, lease acquisition, private state access, or worker launch. The
-active gate is a fresh V2 plan preserving the scientific contract and changing
-only the process boundary justified by that diagnostic. The private controller
-remains parked until that plan and an owner-authorized atomic resume are ready.
+fresh V2 plan preserved the scientific contract and changed only its process
+boundary. Its one guarded invocation later failed closed in isolated runtime
+preflight before cycle start and produced no scientific result. V2 is now also
+a no-retry pre-result failure. The private controller remains parked while the
+fresh standalone isolated-runtime forensic lane is frozen and audited.
 The frozen online-SARSA V4 plan is paused intact and must not be implemented or
 invoked while this gate is active.
 

@@ -1890,7 +1890,7 @@ def test_ninth_study_end_to_end_leaves_tenth_study_pending(
     assert not (tmp_path / "lab.lock").exists()
 
 
-def test_tenth_study_end_to_end_ignores_v1_and_leaves_v2_pending(
+def test_tenth_study_end_to_end_ignores_both_failed_constraint_progress_ids(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registry = lab_controller._load_study_registry()
@@ -1955,8 +1955,8 @@ def test_tenth_study_end_to_end_ignores_v1_and_leaves_v2_pending(
     payload = json.loads(output.read_text(encoding="utf-8"))
     state = _load_state(tmp_path)
     assert payload["result"]["status"] == "passed"
-    assert state["status"] == "idle"
-    assert state["stop_reason"] is None
+    assert state["status"] == "awaiting_study"
+    assert state["stop_reason"] == "no_approved_study_pending"
     assert set(state["completed_studies"]) == (
         set(registry["studies"])
         - {"constraint-aware-progress-toy-v1", "constraint-aware-progress-toy-v2"}
