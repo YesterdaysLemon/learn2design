@@ -151,11 +151,14 @@ then changed only the private controller state from `parked` to
 `awaiting_study`; it launched no worker. The one later authorized V2 call then
 [`failed in isolated runtime preflight`](research/2026-09-01-constraint-aware-progress-toy-v2-preflight-failure.md)
 before cycle start or full-study execution, with no result or score. V2 is now
-retired without retry. The live gate is the fresh
-[`isolated-runtime forensics plan`](research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-plan.md).
-This work cannot yet establish competition improvement, and any
-candidate package, accelerator screen, spend, merge, or portal action remains
-a separate owner gate.
+retired without retry. The fresh
+[`isolated-runtime diagnostic`](research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-results.md)
+was then invoked once from a green reviewed revision. Its two projections
+matched, but no valid earliest stage was authenticated; the frozen action is
+`park_constraint_progress_runtime_research`. It is terminal and will not be
+rerun or repaired in place. This work cannot yet establish competition
+improvement, and any candidate package, accelerator screen, spend, merge, or
+portal action remains a separate owner gate.
 
 New contributors should begin with
 [`docs/CURRENT_HANDOFF.md`](docs/CURRENT_HANDOFF.md) and

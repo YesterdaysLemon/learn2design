@@ -397,16 +397,26 @@ private process output or refresh its historical approvals.
 
 The fresh
 [`isolated-runtime forensics plan`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-plan.md)
-is intact at its plan-only freeze. Its standalone one-source implementation,
-closed verifier, focused tests, and mechanical V1/V2 controller refusal are
-committed. The exact receipt, including the contained retired-runtime-test
+remains intact. Its standalone one-source implementation, closed verifier,
+focused tests, and mechanical V1/V2 controller refusal were committed. The
+exact pre-result receipt, including the contained retired-runtime-test
 deviation and its non-spawn replacement, is in the
 [`pre-result implementation record`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-pre-result-implementation.md).
-No mode of the new diagnostic has executed and it has no result or identified
-stage. The live gate is a clean pushed successor draft PR with complete green
-CI, followed by exactly one invocation of the committed probe's `--run` mode.
-It is never retried. A pass may authorize only the matching fresh V3 plan;
-any malformed or nondeterministic terminal condition parks this line.
+After draft PR #41 became completely green, the probe was invoked exactly once
+at revision `04e9153b39b9bb6b210b2c048c088cf5e058efcc`. Its two projections
+were byte-identical, but it authenticated neither an all-operational result nor
+one deterministic earliest-stage prefix. The sanitized terminal fields are
+`runs_equal=true`, `identified_stage=null`, `diagnostic_status=failed`, and
+`action=park_constraint_progress_runtime_research`, with receipt root
+`9f9ebbfe0fc65c6d6c4bd5bfffe5158f52dec747c52f22acce563bf08025a5c3`.
+The durable boundary is in the
+[`terminal result`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-results.md).
+
+Never rerun or repair this diagnostic, assign an unauthenticated failure stage,
+or freeze V3 from this result. The two-hour autonomous laboratory is paused.
+The live gate is owner review of a genuinely fresh research direction; the
+current closed evidence authorizes no candidate, score, private panel, paid
+compute, or accelerator action.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
