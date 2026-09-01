@@ -1,6 +1,6 @@
 # Current handoff
 
-Updated: 2026-08-31
+Updated: 2026-09-01
 
 This is the authority for the project's next action. Dated files in `research/`
 are the evidence record, not a competing task list.
@@ -397,12 +397,16 @@ private process output or refresh its historical approvals.
 
 The fresh
 [`isolated-runtime forensics plan`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-plan.md)
-is now the live gate. The next checkpoint is exact implementation plus hostile
-pre-result audit of its new standalone one-source probe and mechanical V2
-controller refusal. It must not import or execute V1, V2, either scientific
-fixture, or any private result. Result-bearing diagnostic execution remains a
-later single-shot checkpoint after a clean committed implementation and focused
-verification. A pass may authorize only a fresh V3 plan.
+is intact at its plan-only freeze. Its standalone one-source implementation,
+closed verifier, focused tests, and mechanical V1/V2 controller refusal are
+committed. The exact receipt, including the contained retired-runtime-test
+deviation and its non-spawn replacement, is in the
+[`pre-result implementation record`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-pre-result-implementation.md).
+No mode of the new diagnostic has executed and it has no result or identified
+stage. The live gate is a clean pushed successor draft PR with complete green
+CI, followed by exactly one invocation of the committed probe's `--run` mode.
+It is never retried. A pass may authorize only the matching fresh V3 plan;
+any malformed or nondeterministic terminal condition parks this line.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
