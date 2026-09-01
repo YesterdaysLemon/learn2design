@@ -428,10 +428,22 @@ implementation and affected verification are now committed at
 `13f53dc1ba5ea8246cd385d934e2b5c03b833fe7`; the durable source hashes,
 35-test affected receipt, and contained broad-suite deviation are in the
 [`pre-result implementation record`](../research/2026-09-01-feasibility-debt-clock-v1-pre-result-implementation.md).
-The terminal `--run` projection has not been invoked. The live gate is a clean
-green review surface followed by exactly one deterministic local-CPU terminal
-projection. No candidate-performance or score claim is authorized by the
-implementation alone.
+The terminal `--run` projection was invoked exactly once on 2026-09-01 at
+clean revision `46e63d47d1856986669e2e6655866a9692143a7c`, after all three
+jobs in GitHub Actions run `33566085387` passed. The parent failed closed while
+handling its first frozen child with `RuntimeError: child exited 1` and emitted
+no sanitized JSON projection. No child output or case metric was inspected,
+the child was not called directly, and no retry occurred. The frozen action is
+`park_feasibility_debt_candidate`; V1 is terminal and must never be rerun or
+repaired. It authenticates no mechanics, candidate-performance, or score
+claim. See the
+[`terminal result`](../research/2026-09-01-feasibility-debt-clock-v1-results.md).
+
+The live next gate is plan-only: any successor requires a fresh versioned ID,
+independently frozen cases and seeds, and a new pre-result boundary. It may use
+only the parent-level fact that V1 produced no authenticated sanitized
+projection; it must not inspect or select against V1 child output, reuse the
+terminal cases, or claim that the proposed mechanism itself failed.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
