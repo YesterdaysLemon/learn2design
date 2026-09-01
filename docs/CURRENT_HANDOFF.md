@@ -413,10 +413,20 @@ The durable boundary is in the
 [`terminal result`](../research/2026-09-01-constraint-progress-isolated-runtime-forensics-v1-results.md).
 
 Never rerun or repair this diagnostic, assign an unauthenticated failure stage,
-or freeze V3 from this result. The two-hour autonomous laboratory is paused.
-The live gate is owner review of a genuinely fresh research direction; the
-current closed evidence authorizes no candidate, score, private panel, paid
-compute, or accelerator action.
+or freeze V3 from this result. The two-hour autonomous laboratory remains
+paused.
+
+On 2026-09-01 the owner authorized a genuinely fresh local research direction.
+The new
+[`feasibility-debt-clock-v1` plan](../research/2026-09-01-feasibility-debt-clock-v1-plan.md)
+is frozen before implementation or result observation. It specifies an
+experiment-owned ordinary-runtime candidate whose only treatment is a public
+penalty-driven pre-feasibility restart clock, followed by the protected
+total-loss clock after first feasibility. It neither reuses nor selects
+against the retired constraint-progress fixtures or diagnostics. The live
+gate is exact implementation, a clean committed pre-result boundary, and one
+deterministic local-CPU mechanics projection. No candidate-performance or
+score claim is authorized by the plan alone.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
@@ -443,10 +453,10 @@ durable aggregate result and exploratory evidence boundaries are in
 
 Useful unpaid work now follows the frozen Round-2 funnel: synthetic causal
 mechanics, experiment-owned candidate audit, then a separately approved fresh
-development panel. The first question tests whether the complete public
-progress tuple--feasibility, penalty, and sensitivity loss--can improve
-progress/restart decisions relative to the protected raw-total-loss clock
-without selecting against the observed Stage-A panel. The
+development panel. The live frozen question tests whether public penalty can
+drive a causally isolated pre-feasibility restart clock relative to the
+protected raw-total-loss clock without selecting against the observed Stage-A
+panel. The
 validated supervised toy-signal harness result and its strict learning-only
 claim boundary are in
 [`2026-08-27-supervised-toy-signal-results.md`](../research/2026-08-27-supervised-toy-signal-results.md).
