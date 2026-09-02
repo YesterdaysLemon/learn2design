@@ -214,13 +214,14 @@ proposed `coverage-confirmation-screen-v1`, or launch the older
 observed triage panel. The terminal Stage-A failure is resolved and Stage B is
 closed.
 
-No new paid experiment is currently authorized or needed. Further research
-should be local and mechanism-first, or wait for official public-leaderboard
-feedback. A materially different initializer or optimizer change needs a new
-rationale, implementation audit, untouched panel, frozen decision rule and
-cost envelope, then separate owner approval before provisioning. The favorable
-aggregate direction in Stage A is exploratory and cannot override the frozen
-5/8-win failure.
+No paid experiment is currently authorized. The fresh feasibility-debt V3
+mechanism has passed its local terminal gate, so the live next action is to
+freeze a materially new candidate-screen contract with an untouched panel,
+exact candidate bindings, a decision rule, and a hard cost envelope. Official
+topology-identity access and paid provisioning still require separate explicit
+owner approval after that plan exists. The favorable aggregate direction in
+the old Stage A remains exploratory and cannot override its frozen 5/8-win
+failure.
 
 Unpaid mechanism work now follows the guarded
 [`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first ten terminal
@@ -478,15 +479,22 @@ tests are committed at
 source root, transport receipt, contained conformance corrections, and final
 `50/50` affected-test receipt are in the
 [`V3 pre-result implementation record`](../research/2026-09-01-feasibility-debt-clock-v3-pre-result-implementation.md).
-No V3 frozen case, child terminal mode, parent terminal projection, or result
-has executed.
+After all three jobs in GitHub Actions run `33577681677` passed at the exact
+clean pre-result revision, the frozen local-CPU parent was invoked once. All
+nine cases and all fourteen worker transport checks passed, the two fresh
+worker byte streams were identical, and the process replay root was
+`c440ede7eb07afd889f907bc3326df55b01c3af473a729de3933fa3d65590b8d`.
+The terminal action is
+`approve_feasibility_debt_v3_for_fresh_candidate_screen_planning`; see the
+[`V3 terminal result`](../research/2026-09-01-feasibility-debt-clock-v3-results.md).
+V3 is terminal and must never be rerun.
 
-The live next gate is draft PR #44 green at the exact clean pre-result
-revision, followed by at most one frozen local-CPU parent invocation. Never
-call the child or case projector directly, inspect a rejected child stream,
-retry, or repair V3 against its result. A pass can open only a fresh paid
-paired-panel plan; paid compute remains closed until that later plan has its
-own explicit dollar approval.
+The live next gate is plan-only: freeze a fresh paired H100 candidate screen
+on an archive- and prior-panel-disjoint panel. Bind the exact Round-1 control,
+V3 candidate bundles, score projection, selection and promotion rules,
+hardware/runtime, and hard cost/cleanup envelope. No official topology
+identity access or paid compute is authorized until that plan exists and the
+owner separately approves its exact scope and cap.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
