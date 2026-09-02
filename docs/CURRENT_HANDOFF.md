@@ -467,11 +467,16 @@ authenticated no case result or source identity and emitted the closed action
 occurred. V2 is terminal and must never be rerun or repaired. See the
 [`terminal result`](../research/2026-09-01-feasibility-debt-clock-v2-results.md).
 
-The live gate is a fresh versioned successor plan. It may inherit only V2's
-sanitized parent-level transport fact, must use independently frozen source,
-family, cases, and seeds, and must seal its result envelope away from incidental
-stdout before any new terminal invocation. Paid paired-panel planning remains
-closed until a successor validates the mechanism.
+The fresh
+[`feasibility-debt-clock-v3` plan](../research/2026-09-01-feasibility-debt-clock-v3-plan.md)
+is now the live plan-only gate. It inherits only V2's sanitized parent-level
+transport fact and freezes a new source, five-lane family, nine cases, nine
+seeds, and a stdlib-only bootstrap that physically redirects incidental stdout
+before importing result-bearing code. V3 has no implementation or result.
+The next checkpoint is exact implementation plus hostile pre-result audit; no
+terminal case or `--run` entry point may execute in that checkpoint. Paid
+paired-panel planning remains closed until V3 passes a later single terminal
+invocation.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
