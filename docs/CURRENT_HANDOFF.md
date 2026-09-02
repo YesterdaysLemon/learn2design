@@ -439,11 +439,39 @@ repaired. It authenticates no mechanics, candidate-performance, or score
 claim. See the
 [`terminal result`](../research/2026-09-01-feasibility-debt-clock-v1-results.md).
 
-The live next gate is plan-only: any successor requires a fresh versioned ID,
-independently frozen cases and seeds, and a new pre-result boundary. It may use
-only the parent-level fact that V1 produced no authenticated sanitized
-projection; it must not inspect or select against V1 child output, reuse the
-terminal cases, or claim that the proposed mechanism itself failed.
+The fresh
+[`feasibility-debt-clock-v2` plan](../research/2026-09-01-feasibility-debt-clock-v2-plan.md)
+is now frozen at the commit containing that file and this handoff update. V2
+uses a new four-lane family, ten independently specified cases, new seeds, a
+permanent post-feasibility handoff to the protected total-loss rule, and a
+closed parent transport schema that must emit a sanitized receipt on handled
+child failure. It does not import V1, reuse a V1 terminal row script or seed,
+or inspect any V1 child output.
+
+The exact V2 candidate, fixture, source verifier, closed transport, and focused
+tests are now committed at
+`29a5d265ad61ddbc0580765532b774e0bf2fbcc1`. The source boundary root,
+raw-file hashes, contained pre-result transport fix, fresh-process guard smoke,
+and final `37/37` affected-test receipt are in the
+[`pre-result implementation record`](../research/2026-09-01-feasibility-debt-clock-v2-pre-result-implementation.md).
+No full repository pass was attempted because the broad suite is known to
+enter a retired terminal trace worker.
+
+The exact V2 terminal `--run` projection was invoked once on 2026-09-01 at
+clean revision `04c0a2e3bad43e79f33e89630a52493a56e04f05`, after all
+three jobs in GitHub Actions run `33572073066` passed. Both children started,
+exited zero, emitted no stderr, and remained under the stdout cap, but neither
+whole stdout stream parsed as the frozen JSON envelope. The parent therefore
+authenticated no case result or source identity and emitted the closed action
+`park_feasibility_debt_v2`. No child output was inspected and no retry
+occurred. V2 is terminal and must never be rerun or repaired. See the
+[`terminal result`](../research/2026-09-01-feasibility-debt-clock-v2-results.md).
+
+The live gate is a fresh versioned successor plan. It may inherit only V2's
+sanitized parent-level transport fact, must use independently frozen source,
+family, cases, and seeds, and must seal its result envelope away from incidental
+stdout before any new terminal invocation. Paid paired-panel planning remains
+closed until a successor validates the mechanism.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
