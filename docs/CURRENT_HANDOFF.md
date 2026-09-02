@@ -499,15 +499,25 @@ only. The plan binds the exact uploaded Round-1 ZIP lifecycle, V3 source,
 outcome-blind balanced panel split, independent replays, one-attempt failure
 rules, and a hard one-H100 `$25.00`/seven-hour ceiling.
 
-The live next gate is a precise owner decision on two conditional scopes: read
-only the official archive topology-string column at the frozen hash to create,
-hash-lock, back up, and independently verify the private disjoint panel and
-smoke identity, committing only a sanitized hash/overlap/split record; then,
-only after the panel, exact implementation/source lock, backup, green CI, clean
-provider inventory, and unchanged catalog preflight are complete, permit one
-exact secure H100 provision initially for a loss-blind smoke and, if it passes,
-the terminal screen. No official topology access or paid action is authorized
-until that decision is explicit.
+On 2026-09-01 the owner asked the active program to wind down. The partial
+candidate-screen implementation is preserved as a parked, pre-result
+checkpoint; its exact state, `60/60` focused-test receipt, unresolved runtime,
+provider, billing, and watchdog blockers, and takeover gates are recorded in
+the
+[`pre-result wind-down`](../research/2026-09-01-feasibility-debt-candidate-screen-v1-pre-result-wind-down.md).
+It was not invoked and contributes no score or candidate evidence. No official
+topology was read, no private panel or result was generated, no provider object
+was created, and no money was spent.
+
+There is no live research or paid-compute gate while parked. Do not resume
+automatically. A later owner-directed continuation must first finish and
+hostile-audit the documented pre-result blockers. Only after a clean audited
+implementation exists may it request two fresh, separate decisions: the exact
+official-topology-string read needed for a disjoint private panel, followed by
+conditional paid smoke/screen provisioning under an explicitly accepted
+cost-risk envelope. Runpod's lack of a provider-native pod TTL remains a
+material residual risk and prevents describing the `$25.00` ceiling as an
+absolute guarantee under a simultaneous host/network/control-plane failure.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
