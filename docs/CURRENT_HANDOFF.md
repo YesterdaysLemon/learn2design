@@ -469,14 +469,24 @@ occurred. V2 is terminal and must never be rerun or repaired. See the
 
 The fresh
 [`feasibility-debt-clock-v3` plan](../research/2026-09-01-feasibility-debt-clock-v3-plan.md)
-is now the live plan-only gate. It inherits only V2's sanitized parent-level
-transport fact and freezes a new source, five-lane family, nine cases, nine
-seeds, and a stdlib-only bootstrap that physically redirects incidental stdout
-before importing result-bearing code. V3 has no implementation or result.
-The next checkpoint is exact implementation plus hostile pre-result audit; no
-terminal case or `--run` entry point may execute in that checkpoint. Paid
-paired-panel planning remains closed until V3 passes a later single terminal
-invocation.
+inherits only V2's sanitized parent-level transport fact and freezes a new
+source, five-lane family, nine cases, nine seeds, and a stdlib-only bootstrap
+that physically redirects incidental stdout before importing result-bearing
+code. Its exact candidate, fixture, source verifier, sealed worker, and focused
+tests are committed at
+`08641baea5c12bd0783103706187815c49d69d40`. The exact source hashes,
+source root, transport receipt, contained conformance corrections, and final
+`50/50` affected-test receipt are in the
+[`V3 pre-result implementation record`](../research/2026-09-01-feasibility-debt-clock-v3-pre-result-implementation.md).
+No V3 frozen case, child terminal mode, parent terminal projection, or result
+has executed.
+
+The live next gate is draft PR #44 green at the exact clean pre-result
+revision, followed by at most one frozen local-CPU parent invocation. Never
+call the child or case projector directly, inspect a rejected child stream,
+retry, or repair V3 against its result. A pass can open only a fresh paid
+paired-panel plan; paid compute remains closed until that later plan has its
+own explicit dollar approval.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
