@@ -489,12 +489,25 @@ The terminal action is
 [`V3 terminal result`](../research/2026-09-01-feasibility-debt-clock-v3-results.md).
 V3 is terminal and must never be rerun.
 
-The live next gate is plan-only: freeze a fresh paired H100 candidate screen
-on an archive- and prior-panel-disjoint panel. Bind the exact Round-1 control,
-V3 candidate bundles, score projection, selection and promotion rules,
-hardware/runtime, and hard cost/cleanup envelope. No official topology
-identity access or paid compute is authorized until that plan exists and the
-owner separately approves its exact scope and cap.
+The fresh
+[`feasibility-debt-candidate-screen-v1` plan](../research/2026-09-01-feasibility-debt-candidate-screen-v1-plan.md)
+is frozen by the commit containing that file and this handoff update. Stage 1
+may select one of three complete challengers on four new topologies, but only
+four untouched Stage-2 pairs may promote it: the finalist must win all four and
+improve mean paired loss by at least `0.05`. Pooled evidence is descriptive
+only. The plan binds the exact uploaded Round-1 ZIP lifecycle, V3 source,
+outcome-blind balanced panel split, independent replays, one-attempt failure
+rules, and a hard one-H100 `$25.00`/seven-hour ceiling.
+
+The live next gate is a precise owner decision on two conditional scopes: read
+only the official archive topology-string column at the frozen hash to create,
+hash-lock, back up, and independently verify the private disjoint panel and
+smoke identity, committing only a sanitized hash/overlap/split record; then,
+only after the panel, exact implementation/source lock, backup, green CI, clean
+provider inventory, and unchanged catalog preflight are complete, permit one
+exact secure H100 provision initially for a loss-blind smoke and, if it passes,
+the terminal screen. No official topology access or paid action is authorized
+until that decision is explicit.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
