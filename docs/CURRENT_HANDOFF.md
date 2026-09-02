@@ -457,12 +457,21 @@ and final `37/37` affected-test receipt are in the
 No full repository pass was attempted because the broad suite is known to
 enter a retired terminal trace worker.
 
-The ten frozen cases, child entry point, and terminal `--run` projection have
-not been invoked. V2 has no terminal result, score, or candidate-performance
-claim. The live gate is a clean pushed review surface with green CI followed by
-exactly one local-CPU `--run` invocation with bytecode writing disabled. A pass
-can authorize only fresh paired-panel planning; any failure parks V2 without a
-retry.
+The exact V2 terminal `--run` projection was invoked once on 2026-09-01 at
+clean revision `04c0a2e3bad43e79f33e89630a52493a56e04f05`, after all
+three jobs in GitHub Actions run `33572073066` passed. Both children started,
+exited zero, emitted no stderr, and remained under the stdout cap, but neither
+whole stdout stream parsed as the frozen JSON envelope. The parent therefore
+authenticated no case result or source identity and emitted the closed action
+`park_feasibility_debt_v2`. No child output was inspected and no retry
+occurred. V2 is terminal and must never be rerun or repaired. See the
+[`terminal result`](../research/2026-09-01-feasibility-debt-clock-v2-results.md).
+
+The live gate is a fresh versioned successor plan. It may inherit only V2's
+sanitized parent-level transport fact, must use independently frozen source,
+family, cases, and seeds, and must seal its result envelope away from incidental
+stdout before any new terminal invocation. Paid paired-panel planning remains
+closed until a successor validates the mechanism.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
