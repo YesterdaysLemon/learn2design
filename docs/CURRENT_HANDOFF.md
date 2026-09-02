@@ -214,13 +214,14 @@ proposed `coverage-confirmation-screen-v1`, or launch the older
 observed triage panel. The terminal Stage-A failure is resolved and Stage B is
 closed.
 
-No new paid experiment is currently authorized or needed. Further research
-should be local and mechanism-first, or wait for official public-leaderboard
-feedback. A materially different initializer or optimizer change needs a new
-rationale, implementation audit, untouched panel, frozen decision rule and
-cost envelope, then separate owner approval before provisioning. The favorable
-aggregate direction in Stage A is exploratory and cannot override the frozen
-5/8-win failure.
+No paid experiment is currently authorized. The fresh feasibility-debt V3
+mechanism has passed its local terminal gate, so the live next action is to
+freeze a materially new candidate-screen contract with an untouched panel,
+exact candidate bindings, a decision rule, and a hard cost envelope. Official
+topology-identity access and paid provisioning still require separate explicit
+owner approval after that plan exists. The favorable aggregate direction in
+the old Stage A remains exploratory and cannot override its frozen 5/8-win
+failure.
 
 Unpaid mechanism work now follows the guarded
 [`AUTONOMOUS_LAB.md`](AUTONOMOUS_LAB.md) protocol. Its first ten terminal
@@ -467,11 +468,33 @@ authenticated no case result or source identity and emitted the closed action
 occurred. V2 is terminal and must never be rerun or repaired. See the
 [`terminal result`](../research/2026-09-01-feasibility-debt-clock-v2-results.md).
 
-The live gate is a fresh versioned successor plan. It may inherit only V2's
-sanitized parent-level transport fact, must use independently frozen source,
-family, cases, and seeds, and must seal its result envelope away from incidental
-stdout before any new terminal invocation. Paid paired-panel planning remains
-closed until a successor validates the mechanism.
+The fresh
+[`feasibility-debt-clock-v3` plan](../research/2026-09-01-feasibility-debt-clock-v3-plan.md)
+inherits only V2's sanitized parent-level transport fact and freezes a new
+source, five-lane family, nine cases, nine seeds, and a stdlib-only bootstrap
+that physically redirects incidental stdout before importing result-bearing
+code. Its exact candidate, fixture, source verifier, sealed worker, and focused
+tests are committed at
+`08641baea5c12bd0783103706187815c49d69d40`. The exact source hashes,
+source root, transport receipt, contained conformance corrections, and final
+`50/50` affected-test receipt are in the
+[`V3 pre-result implementation record`](../research/2026-09-01-feasibility-debt-clock-v3-pre-result-implementation.md).
+After all three jobs in GitHub Actions run `33577681677` passed at the exact
+clean pre-result revision, the frozen local-CPU parent was invoked once. All
+nine cases and all fourteen worker transport checks passed, the two fresh
+worker byte streams were identical, and the process replay root was
+`c440ede7eb07afd889f907bc3326df55b01c3af473a729de3933fa3d65590b8d`.
+The terminal action is
+`approve_feasibility_debt_v3_for_fresh_candidate_screen_planning`; see the
+[`V3 terminal result`](../research/2026-09-01-feasibility-debt-clock-v3-results.md).
+V3 is terminal and must never be rerun.
+
+The live next gate is plan-only: freeze a fresh paired H100 candidate screen
+on an archive- and prior-panel-disjoint panel. Bind the exact Round-1 control,
+V3 candidate bundles, score projection, selection and promotion rules,
+hardware/runtime, and hard cost/cleanup envelope. No official topology
+identity access or paid compute is authorized until that plan exists and the
+owner separately approves its exact scope and cap.
 
 Keep `submission/`, every terminal study, all rejected fixtures, V4, and the
 untouched topology panels unchanged. Candidate packaging, official data,
